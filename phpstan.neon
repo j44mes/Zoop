@@ -1,0 +1,11 @@
+parameters:
+    level: 6
+    paths:
+        - seo-studio.php
+        - uninstall.php
+        - src
+    bootstrapFiles:
+        - stubs/wp-cli.php
+    scanFiles:
+        - stubs/wp-cli.php
+    treatPhpDocTypesAsCertain: false

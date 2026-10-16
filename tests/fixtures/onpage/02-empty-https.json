@@ -1,0 +1,121 @@
+{
+    "name": "empty-https",
+    "keyphrase": "rank tracker",
+    "page": {
+        "url": "https://example.test/empty/",
+        "title_tag": "",
+        "meta_description": "",
+        "h1": [],
+        "headings": [],
+        "body_text": "",
+        "images": [],
+        "has_external_css": false,
+        "html_bytes": 1000,
+        "visible_text_bytes": 0,
+        "is_https": true,
+        "render_mode": "live"
+    },
+    "expect": {
+        "earned": 5,
+        "denominator": 100,
+        "categories": {
+            "title": 0,
+            "headings": 0,
+            "body": 0,
+            "meta": 0,
+            "media": 0,
+            "code": 0,
+            "url": 5
+        },
+        "assessments": {
+            "title.exists": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "title.entire_keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "title.partial_keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "title.length": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "title.position": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.entire_keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.partial_keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.h1_length": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.position": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.h1_count": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.title_differs": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "headings.subheadings": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "body.word_count": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "body.mentions": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "body.partial": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "body.every_word": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "meta.keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "media.alt": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "code.stylesheet": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "code.visible_ratio": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "url.keyphrase": {
+                "earned": 0,
+                "status": "fail"
+            },
+            "url.https": {
+                "earned": 5,
+                "status": "pass"
+            }
+        }
+    }
+}

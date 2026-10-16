@@ -1,0 +1,16 @@
+{
+    "name": "function-words",
+    "keyphrase": "how to price a cleaning contract",
+    "page": {
+        "url": "https://example.test/pricing",
+        "title_tag": "How to price a cleaning contract",
+        "render_mode": "content"
+    },
+    "expect": {
+        "content_words": [
+            "price",
+            "cleaning",
+            "contract"
+        ]
+    }
+}

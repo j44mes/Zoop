@@ -7,6 +7,7 @@
 *.key
 
 # Dependencies and virtual environments
+/vendor/
 node_modules/
 .pnpm-store/
 .venv/
@@ -24,6 +25,8 @@ coverage/
 .turbo/
 .cache/
 .pytest_cache/
+.phpunit.cache/
+.phpcs.cache/
 .mypy_cache/
 .ruff_cache/
 

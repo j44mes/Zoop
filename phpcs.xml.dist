@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<ruleset name="Zoop">
+    <description>WordPress coding standards for Zoop.</description>
+    <file>seo-studio.php</file>
+    <file>uninstall.php</file>
+    <file>src</file>
+    <arg value="s"/>
+    <arg name="basepath" value="."/>
+    <arg name="extensions" value="php"/>
+    <config name="testVersion" value="8.1-"/>
+    <rule ref="WordPress-Extra">
+        <exclude name="WordPress.Files.FileName"/>
+        <exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+        <!-- PSR-4 classes use camelCase methods and promoted properties. Options, meta keys, and tables stay snake_case. -->
+        <exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+        <exclude name="WordPress.NamingConventions.ValidVariableName"/>
+    </rule>
+    <rule ref="WordPress-Docs">
+        <!-- Native parameter types are the contract. Array shapes are documented with @param where PHP cannot express them. -->
+        <exclude name="Squiz.Commenting.FunctionComment"/>
+    </rule>
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="seo-studio"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

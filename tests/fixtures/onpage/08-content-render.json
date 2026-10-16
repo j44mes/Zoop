@@ -1,0 +1,30 @@
+{
+    "name": "content-render",
+    "keyphrase": "rank tracker",
+    "page": {
+        "url": "https://example.test/rank-tracker",
+        "title_tag": "Rank tracker weekly reports for marketers",
+        "h1": [
+            "Rank tracker"
+        ],
+        "body_text": "rank tracker rank tracker rank tracker rank tracker content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content",
+        "has_external_css": null,
+        "html_bytes": null,
+        "visible_text_bytes": null,
+        "is_https": true,
+        "render_mode": "content"
+    },
+    "expect": {
+        "denominator": 94,
+        "assessments": {
+            "code.stylesheet": {
+                "earned": 0,
+                "status": "not_checked"
+            },
+            "code.visible_ratio": {
+                "earned": 0,
+                "status": "not_checked"
+            }
+        }
+    }
+}

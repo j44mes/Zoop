@@ -1,11 +1,11 @@
 # Instructions for coding agents
 
-You are working in **Zoop**, a new project. The application purpose, architecture, and technology stack have not yet been specified.
+You are working in **Zoop**, a WordPress SEO plugin. The build specification in `docs/SPEC.md` is the source of truth. The PHP namespace is `SEOStudio`. Do not rename modules, change the on-page rubric, or add a phase that was not requested.
 
 ## Before coding
 
-1. Read `README.md` and inspect the repository.
-2. Treat user-provided requirements as the source of truth. Do not assume Zoop uses a particular framework, database, or deployment provider.
+1. Read `README.md`, `docs/SPEC.md`, and `docs/DECISIONS.md`.
+2. Treat user-provided requirements as the source of truth. Do not assume Zoop uses a particular framework, database, or deployment provider beyond the WordPress plugin described in the spec.
 3. For an under-specified feature, choose a minimal, reversible approach, state your assumptions, and document important decisions.
 4. Plan to make one coherent change per pull request.
 

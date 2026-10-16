@@ -1,0 +1,33 @@
+<?php
+/**
+ * Plugin Name: Zoop
+ * Description: On-page SEO scoring for WordPress. Phase 1 scores a rendered page against a 100-point rubric.
+ * Version: 0.1.0
+ * Requires at least: 6.4
+ * Requires PHP: 8.1
+ * Author: Zoop
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: seo-studio
+ *
+ * @package SEOStudio
+ */
+
+declare(strict_types=1);
+
+defined( 'ABSPATH' ) || exit;
+
+define( 'SEOSTUDIO_VERSION', '0.1.0' );
+define( 'SEOSTUDIO_FILE', __FILE__ );
+define( 'SEOSTUDIO_DIR', plugin_dir_path( __FILE__ ) );
+
+$seostudio_autoload = SEOSTUDIO_DIR . 'vendor/autoload.php';
+if ( is_readable( $seostudio_autoload ) ) {
+	require_once $seostudio_autoload;
+}
+
+if ( ! class_exists( \SEOStudio\Core\Plugin::class ) ) {
+	return;
+}
+
+\SEOStudio\Core\Plugin::boot();

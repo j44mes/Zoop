@@ -1,0 +1,72 @@
+{
+    "name": "wincher-reference",
+    "keyphrase": "rank tracker",
+    "page": {
+        "has_external_css": true,
+        "html_bytes": 10000,
+        "visible_text_bytes": 288,
+        "is_https": true,
+        "render_mode": "live",
+        "lang": "en",
+        "url": "https://example.test/rank-tracker",
+        "title_tag": "Rank tracker that reports keyword positions every morning, today.",
+        "meta_description": "Compare a rank tracker before you buy one for a site you already run.",
+        "h1": [
+            "Discover the finest online rank tracker"
+        ],
+        "headings": [
+            {
+                "level": 1,
+                "text": "Discover the finest online rank tracker",
+                "order": 0
+            },
+            {
+                "level": 2,
+                "text": "Daily rank reports",
+                "order": 1
+            }
+        ],
+        "body_text": "rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker rank tracker content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content",
+        "images": [
+            {
+                "src": "https://example.test/chart.png",
+                "alt": "rank tracker dashboard",
+                "in_body": true
+            }
+        ],
+        "page_type": "page"
+    },
+    "expect": {
+        "earned": 92,
+        "denominator": 100,
+        "categories": {
+            "title": 25,
+            "headings": 14,
+            "body": 28,
+            "meta": 5,
+            "media": 4,
+            "code": 6,
+            "url": 10
+        },
+        "assessments": {
+            "title.length": {
+                "earned": 4
+            },
+            "headings.position": {
+                "earned": 0
+            },
+            "headings.subheadings": {
+                "earned": 1
+            },
+            "headings.h1_length": {
+                "earned": 2
+            },
+            "body.word_count": {
+                "earned": 14
+            },
+            "body.mentions": {
+                "earned": 7
+            }
+        }
+    }
+}
