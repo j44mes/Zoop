@@ -80,6 +80,43 @@ async function saveDraft( page: Page ): Promise< void > {
 	await page.waitForURL( /post=\d+/ );
 }
 
+/**
+ * A fresh WordPress shows the block editor welcome guide. While that modal is open, the rest of the
+ * editor is hidden from accessibility queries, so role-based locators cannot find the SEO button.
+ *
+ * @param page Playwright page.
+ * @param url  Editor URL to open.
+ */
+async function openEditor( page: Page, url: string ): Promise< void > {
+	await page.goto( url );
+	await page.waitForFunction(
+		() => !! ( window as unknown as { wp?: { data?: unknown } } ).wp?.data
+	);
+	await page.evaluate( () => {
+		const preferences = (
+			window as unknown as {
+				wp: {
+					data: {
+						dispatch: ( store: string ) => {
+							set: (
+								scope: string,
+								key: string,
+								value: unknown
+							) => void;
+						};
+					};
+				};
+			}
+		 ).wp.data.dispatch( 'core/preferences' );
+		preferences.set( 'core/edit-post', 'welcomeGuide', false );
+	} );
+	const guide = page.getByRole( 'dialog' ).first();
+	if ( await guide.isVisible() ) {
+		await page.keyboard.press( 'Escape' );
+		await expect( guide ).toBeHidden();
+	}
+}
+
 test( 'dashboard is available after activation', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
@@ -95,7 +132,7 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	page,
 } ) => {
 	await login( page );
-	await page.goto( '/wp-admin/post-new.php' );
+	await openEditor( page, '/wp-admin/post-new.php' );
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'Welcome note' );
 	await saveDraft( page );
@@ -106,14 +143,18 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
 	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
 	await expect( page.getByTestId( 'readability-light' ) ).toBeVisible();
+	// Default Analysis-only mode must not claim the SEO Studio title is printed.
+	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
+		'saved but not printed'
+	);
 } );
 
-test( 'editing the SEO title updates the title assessment without a reload', async ( {
+test( 'editing the title updates the title assessment without a reload', async ( {
 	page,
 } ) => {
 	await login( page );
-	await page.goto( editedPostUrl );
-	await openSeoSidebar( page );
+	await openEditor( page, editedPostUrl );
+	await page.getByRole( 'button', { name: 'SEO', exact: true } ).click();
 	const titleCheck = page.locator(
 		'details[data-assessment="title.entire_keyphrase"]'
 	);
@@ -121,7 +162,9 @@ test( 'editing the SEO title updates the title assessment without a reload', asy
 	await expect(
 		titleCheck.getByText( 'Include the full keyphrase in the title.' )
 	).toBeVisible();
-	await page.getByLabel( 'SEO title' ).fill( 'rank tracker welcome' );
+	// Analysis-only mode prints the post title, so that is the title the score must follow.
+	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
+	await canvas.getByLabel( 'Add title' ).fill( 'rank tracker welcome' );
 	await expect(
 		page.getByText( 'The full keyphrase is in the title.' )
 	).toBeVisible();

@@ -7,7 +7,7 @@ import {
 } from '@wordpress/components';
 import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { scoreInWorker } from '../analysis/client';
 import { paperFromModel } from '../analysis/paper';
 import type { ContentAnalysis } from '../analysis/score-paper';
@@ -30,11 +30,53 @@ import { SocialPreview } from '../shared/ui/SocialPreview';
 import { VariableInput } from '../shared/ui/VariableInput';
 import '../shared/ui/style.css';
 
+export interface MetadataOwner {
+	publishesOwn: boolean;
+	activePlugin: string;
+}
+
 interface PanelProps {
 	postId: number;
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
+	metadata?: MetadataOwner;
+}
+
+function metadataNote( metadata?: MetadataOwner ): string {
+	if ( metadata?.publishesOwn ) {
+		return __(
+			'Scores use your SEO title and description, estimated from your settings. Verify live checks the published page.',
+			'seo-studio'
+		);
+	}
+	if ( metadata?.activePlugin ) {
+		return sprintf(
+			/* translators: %s: name of the active SEO plugin. */
+			__(
+				'%s prints this page’s metadata, so scores use its title and description, estimated from its settings. The SEO title and description below are saved but not printed.',
+				'seo-studio'
+			),
+			metadata.activePlugin
+		);
+	}
+	return __(
+		'Analysis-only mode: the page prints its post title and excerpt, so scores use those. The SEO title and description below are saved but not printed.',
+		'seo-studio'
+	);
+}
+
+/**
+ * Read a classic-editor field, used only when the block editor store is absent.
+ *
+ * @param id Element ID of the classic editor field.
+ */
+function classicField( id: string ): string | undefined {
+	const field = document.getElementById( id ) as
+		| HTMLInputElement
+		| HTMLTextAreaElement
+		| null;
+	return field ? field.value : undefined;
 }
 
 function messageOf( error: unknown ): string {
@@ -49,6 +91,7 @@ export function Panel( {
 	blockEditor,
 	workerUrl,
 	permalink,
+	metadata,
 }: PanelProps ) {
 	const editorContent = useSelect( ( select ): string => {
 		const editor = select( 'core/editor' ) as
@@ -89,7 +132,7 @@ export function Panel( {
 	const [ analysis, setAnalysis ] = useState< ContentAnalysis | null >(
 		null
 	);
-	const [ live, setLive ] = useState( false );
+	const [ preview, setPreview ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
 	const [ workerDown, setWorkerDown ] = useState( false );
@@ -177,19 +220,23 @@ export function Panel( {
 				'';
 			previewModel( id, {
 				content_html: html,
-				title: title || editorTitle,
-				excerpt: description || editorExcerpt,
+				title: blockEditor ? editorTitle : classicField( 'title' ),
+				excerpt: blockEditor
+					? editorExcerpt
+					: classicField( 'excerpt' ),
+				seo_title: title,
+				seo_description: description,
 				keyphrase,
 			} )
 				.then( async ( next ) => {
 					setModel( next );
 					setOnpage( next.onpage || null );
-					setLive( true );
+					setPreview( true );
 					setSelector( next.content_selector_used || '' );
 					await runWorker( next, false );
 				} )
 				.catch( () => {
-					setLive( false );
+					setPreview( false );
 				} );
 		}, 500 );
 		return () => window.clearTimeout( timer );
@@ -201,6 +248,7 @@ export function Panel( {
 		editorContent,
 		editorTitle,
 		editorExcerpt,
+		blockEditor,
 		runWorker,
 	] );
 
@@ -230,7 +278,7 @@ export function Panel( {
 			setModel( record.page_model );
 			setMode( record.render_mode || nextMode );
 			setSelector( record.content_selector || '' );
-			setLive( false );
+			setPreview( false );
 			if ( record.last_error ) {
 				setError( String( record.last_error ) );
 			}
@@ -266,9 +314,9 @@ export function Panel( {
 
 	return (
 		<div className="seostudio-panel">
-			{ live ? (
-				<p className="seostudio-live" data-testid="live-badge">
-					{ __( 'Live', 'seo-studio' ) }
+			{ preview ? (
+				<p className="seostudio-live" data-testid="preview-badge">
+					{ __( 'Unsaved preview', 'seo-studio' ) }
 				</p>
 			) : null }
 			{ ! id ? (
@@ -413,12 +461,7 @@ export function Panel( {
 					? __( 'Block editor', 'seo-studio' )
 					: __( 'Classic editor', 'seo-studio' ) }
 			</p>
-			<p>
-				{ __(
-					'Scores use the metadata a crawler would receive.',
-					'seo-studio'
-				) }
-			</p>
+			<p data-testid="metadata-note">{ metadataNote( metadata ) }</p>
 		</div>
 	);
 }

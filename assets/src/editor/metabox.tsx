@@ -1,11 +1,12 @@
 import { createRoot } from '@wordpress/element';
-import { Panel } from './panel';
+import { Panel, type MetadataOwner } from './panel';
 
 interface EditorConfig {
 	postId: number;
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
+	metadata: MetadataOwner;
 }
 
 declare global {
@@ -24,6 +25,7 @@ if ( config && mount ) {
 			blockEditor={ false }
 			workerUrl={ config.workerUrl }
 			permalink={ config.permalink }
+			metadata={ config.metadata }
 		/>
 	);
 }

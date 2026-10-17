@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace SEOStudio\Admin;
 
+use SEOStudio\Core\Settings;
+use SEOStudio\Integrations\Detector;
+
 /**
  * Enqueues the built dashboard, sidebar, and classic meta box.
  */
@@ -21,6 +24,11 @@ final class Assets {
 	}
 
 	public static function editor(): void {
+		// enqueue_block_editor_assets also fires in the site and widget editors, which have no post sidebar.
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'post' !== $screen->base ) {
+			return;
+		}
 		$post_id = absint( (string) filter_input( INPUT_GET, 'post', FILTER_SANITIZE_NUMBER_INT ) );
 		self::enqueue( 'seostudio-editor', 'editor', $post_id, true );
 	}
@@ -72,6 +80,8 @@ final class Assets {
 		}
 
 		$permalink = $post_id > 0 ? get_permalink( $post_id ) : '';
+		$active    = ( new Detector() )->first();
+		$settings  = Settings::all();
 		wp_add_inline_script(
 			$handle,
 			'window.seostudioEditor = ' . wp_json_encode(
@@ -80,6 +90,10 @@ final class Assets {
 					'blockEditor' => $block_editor,
 					'workerUrl'   => plugins_url( 'assets/build/worker.js', SEOSTUDIO_FILE ),
 					'permalink'   => is_string( $permalink ) ? $permalink : '',
+					'metadata'    => array(
+						'publishesOwn' => 'owner' === ( $settings['mode'] ?? 'analysis' ) && null === $active,
+						'activePlugin' => null === $active ? '' : $active['name'],
+					),
 				)
 			) . ';',
 			'before'

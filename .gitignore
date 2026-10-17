@@ -32,6 +32,8 @@ phpunit-9.phar
 .wp-env/
 .wp-env.override.json
 .phpcs.cache/
+test-results/
+playwright-report/
 .mypy_cache/
 .ruff_cache/
 

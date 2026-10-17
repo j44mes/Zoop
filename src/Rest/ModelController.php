@@ -36,19 +36,27 @@ final class ModelController {
 					'callback'            => array( $this, 'create' ),
 					'permission_callback' => array( $this, 'canEdit' ),
 					'args'                => array(
-						'content_html' => array(
+						'content_html'    => array(
 							'type'              => 'string',
 							'sanitize_callback' => 'wp_kses_post',
 						),
-						'title'        => array(
+						'title'           => array(
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_text_field',
 						),
-						'excerpt'      => array(
+						'excerpt'         => array(
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_textarea_field',
 						),
-						'keyphrase'    => array(
+						'seo_title'       => array(
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'seo_description' => array(
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_textarea_field',
+						),
+						'keyphrase'       => array(
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_text_field',
 						),
@@ -73,20 +81,20 @@ final class ModelController {
 			return Responses::error( 'seostudio_validation', __( 'The editor content is too large to analyse.', 'seo-studio' ), 400, 'content_html' );
 		}
 
-		$url   = get_permalink( $post );
-		$url   = is_string( $url ) ? $url : '';
-		$title = (string) $request->get_param( 'title' );
-		$model = $this->renderer->fromContent(
-			$html,
-			array(
-				'title_tag'        => '' !== trim( $title ) ? $title : wp_strip_all_tags( get_the_title( $post ) ),
-				'meta_description' => (string) $request->get_param( 'excerpt' ),
-				'url'              => $url,
-				'canonical'        => $url,
-				'is_https'         => str_starts_with( strtolower( $url ), 'https://' ),
-				'page_type'        => $post->post_type,
-			)
-		);
+		// The request carries unsaved editor values; the resolver decides which of them a crawler would see.
+		$draft = array();
+		foreach ( array(
+			'title'           => 'post_title',
+			'excerpt'         => 'excerpt',
+			'seo_title'       => 'seo_title',
+			'seo_description' => 'seo_description',
+		) as $param => $key ) {
+			$value = $request->get_param( $param );
+			if ( is_string( $value ) ) {
+				$draft[ $key ] = $value;
+			}
+		}
+		$model = $this->renderer->renderDraft( $post, $html, $draft );
 
 		$data           = $model->toArray();
 		$keyphrase      = trim( (string) $request->get_param( 'keyphrase' ) );

@@ -130,8 +130,10 @@ export function previewModel(
 	postId: number,
 	body: {
 		content_html: string;
-		title: string;
-		excerpt: string;
+		title?: string;
+		excerpt?: string;
+		seo_title: string;
+		seo_description: string;
 		keyphrase: string;
 	}
 ): Promise< PageModelResponse > {

@@ -1,13 +1,14 @@
 import { PluginSidebar } from '@wordpress/editor';
 import { __ } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
-import { Panel } from './panel';
+import { Panel, type MetadataOwner } from './panel';
 
 interface EditorConfig {
 	postId: number;
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
+	metadata: MetadataOwner;
 }
 
 declare global {
@@ -32,6 +33,7 @@ if ( config?.blockEditor ) {
 						blockEditor
 						workerUrl={ config.workerUrl }
 						permalink={ config.permalink }
+						metadata={ config.metadata }
 					/>
 				</PluginSidebar>
 			);

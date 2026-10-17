@@ -2,7 +2,7 @@
   "name": "zoop",
   "private": true,
   "description": "Admin UI and content-analysis worker for the Zoop WordPress plugin.",
-  "license": "GPL-2.0-or-later",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "build": "wp-scripts build --config webpack.ui.js && webpack --config webpack.worker.js",
     "test": "wp-scripts test-unit-js --config tests/js/jest.config.js --watchAll=false",
