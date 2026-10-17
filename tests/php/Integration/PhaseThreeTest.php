@@ -15,6 +15,7 @@ use SEOStudio\Core\Settings;
 use SEOStudio\Jobs\AnalysePost;
 use SEOStudio\Jobs\AuditBatch;
 use SEOStudio\Jobs\FetchLive;
+use SEOStudio\Jobs\Scheduler;
 use SEOStudio\Storage\AuditRunsRepository;
 use SEOStudio\Storage\PagesRepository;
 use SEOStudio\Storage\ScoresRepository;
@@ -34,8 +35,8 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 	}
 
 	public function test_an_audit_walks_the_cursor_across_batches(): void {
-		$settings                = Settings::all();
-		$settings['batch_size']  = 10;
+		$settings                   = Settings::all();
+		$settings['batch_size']     = 10;
 		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 
@@ -58,6 +59,36 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 		$this->assertSame( 12, (int) $run['processed'] );
 		$this->assertSame( (int) max( $ids ), (int) $run['cursor_id'] );
 		$this->assertNotNull( ( new PagesRepository() )->findByObject( 'post', $ids[0] ) );
+	}
+
+	public function test_an_audit_finishes_three_hundred_posts(): void {
+		remove_action( 'save_post', array( Scheduler::class, 'onSave' ), 20 );
+
+		$settings                   = Settings::all();
+		$settings['batch_size']     = 25;
+		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
+		update_option( Settings::OPTION, $settings, true );
+
+		for ( $index = 0; $index < 300; $index++ ) {
+			self::factory()->post->create(
+				array(
+					'post_title'   => 'Bulk audit ' . $index,
+					'post_content' => '<p>Body copy for the bulk audit.</p>',
+					'post_status'  => 'publish',
+				)
+			);
+		}
+
+		$expected = ( new AuditBatch() )->countPosts();
+		$this->assertGreaterThanOrEqual( 300, $expected );
+
+		$run_id = ( new AuditBatch() )->start();
+		$run    = ( new AuditRunsRepository() )->find( $run_id );
+		$this->assertIsArray( $run );
+		$this->assertSame( 'done', $run['status'] );
+		$this->assertSame( $expected, (int) $run['total'] );
+		$this->assertSame( $expected, (int) $run['processed'] );
+		$this->assertSame( 0, (int) $run['failed'] );
 	}
 
 	public function test_a_second_audit_is_rejected_while_one_is_queued(): void {
@@ -261,9 +292,9 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 	}
 
 	public function test_cancelling_during_the_final_batch_stays_cancelled(): void {
-		$settings                    = Settings::all();
-		$settings['batch_size']      = 100;
-		$settings['schema_version']  = \SEOStudio\Core\Upgrader::CURRENT;
+		$settings                   = Settings::all();
+		$settings['batch_size']     = 100;
+		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 
 		$ids  = ( new AuditBatch() )->nextIds( 0, 100 );
