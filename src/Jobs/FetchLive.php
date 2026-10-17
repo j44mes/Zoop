@@ -17,7 +17,7 @@ use SEOStudio\Storage\PagesRepository;
 use SEOStudio\Storage\ScoresRepository;
 
 /**
- * Nightly code-check fetches. Verify live stays synchronous when cron is disabled.
+ * Nightly code-check fetches. Scheduled sweeps also support external queue runners.
  */
 final class FetchLive {
 	public function __construct( private readonly LoopbackFetcher $fetcher = new LoopbackFetcher() ) {}
@@ -25,18 +25,9 @@ final class FetchLive {
 	/**
 	 * Start a sweep at the first published page.
 	 *
-	 * With WP-Cron disabled, one page is fetched in this request and the queue is not chained.
+	 * DISABLE_WP_CRON stops automatic spawning, not an external Action Scheduler runner.
 	 */
 	public function nightly(): void {
-		if ( Scheduler::cronDisabled() ) {
-			$ids = $this->nextIds( 0, 1 );
-			if ( array() === $ids ) {
-				return;
-			}
-			$this->handle( array( $ids[0] ), false );
-			return;
-		}
-
 		$this->queueFrom( 0 );
 	}
 
@@ -70,7 +61,7 @@ final class FetchLive {
 		$render = new Renderer();
 		$ids    = array_values( array_map( 'intval', $postIds ) );
 		foreach ( $ids as $index => $post_id ) {
-			if ( $index > 0 && ! Scheduler::inline() && ! Scheduler::cronDisabled() ) {
+			if ( $index > 0 && ! Scheduler::inline() ) {
 				sleep( 2 );
 			}
 			$this->fetchOne( $post_id, $pages, $render );

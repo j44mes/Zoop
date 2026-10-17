@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Admin;
 
 use SEOStudio\Core\Settings;
+use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Integrations\Detector;
 use SEOStudio\Jobs\Scheduler;
 
@@ -94,6 +95,8 @@ final class Assets {
 					'metadata'     => array(
 						'publishesOwn' => 'owner' === ( $settings['mode'] ?? 'analysis' ) && null === $active,
 						'activePlugin' => null === $active ? '' : $active['name'],
+						'isHomepage'   => HomepageMetadata::isStaticPage( $post_id ),
+						'homepage'     => HomepageMetadata::isStaticPage( $post_id ) ? HomepageMetadata::resolve() : null,
 					),
 					'cronDisabled' => Scheduler::cronDisabled(),
 					'cronCommand'  => Scheduler::cronCommand(),

@@ -217,13 +217,13 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 		$this->assertCount( 5, $data['items'] );
 		$this->assertSame( 'Pagination fixture 200', $data['items'][0]['title'] );
 		// One aggregate for the total and summary, one bounded page query.
-		$this->assertCount( 2, $queries );
+		$this->assertCount( \SEOStudio\Core\Capabilities::needsObjectChecks() ? 3 : 2, $queries );
 		foreach ( $queries as $query ) {
 			$this->assertStringNotContainsString( 'pages.*', $query );
 			$this->assertStringNotContainsString( 'page_model', $query );
 		}
-		$this->assertStringContainsString( 'COUNT(*)', $queries[0] );
+		$this->assertStringContainsString( 'COUNT(*)', $queries[ count( $queries ) - 2 ] );
 		$this->assertStringNotContainsString( 'scores.details', $queries[0] );
-		$this->assertStringContainsString( 'LIMIT 10 OFFSET 200', $queries[1] );
+		$this->assertStringContainsString( 'LIMIT 10 OFFSET 200', $queries[ count( $queries ) - 1 ] );
 	}
 }

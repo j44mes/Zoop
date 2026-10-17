@@ -11,6 +11,7 @@ namespace SEOStudio\Output;
 
 use SEOStudio\Content\TemplateValues;
 use SEOStudio\Core\Settings;
+use SEOStudio\Core\HomepageMetadata;
 
 /**
  * Expands the home title or the post SEO title. An empty template leaves the theme title alone.
@@ -18,9 +19,7 @@ use SEOStudio\Core\Settings;
 final class TitleFilter {
 	public function filter( string $title ): string {
 		if ( is_front_page() ) {
-			$template = (string) ( Settings::all()['home_title'] ?? '' );
-			$expanded = $this->expand( 0, $template );
-			return '' === $expanded ? $title : $expanded;
+			return HomepageMetadata::resolve()['title_tag'];
 		}
 
 		if ( ! is_singular() ) {

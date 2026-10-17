@@ -45,6 +45,7 @@ npm install -g @wordpress/env
 wp-env start
 curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
 wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" php phpunit-9.phar -c phpunit.integration.xml.dist
+wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" php phpunit-9.phar -c phpunit.queue.xml.dist
 ```
 
 On a site with WP-CLI:

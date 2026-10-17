@@ -69,7 +69,7 @@ final class PageRecord {
 	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
-		$filters                 = array(
+		$filters  = array(
 			'search'        => $request->get_param( 'search' ),
 			'post_type'     => $request->get_param( 'post_type' ),
 			'rating'        => $request->get_param( 'rating' ),
@@ -79,13 +79,25 @@ final class PageRecord {
 			'order'         => $request->get_param( 'order' ),
 			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
 		);
-		$per_page                = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
-		$page                    = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-		$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
+		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
+		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
+		if ( Capabilities::needsObjectChecks() ) {
+			// Custom mappings can grant as well as deny access, so do not prefilter by role SQL.
+			$allowed = array();
+			foreach ( array_chunk( $this->pages->permissionCandidates( $filters ), 200 ) as $batch ) {
+				_prime_post_caches( array_map( 'intval', array_column( $batch, 'object_id' ) ), false, false );
+				foreach ( $batch as $candidate ) {
+					if ( Capabilities::canEditPost( (int) $candidate['object_id'] ) ) {
+						$allowed[] = (int) $candidate['id'];
+					}
+				}
+			}
+			$filters['ids'] = $allowed;
+		} else {
+			$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
+		}
 
-		// The database applies core's edit_post rules, so the total, summary and page each take one
-		// query. canEditPost() then re-checks the shown rows, which honours custom capability filters;
-		// a row hidden that way can make the total overstate by that many.
+		// Every query uses the same authorised set, before aggregation and pagination.
 		$stats   = $this->pages->aggregate( $filters );
 		$total   = $stats['total'];
 		$summary = array(

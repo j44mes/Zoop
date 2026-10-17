@@ -7,7 +7,9 @@ import {
 } from '@wordpress/components';
 import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
+import { metadataNote, type MetadataOwner } from './metadata-note';
+export type { MetadataOwner } from './metadata-note';
 import { scoreInWorker } from '../analysis/client';
 import { paperFromModel } from '../analysis/paper';
 import type { ContentAnalysis } from '../analysis/score-paper';
@@ -30,40 +32,12 @@ import { SocialPreview } from '../shared/ui/SocialPreview';
 import { VariableInput } from '../shared/ui/VariableInput';
 import '../shared/ui/style.css';
 
-export interface MetadataOwner {
-	publishesOwn: boolean;
-	activePlugin: string;
-}
-
 interface PanelProps {
 	postId: number;
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
 	metadata?: MetadataOwner;
-}
-
-function metadataNote( metadata?: MetadataOwner ): string {
-	if ( metadata?.publishesOwn ) {
-		return __(
-			'Scores use your SEO title and description, estimated from your settings. Verify live checks the published page.',
-			'seo-studio'
-		);
-	}
-	if ( metadata?.activePlugin ) {
-		return sprintf(
-			/* translators: %s: name of the active SEO plugin. */
-			__(
-				'%s prints this page’s metadata, so scores use its title and description, estimated from its settings. The SEO title and description below are saved but not printed.',
-				'seo-studio'
-			),
-			metadata.activePlugin
-		);
-	}
-	return __(
-		'Analysis-only mode: the page prints its post title and excerpt, so scores use those. The SEO title and description below are saved but not printed.',
-		'seo-studio'
-	);
 }
 
 /**
@@ -317,10 +291,17 @@ export function Panel( {
 		};
 	}
 
-	const previewTitle = model?.title_tag || title || editorTitle;
-	const previewDescription =
-		model?.meta_description || description || editorExcerpt;
-	const previewUrl = model?.url || permalink;
+	const home =
+		metadata?.publishesOwn && metadata.isHomepage
+			? metadata.homepage
+			: null;
+	const previewTitle = model
+		? model.title_tag ?? ''
+		: home?.title_tag ?? ( title || editorTitle );
+	const previewDescription = model
+		? model.meta_description ?? ''
+		: home?.meta_description ?? ( description || editorExcerpt );
+	const previewUrl = home?.canonical || model?.url || permalink;
 
 	return (
 		<div className="seostudio-panel">
@@ -384,6 +365,11 @@ export function Panel( {
 				<AssessmentList items={ onpage.assessments || [] } />
 			) : null }
 			<h2>{ __( 'Google', 'seo-studio' ) }</h2>
+			{ metadata?.publishesOwn && metadata.isHomepage ? (
+				<Notice status="info" isDismissible={ false }>
+					{ metadataNote( metadata ) }
+				</Notice>
+			) : null }
 			<SnippetPreview
 				title={ previewTitle }
 				url={ previewUrl }

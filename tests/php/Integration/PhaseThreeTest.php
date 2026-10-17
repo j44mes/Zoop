@@ -237,43 +237,7 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 		$this->assertNotEmpty( $early['last_error'] );
 	}
 
-	public function test_nightly_with_cron_disabled_fetches_one_page(): void {
-		$this->assertTrue( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
-		self::factory()->post->create(
-			array(
-				'post_status'  => 'publish',
-				'post_content' => '<p>One nightly page.</p>',
-			)
-		);
-		$fetch = new FetchLive();
-		$first = $fetch->nextIds( 0, 2 );
-		$this->assertGreaterThanOrEqual( 1, count( $first ) );
-		add_filter(
-			'seostudio_live_model',
-			static function () {
-				return new PageModel(
-					url: 'https://example.test/nightly',
-					renderMode: 'live',
-					metadataStatus: 'observed_html'
-				);
-			}
-		);
 
-		try {
-			$fetch->nightly();
-		} finally {
-			remove_all_filters( 'seostudio_live_model' );
-		}
-
-		$pages = new PagesRepository();
-		$only  = $pages->findByObject( 'post', $first[0] );
-		$this->assertIsArray( $only );
-		$this->assertNotEmpty( $only['last_fetched_at'] );
-		if ( isset( $first[1] ) ) {
-			$second = $pages->findByObject( 'post', $first[1] );
-			$this->assertTrue( null === $second || empty( $second['last_fetched_at'] ) );
-		}
-	}
 
 	public function test_a_public_service_is_audited_when_it_is_saved(): void {
 		register_post_type( 'service', array( 'public' => true ) );

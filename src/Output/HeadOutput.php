@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SEOStudio\Output;
 
+use SEOStudio\Core\HomepageMetadata;
+
 use SEOStudio\Core\Settings;
 use SEOStudio\Integrations\Detector;
 
@@ -110,15 +112,19 @@ final class HeadOutput {
 		$image    = $this->image( (int) ( $settings['og_default_image'] ?? 0 ) );
 
 		if ( $home ) {
-			$description = $this->titles->expand( 0, (string) ( $settings['home_description'] ?? '' ) );
-			$title       = $this->titles->expand( 0, (string) ( $settings['home_title'] ?? '' ) );
-			$url         = (string) home_url( '/' );
+			$resolved = HomepageMetadata::resolve();
+			$post_id  = is_singular() ? (int) get_queried_object_id() : 0;
+			$override = $post_id > 0 ? (int) get_post_meta( $post_id, '_seostudio_og_image', true ) : 0;
+			if ( $override > 0 ) {
+				$image = $this->image( $override );
+			}
+			$url = $resolved['canonical'];
 			return array(
-				'description'        => $description,
+				'description'        => $resolved['meta_description'],
 				'url'                => $url,
-				'title'              => '' === $title ? wp_strip_all_tags( get_bloginfo( 'name' ) ) : $title,
-				'social_title'       => '',
-				'social_description' => '',
+				'title'              => $resolved['title_tag'],
+				'social_title'       => $post_id > 0 ? $this->socialText( $post_id, '_seostudio_og_title' ) : '',
+				'social_description' => $post_id > 0 ? $this->socialText( $post_id, '_seostudio_og_description' ) : '',
 				'home'               => true,
 				'image'              => $image,
 				'schema'             => array(

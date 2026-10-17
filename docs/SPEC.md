@@ -139,6 +139,8 @@ Full-page fetch may only target `home_url()`'s scheme and host. Any other host, 
 2. Analysis-only mode, or Owner mode while another SEO plugin is still active: estimate that plugin's title, description and canonical from its stored settings, including its default template and fallbacks when the stored field is empty. SEO Studio fields are unpublished in this case and are ignored, even if they are saved.
 3. No SEO plugin and not publishing SEO Studio fields: post title, excerpt, and permalink.
 
+For the homepage in Owner mode, the site-wide `home_title` and `home_description` settings take precedence over static-page SEO fields. Empty settings fall back to the site name and tagline. Homepage template variables use site values, and canonical is `home_url('/')`. Static-page social overrides still apply. Scoring, unsaved previews and published output use this same policy. Amended 17 October 2026.
+
 The first active plugin wins, in this order: Yoast SEO, Rank Math, SEOPress, All in One SEO, The SEO Framework. Detection uses the constants in section 4.
 
 **Boilerplate stripping (main-content selection).** The extractor picks the first rule that matches and records which one it used, so the UI can show it. Both render modes use this order. Amended 17 October 2026.

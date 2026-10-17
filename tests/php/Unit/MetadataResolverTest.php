@@ -67,6 +67,15 @@ final class MetadataResolverTest extends TestCase {
 		$this->assertSame( 'https://example.test/garden', $head->canonical );
 	}
 
+	public function testHomepageSettingsOnlyOverridePublishedOwnerMetadata(): void {
+		$home = array( 'title_tag' => 'Homepage', 'meta_description' => 'Home description', 'canonical' => 'https://example.test/' );
+		foreach ( array( array( 'owner', false, $home ), array( 'owner', true, null ), array( 'analysis', false, null ) ) as $case ) {
+			$context = new AnalysisContext( $case[0], $case[1], 'Post title', 'Excerpt', 'https://example.test/page/', $this->values(), 'Unpublished title', '', '', null, $home );
+			$resolved = ( new MetadataResolver() )->resolve( $context );
+			$this->assertSame( $case[2] ?? array( 'title_tag' => 'Post title', 'meta_description' => 'Excerpt', 'canonical' => 'https://example.test/page/' ), $resolved );
+		}
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */

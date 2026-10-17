@@ -20,6 +20,9 @@ final class MetadataResolver {
 	 */
 	public function resolve( AnalysisContext $context ): array {
 		if ( $context->publishesOwnMetadata() ) {
+			if ( null !== $context->homepage ) {
+				return $context->homepage;
+			}
 			return array(
 				'title_tag'        => $this->ownOrFallback( $context->values->expand( $context->seoTitle ), $context->postTitle ),
 				'meta_description' => $this->ownOrFallback( $context->values->expand( $context->seoDescription ), $context->excerpt ),

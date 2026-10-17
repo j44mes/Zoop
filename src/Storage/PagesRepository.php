@@ -300,6 +300,21 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Matching IDs only; never load models or score details for permission checks.
+	 *
+	 * @param array<string, mixed> $filters
+	 * @return array<int, array{id: int|string, object_id: int|string}>
+	 */
+	public function permissionCandidates( array $filters ): array {
+		global $wpdb;
+
+		$query = $this->listQuery( $filters );
+		$sql   = 'SELECT pages.id, pages.object_id ' . $query['sql'];
+		$rows  = $wpdb->get_results( $this->prepare( $sql, $query['values'] ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared by prepare().
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * FROM and WHERE shared by the list and its aggregate.
 	 *
 	 * Filters and sorts read the focus and score columns kept on the page row by syncFocus()
@@ -313,7 +328,7 @@ final class PagesRepository {
 
 		$pages  = Tables::pages();
 		$posts  = $wpdb->posts;
-		$where  = array( "pages.object_type = 'post'" );
+		$where  = array( "pages.object_type = 'post'", "posts.post_status NOT IN ('trash', 'auto-draft', 'inherit')" );
 		$values = array();
 
 		if ( isset( $filters['editable_sql'] ) && is_string( $filters['editable_sql'] ) ) {

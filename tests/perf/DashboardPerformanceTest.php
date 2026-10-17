@@ -53,6 +53,23 @@ final class DashboardPerformanceTest extends WP_UnitTestCase {
 		$this->assertSame( self::ROWS, $data['total'] );
 		$this->assertSame( self::ROWS, $data['summary']['orange'] );
 		$this->assertNotNull( $data['items'][0]['onpage']['score'], 'Backfilled scores reach the list.' );
+
+		$hidden = $data['items'][0]['object_id'];
+		$deny = static function ( array $caps, string $cap, int $userId, array $args ) use ( $hidden ): array {
+			return 'edit_post' === $cap && $hidden === (int) ( $args[0] ?? 0 ) ? array( 'do_not_allow' ) : $caps;
+		};
+		add_filter( 'map_meta_cap', $deny, 10, 4 );
+		try {
+			$custom = $this->timed( static fn () => rest_do_request( $request ) );
+			$filtered = rest_do_request( $request )->get_data();
+			fwrite( STDERR, sprintf( "Custom-permission dashboard at %d rows: %.1f ms\n", self::ROWS, $custom ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- Report timings in the CI log.
+			$this->assertSame( self::ROWS - 1, $filtered['total'] );
+			$this->assertSame( self::ROWS - 1, $filtered['summary']['orange'] );
+			$this->assertCount( 20, $filtered['items'] );
+			$this->assertNotContains( $hidden, array_column( $filtered['items'], 'object_id' ) );
+		} finally {
+			remove_filter( 'map_meta_cap', $deny, 10 );
+		}
 	}
 
 	public function test_a_batch_of_25_finishes_under_10_seconds_and_64_mb(): void {

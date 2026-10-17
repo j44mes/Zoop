@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Content;
 
 use SEOStudio\Core\Settings;
+use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Integrations\ActiveHead;
 use SEOStudio\Integrations\Detector;
 
@@ -150,7 +151,8 @@ final class Renderer {
 			$draft['seo_title'] ?? $this->metaString( $post->ID, '_seostudio_title' ),
 			$draft['seo_description'] ?? $this->metaString( $post->ID, '_seostudio_description' ),
 			$this->metaString( $post->ID, '_seostudio_canonical' ),
-			$this->activeHead->forPost( $post->ID, $values, $permalink )
+			$this->activeHead->forPost( $post->ID, $values, $permalink ),
+			HomepageMetadata::isStaticPage( $post->ID ) ? HomepageMetadata::resolve() : null
 		);
 	}
 
