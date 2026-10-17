@@ -182,13 +182,16 @@ final class PostSeoController {
 			if ( ! array_key_exists( $name, $params ) ) {
 				continue;
 			}
-			$this->store( $post_id, $meta_key, $params[ $name ] );
+			self::store( $post_id, $meta_key, $params[ $name ] );
 		}
 
 		return $this->show( $request );
 	}
 
-	private function store( int $postId, string $metaKey, mixed $value ): void {
+	/**
+	 * Save one validated field. The settings import uses the same path as the editor.
+	 */
+	public static function store( int $postId, string $metaKey, mixed $value ): void {
 		$empty = ( is_string( $value ) && '' === trim( $value ) ) || ( is_int( $value ) && 0 === $value && '_seostudio_og_image' === $metaKey );
 		if ( $empty ) {
 			delete_post_meta( $postId, $metaKey );

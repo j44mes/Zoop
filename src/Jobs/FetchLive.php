@@ -116,7 +116,8 @@ final class FetchLive {
 		}
 
 		try {
-			$forced = apply_filters( 'seostudio_live_model', null, $postId );
+			// Test seam only: production always performs the guarded loopback fetch.
+			$forced = defined( 'SEOSTUDIO_TESTING' ) && SEOSTUDIO_TESTING ? apply_filters( 'seostudio_live_model', null, $postId ) : null;
 			if ( $forced instanceof \WP_Error ) {
 				throw new \RuntimeException( $forced->get_error_message() );
 			}

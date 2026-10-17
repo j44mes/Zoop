@@ -15,6 +15,18 @@ namespace SEOStudio\Integrations\Importers;
 final class Yoast {
 	use MetaQuery;
 
+	/**
+	 * Source meta keys this importer reads.
+	 */
+	private const KEYS = array(
+		'_yoast_wpseo_title',
+		'_yoast_wpseo_metadesc',
+		'_yoast_wpseo_focuskw',
+		'_yoast_wpseo_canonical',
+		'_yoast_wpseo_meta-robots-noindex',
+		'_yoast_wpseo_meta-robots-nofollow',
+	);
+
 	public function source(): string {
 		return 'yoast';
 	}
@@ -26,12 +38,13 @@ final class Yoast {
 	 */
 	public function counts(): array {
 		return array(
-			'posts'        => $this->countAny( array( '_yoast_wpseo_title', '_yoast_wpseo_metadesc', '_yoast_wpseo_focuskw' ) ),
+			'posts'        => $this->countAny( self::KEYS ),
 			'titles'       => $this->countKey( '_yoast_wpseo_title' ),
 			'descriptions' => $this->countKey( '_yoast_wpseo_metadesc' ),
 			'keyphrases'   => $this->countKey( '_yoast_wpseo_focuskw' ),
 			'canonicals'   => $this->countKey( '_yoast_wpseo_canonical' ),
 			'robots'       => $this->countKey( '_yoast_wpseo_meta-robots-noindex' ),
+			'overwrites'   => $this->countOverwrites( self::KEYS ),
 		);
 	}
 
@@ -42,14 +55,7 @@ final class Yoast {
 	 */
 	public function import( int $cursor, int $limit ): array {
 		$ids    = $this->idsWithKeys(
-			array(
-				'_yoast_wpseo_title',
-				'_yoast_wpseo_metadesc',
-				'_yoast_wpseo_focuskw',
-				'_yoast_wpseo_canonical',
-				'_yoast_wpseo_meta-robots-noindex',
-				'_yoast_wpseo_meta-robots-nofollow',
-			),
+			self::KEYS,
 			$cursor,
 			$limit
 		);
@@ -60,13 +66,13 @@ final class Yoast {
 			$last  = $post_id;
 			$title = $this->text( $post_id, '_yoast_wpseo_title' );
 			if ( '' !== $title ) {
-				$expanded = $expand->expand( $post_id, $title );
-				$this->write( $post_id, '_seostudio_title', $expanded );
-				if ( $expand->needsReview( $expanded ) ) {
+				$converted = $expand->convert( $title );
+				$this->write( $post_id, '_seostudio_title', $converted );
+				if ( $expand->needsReview( $converted ) ) {
 					++$review;
 				}
 			}
-			$this->write( $post_id, '_seostudio_description', $expand->expand( $post_id, $this->text( $post_id, '_yoast_wpseo_metadesc' ) ) );
+			$this->write( $post_id, '_seostudio_description', $expand->convert( $this->text( $post_id, '_yoast_wpseo_metadesc' ) ) );
 			$this->write( $post_id, '_seostudio_focus_keyphrase', $this->text( $post_id, '_yoast_wpseo_focuskw' ) );
 			$this->write( $post_id, '_seostudio_canonical', $this->text( $post_id, '_yoast_wpseo_canonical' ) );
 			$noindex  = '1' === $this->text( $post_id, '_yoast_wpseo_meta-robots-noindex' );

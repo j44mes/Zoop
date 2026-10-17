@@ -9,39 +9,47 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
-use SEOStudio\Content\TemplateValues;
-use SEOStudio\Core\Settings;
-
 /**
- * Unknown tokens are left in place so an editor can review them.
+ * Supported tokens stay live and expand at output time. Unknown tokens are left in place so an editor can review them.
  */
 final class Expander {
-	public function expand( int $postId, string $template ): string {
-		$post = get_post( $postId );
-		if ( ! $post instanceof \WP_Post || '' === trim( $template ) ) {
-			return $template;
-		}
+	/**
+	 * Vendor tokens mapped to SEO Studio's own. Identity entries stop strtr from matching a
+	 * shorter Rank Math token inside an existing SEO Studio token.
+	 */
+	private const TOKENS = array(
+		'%%title%%'        => '%%title%%',
+		'%%sitename%%'     => '%%sitename%%',
+		'%%sep%%'          => '%%sep%%',
+		'%%excerpt%%'      => '%%excerpt%%',
+		'%%category%%'     => '%%category%%',
+		'%%tagline%%'      => '%%tagline%%',
+		'%%sitedesc%%'     => '%%tagline%%',
+		'%%post_title%%'   => '%%title%%',
+		'%%sitetitle%%'    => '%%sitename%%',
+		'%%post_excerpt%%' => '%%excerpt%%',
+		'%title%'          => '%%title%%',
+		'%sitename%'       => '%%sitename%%',
+		'%sep%'            => '%%sep%%',
+		'%excerpt%'        => '%%excerpt%%',
+		'%category%'       => '%%category%%',
+		'%sitedesc%'       => '%%tagline%%',
+	);
 
-		$category = '';
-		$terms    = get_the_category( $postId );
-		if ( is_array( $terms ) && isset( $terms[0] ) && $terms[0] instanceof \WP_Term ) {
-			$category = $terms[0]->name;
-		}
-
-		$settings = Settings::all();
-		$values   = new TemplateValues(
-			wp_strip_all_tags( $post->post_title ),
-			wp_strip_all_tags( get_bloginfo( 'name' ) ),
-			(string) ( $settings['site_title_separator'] ?? '–' ),
-			wp_strip_all_tags( $post->post_excerpt ),
-			$category,
-			wp_strip_all_tags( get_bloginfo( 'description' ) )
-		);
-
-		return $values->expand( $template );
+	/**
+	 * Rewrite a vendor template into SEO Studio tokens without expanding it, so the
+	 * stored title keeps following the post title, site name and separator.
+	 */
+	public function convert( string $template ): string {
+		$collapsed = preg_replace( '/\s+/u', ' ', trim( $template ) );
+		return strtr( is_string( $collapsed ) ? $collapsed : trim( $template ), self::TOKENS );
 	}
 
-	public function needsReview( string $expanded ): bool {
-		return 1 === preg_match( '/%%[^%]+%%/', $expanded ) || 1 === preg_match( '/%[a-z0-9_]+%/', $expanded );
+	/**
+	 * Whether a converted template still holds a token SEO Studio cannot expand.
+	 */
+	public function needsReview( string $template ): bool {
+		$unknown = str_replace( array_unique( array_values( self::TOKENS ) ), '', $template );
+		return 1 === preg_match( '/%%[^%]+%%/', $unknown ) || 1 === preg_match( '/%[a-z0-9_]+%/', $unknown );
 	}
 }

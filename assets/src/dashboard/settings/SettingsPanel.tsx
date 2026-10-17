@@ -257,9 +257,36 @@ export function SettingsPanel() {
 				</Button>
 			</p>
 			{ counts ? (
-				<p>
-					{ __( 'Titles:', 'seo-studio' ) } { counts.titles ?? 0 }
-				</p>
+				<ul className="seostudio-migration-counts">
+					<li>
+						{ __( 'Posts:', 'seo-studio' ) } { counts.posts ?? 0 }
+					</li>
+					<li>
+						{ __( 'Titles:', 'seo-studio' ) } { counts.titles ?? 0 }
+					</li>
+					<li>
+						{ __( 'Descriptions:', 'seo-studio' ) }{ ' ' }
+						{ counts.descriptions ?? 0 }
+					</li>
+					<li>
+						{ __( 'Keyphrases:', 'seo-studio' ) }{ ' ' }
+						{ counts.keyphrases ?? 0 }
+					</li>
+					<li>
+						{ __( 'Robots:', 'seo-studio' ) } { counts.robots ?? 0 }
+					</li>
+					<li>
+						{ __( 'Canonicals:', 'seo-studio' ) }{ ' ' }
+						{ counts.canonicals ?? 0 }
+					</li>
+					<li data-testid="migration-overwrites">
+						{ __(
+							'Posts where the import replaces existing SEO Studio values:',
+							'seo-studio'
+						) }{ ' ' }
+						{ counts.overwrites ?? 0 }
+					</li>
+				</ul>
 			) : null }
 		</div>
 	);

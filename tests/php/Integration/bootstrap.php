@@ -25,6 +25,11 @@ if ( '' === $tests_dir ) {
 	exit( 1 );
 }
 
+// Enables Detector::force() and the seostudio_live_model seam. Never define this on a site.
+if ( ! defined( 'SEOSTUDIO_TESTING' ) ) {
+	define( 'SEOSTUDIO_TESTING', true );
+}
+
 if ( ! defined( 'SEOSTUDIO_JOBS_SYNC' ) ) {
 	define( 'SEOSTUDIO_JOBS_SYNC', true );
 }

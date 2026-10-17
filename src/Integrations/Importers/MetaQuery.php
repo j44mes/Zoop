@@ -35,6 +35,29 @@ trait MetaQuery {
 		return (int) $wpdb->get_var( $prepared ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
 	}
 
+	/**
+	 * Posts where the import would replace a value SEO Studio already holds.
+	 *
+	 * @param string[] $keys Source plugin meta keys.
+	 */
+	protected function countOverwrites( array $keys ): int {
+		global $wpdb;
+
+		$own      = array( '_seostudio_title', '_seostudio_description', '_seostudio_focus_keyphrase', '_seostudio_canonical', '_seostudio_robots' );
+		$source   = implode( ', ', array_fill( 0, count( $keys ), '%s' ) );
+		$target   = implode( ', ', array_fill( 0, count( $own ), '%s' ) );
+		$sql      = "SELECT COUNT(DISTINCT source.post_id) FROM {$wpdb->postmeta} source
+			INNER JOIN {$wpdb->postmeta} own ON own.post_id = source.post_id
+			WHERE source.meta_key IN ({$source}) AND source.meta_value <> ''
+			AND own.meta_key IN ({$target}) AND own.meta_value <> ''";
+		$prepared = $wpdb->prepare( $sql, array( ...$keys, ...$own ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders match both key lists.
+		if ( ! is_string( $prepared ) ) {
+			return 0;
+		}
+
+		return (int) $wpdb->get_var( $prepared ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
+	}
+
 	protected function countKey( string $key ): int {
 		global $wpdb;
 

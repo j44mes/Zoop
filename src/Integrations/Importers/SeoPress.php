@@ -15,6 +15,17 @@ namespace SEOStudio\Integrations\Importers;
 final class SeoPress {
 	use MetaQuery;
 
+	/**
+	 * Source meta keys this importer reads.
+	 */
+	private const KEYS = array(
+		'_seopress_titles_title',
+		'_seopress_titles_desc',
+		'_seopress_analysis_target_kw',
+		'_seopress_robots_canonical',
+		'_seopress_robots_index',
+	);
+
 	public function source(): string {
 		return 'seopress';
 	}
@@ -26,12 +37,13 @@ final class SeoPress {
 	 */
 	public function counts(): array {
 		return array(
-			'posts'        => $this->countKey( '_seopress_titles_title' ),
+			'posts'        => $this->countAny( self::KEYS ),
 			'titles'       => $this->countKey( '_seopress_titles_title' ),
 			'descriptions' => $this->countKey( '_seopress_titles_desc' ),
 			'keyphrases'   => $this->countKey( '_seopress_analysis_target_kw' ),
 			'canonicals'   => $this->countKey( '_seopress_robots_canonical' ),
 			'robots'       => $this->countKey( '_seopress_robots_index' ),
+			'overwrites'   => $this->countOverwrites( self::KEYS ),
 		);
 	}
 
@@ -42,13 +54,7 @@ final class SeoPress {
 	 */
 	public function import( int $cursor, int $limit ): array {
 		$ids    = $this->idsWithKeys(
-			array(
-				'_seopress_titles_title',
-				'_seopress_titles_desc',
-				'_seopress_analysis_target_kw',
-				'_seopress_robots_canonical',
-				'_seopress_robots_index',
-			),
+			self::KEYS,
 			$cursor,
 			$limit
 		);
@@ -59,13 +65,13 @@ final class SeoPress {
 			$last  = $post_id;
 			$title = $this->text( $post_id, '_seopress_titles_title' );
 			if ( '' !== $title ) {
-				$expanded = $expand->expand( $post_id, $title );
-				update_post_meta( $post_id, '_seostudio_title', $expanded );
-				if ( $expand->needsReview( $expanded ) ) {
+				$converted = $expand->convert( $title );
+				update_post_meta( $post_id, '_seostudio_title', $converted );
+				if ( $expand->needsReview( $converted ) ) {
 					++$review;
 				}
 			}
-			$description = $expand->expand( $post_id, $this->text( $post_id, '_seopress_titles_desc' ) );
+			$description = $expand->convert( $this->text( $post_id, '_seopress_titles_desc' ) );
 			if ( '' !== $description ) {
 				update_post_meta( $post_id, '_seostudio_description', $description );
 			}

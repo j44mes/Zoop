@@ -29,6 +29,8 @@ final class Detector {
 
 	/**
 	 * Pretend a plugin is active, or pass null for none. Call clearForce() afterwards.
+	 * Honoured only when the test bootstrap defines SEOSTUDIO_TESTING, so no production
+	 * code can switch off the Owner-mode interlock.
 	 *
 	 * @param array{slug: string, name: string, version: string}|null $plugin
 	 */
@@ -83,7 +85,7 @@ final class Detector {
 	 * @return array<int, array{slug: string, name: string, version: string}>
 	 */
 	public function active(): array {
-		if ( self::$usingForce ) {
+		if ( self::$usingForce && defined( 'SEOSTUDIO_TESTING' ) && SEOSTUDIO_TESTING ) {
 			return null === self::$forced ? array() : array( self::$forced );
 		}
 

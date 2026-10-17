@@ -210,7 +210,40 @@ final class PhaseFourTest extends WP_UnitTestCase {
 		$this->assertSame( '%%title%% %%sep%% %%sitename%%', get_post_meta( $post_id, '_yoast_wpseo_title', true ) );
 		$this->assertSame( 'Yoast description', get_post_meta( $post_id, '_seostudio_description', true ) );
 		$this->assertSame( 'rank tracker', get_post_meta( $post_id, '_seostudio_focus_keyphrase', true ) );
-		$this->assertStringContainsString( 'Imported title', (string) get_post_meta( $post_id, '_seostudio_title', true ) );
+		// Supported variables stay live, so a later rename still reaches the printed title.
+		$this->assertSame( '%%title%% %%sep%% %%sitename%%', get_post_meta( $post_id, '_seostudio_title', true ) );
+		wp_update_post(
+			array(
+				'ID'         => $post_id,
+				'post_title' => 'Renamed title',
+			)
+		);
+		$this->assertStringStartsWith( 'Renamed title', ( new \SEOStudio\Output\TitleFilter() )->expand( $post_id, '%%title%% %%sep%% %%sitename%%' ) );
+	}
+
+	public function test_vendor_tokens_become_seo_studio_tokens(): void {
+		$rank = self::factory()->post->create();
+		update_post_meta( $rank, 'rank_math_title', '%title% %sep% %sitedesc%' );
+		( new RankMath() )->import( 0, 50 );
+		$this->assertSame( '%%title%% %%sep%% %%tagline%%', get_post_meta( $rank, '_seostudio_title', true ) );
+
+		$press = self::factory()->post->create();
+		update_post_meta( $press, '_seopress_titles_title', '%%post_title%% %%sep%% %%sitetitle%%' );
+		$result = ( new SeoPress() )->import( 0, 50 );
+		$this->assertSame( '%%title%% %%sep%% %%sitename%%', get_post_meta( $press, '_seostudio_title', true ) );
+		$this->assertSame( 0, $result['needs_review'] );
+	}
+
+	public function test_preview_counts_posts_the_import_would_overwrite(): void {
+		$fresh    = self::factory()->post->create();
+		$existing = self::factory()->post->create();
+		update_post_meta( $fresh, '_yoast_wpseo_metadesc', 'Only a description' );
+		update_post_meta( $existing, '_yoast_wpseo_title', 'Yoast title' );
+		update_post_meta( $existing, '_seostudio_title', 'Already edited in SEO Studio' );
+
+		$counts = ( new Yoast() )->counts();
+		$this->assertSame( 2, $counts['posts'], 'A post with only a description still counts.' );
+		$this->assertSame( 1, $counts['overwrites'] );
 	}
 
 	public function test_rank_math_and_seopress_imports_copy_their_own_keys(): void {

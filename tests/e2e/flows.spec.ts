@@ -269,6 +269,26 @@ test( 're-analyse all queues an audit', async ( { page } ) => {
 	).toBeVisible();
 } );
 
+/**
+ * Save the settings form and wait for the REST write, not only the notice.
+ * WordPress also copies the notice into its screen-reader live region, so the
+ * notice locator is scoped to the dashboard.
+ *
+ * @param page Playwright page.
+ */
+async function saveSettings( page: Page ): Promise< void > {
+	const saved = page.waitForResponse(
+		( response ) =>
+			response.url().includes( 'seostudio/v1/settings' ) &&
+			response.request().method() !== 'GET'
+	);
+	await page.getByRole( 'button', { name: 'Save settings' } ).click();
+	expect( ( await saved ).ok() ).toBe( true );
+	await expect(
+		page.locator( '#seostudio-dashboard' ).getByText( 'Settings saved.' )
+	).toBeVisible();
+}
+
 test( 'owner mode prints the home description', async ( { page } ) => {
 	await login( page );
 	const settingsUrl = '/wp-admin/admin.php?page=seostudio';
@@ -282,8 +302,7 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 		await settings
 			.getByLabel( 'Home description' )
 			.fill( 'Studio home description' );
-		await page.getByRole( 'button', { name: 'Save settings' } ).click();
-		await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+		await saveSettings( page );
 		await page.goto( '/' );
 		await expect(
 			page.locator(
@@ -299,7 +318,6 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 			.locator( '.seostudio-settings select' )
 			.first()
 			.selectOption( 'analysis' );
-		await page.getByRole( 'button', { name: 'Save settings' } ).click();
-		await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+		await saveSettings( page );
 	}
 } );

@@ -15,6 +15,17 @@ namespace SEOStudio\Integrations\Importers;
 final class RankMath {
 	use MetaQuery;
 
+	/**
+	 * Source meta keys this importer reads.
+	 */
+	private const KEYS = array(
+		'rank_math_title',
+		'rank_math_description',
+		'rank_math_focus_keyword',
+		'rank_math_canonical_url',
+		'rank_math_robots',
+	);
+
 	public function source(): string {
 		return 'rankmath';
 	}
@@ -26,12 +37,13 @@ final class RankMath {
 	 */
 	public function counts(): array {
 		return array(
-			'posts'        => $this->countKey( 'rank_math_title' ),
+			'posts'        => $this->countAny( self::KEYS ),
 			'titles'       => $this->countKey( 'rank_math_title' ),
 			'descriptions' => $this->countKey( 'rank_math_description' ),
 			'keyphrases'   => $this->countKey( 'rank_math_focus_keyword' ),
 			'canonicals'   => $this->countKey( 'rank_math_canonical_url' ),
 			'robots'       => $this->countKey( 'rank_math_robots' ),
+			'overwrites'   => $this->countOverwrites( self::KEYS ),
 		);
 	}
 
@@ -42,7 +54,7 @@ final class RankMath {
 	 */
 	public function import( int $cursor, int $limit ): array {
 		$ids    = $this->idsWithKeys(
-			array( 'rank_math_title', 'rank_math_description', 'rank_math_focus_keyword', 'rank_math_canonical_url', 'rank_math_robots' ),
+			self::KEYS,
 			$cursor,
 			$limit
 		);
@@ -53,13 +65,13 @@ final class RankMath {
 			$last  = $post_id;
 			$title = $this->text( $post_id, 'rank_math_title' );
 			if ( '' !== $title ) {
-				$expanded = $expand->expand( $post_id, $title );
-				update_post_meta( $post_id, '_seostudio_title', $expanded );
-				if ( $expand->needsReview( $expanded ) ) {
+				$converted = $expand->convert( $title );
+				update_post_meta( $post_id, '_seostudio_title', $converted );
+				if ( $expand->needsReview( $converted ) ) {
 					++$review;
 				}
 			}
-			$description = $expand->expand( $post_id, $this->text( $post_id, 'rank_math_description' ) );
+			$description = $expand->convert( $this->text( $post_id, 'rank_math_description' ) );
 			if ( '' !== $description ) {
 				update_post_meta( $post_id, '_seostudio_description', $description );
 			}
