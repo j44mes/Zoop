@@ -24,7 +24,7 @@ final class Scheduler {
 
 		add_action( 'seostudio_analyse_post', array( self::class, 'analysePost' ) );
 		add_action( 'seostudio_audit_batch', array( self::class, 'auditBatch' ) );
-		add_action( 'seostudio_fetch_live', array( self::class, 'fetchLive' ) );
+		add_action( 'seostudio_fetch_live', array( self::class, 'fetchLive' ), 10, 2 );
 		add_action( 'seostudio_import_batch', array( self::class, 'importBatch' ), 10, 3 );
 		add_action( 'seostudio_fetch_nightly', array( self::class, 'fetchNightly' ) );
 		add_action( 'save_post', array( self::class, 'onSave' ), 20, 2 );
@@ -101,7 +101,7 @@ final class Scheduler {
 		if ( ! self::contextAllowsWork() ) {
 			return;
 		}
-		if ( ! $post instanceof \WP_Post || ! in_array( $post->post_type, array( 'post', 'page' ), true ) ) {
+		if ( ! $post instanceof \WP_Post || ! in_array( $post->post_type, PostTypes::public(), true ) ) {
 			return;
 		}
 
@@ -117,12 +117,12 @@ final class Scheduler {
 	}
 
 	/**
-	 * Fetch the queued post IDs.
+	 * Fetch the queued post IDs. A continued batch queues the next cursor.
 	 *
 	 * @param int[] $post_ids
 	 */
-	public static function fetchLive( array $post_ids ): void {
-		( new FetchLive() )->handle( $post_ids );
+	public static function fetchLive( array $post_ids, int $resume = 0 ): void {
+		( new FetchLive() )->handle( $post_ids, 1 === $resume );
 	}
 
 	public static function importBatch( string $source, int $cursor, int $run_id ): void {
@@ -164,7 +164,7 @@ final class Scheduler {
 		}
 		if ( 'seostudio_fetch_live' === $hook ) {
 			$ids = isset( $args['post_ids'] ) && is_array( $args['post_ids'] ) ? array_map( 'intval', $args['post_ids'] ) : array();
-			self::fetchLive( $ids );
+			self::fetchLive( $ids, (int) ( $args['continue'] ?? 0 ) );
 			return;
 		}
 		if ( 'seostudio_import_batch' === $hook ) {

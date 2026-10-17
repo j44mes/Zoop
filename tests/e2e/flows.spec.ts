@@ -271,22 +271,35 @@ test( 're-analyse all queues an audit', async ( { page } ) => {
 
 test( 'owner mode prints the home description', async ( { page } ) => {
 	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
-	await page.getByLabel( 'Mode' ).selectOption( 'owner' );
-	await page
-		.getByLabel( 'Home description' )
-		.fill( 'Studio home description' );
-	await page.getByRole( 'button', { name: 'Save settings' } ).click();
-	await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
-	await page.goto( '/' );
-	await expect( page.locator( 'meta[name="description"]' ) ).toHaveAttribute(
-		'content',
-		'Studio home description'
-	);
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
-	await page.getByLabel( 'Mode' ).selectOption( 'analysis' );
-	await page.getByRole( 'button', { name: 'Save settings' } ).click();
-	await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+	const settingsUrl = '/wp-admin/admin.php?page=seostudio';
+	try {
+		await page.goto( settingsUrl );
+		await page
+			.getByRole( 'button', { name: 'Settings', exact: true } )
+			.click();
+		const settings = page.locator( '.seostudio-settings' );
+		await settings.locator( 'select' ).first().selectOption( 'owner' );
+		await settings
+			.getByLabel( 'Home description' )
+			.fill( 'Studio home description' );
+		await page.getByRole( 'button', { name: 'Save settings' } ).click();
+		await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+		await page.goto( '/' );
+		await expect(
+			page.locator(
+				'meta[name="description"][content="Studio home description"]'
+			)
+		).toHaveCount( 1 );
+	} finally {
+		await page.goto( settingsUrl );
+		await page
+			.getByRole( 'button', { name: 'Settings', exact: true } )
+			.click();
+		await page
+			.locator( '.seostudio-settings select' )
+			.first()
+			.selectOption( 'analysis' );
+		await page.getByRole( 'button', { name: 'Save settings' } ).click();
+		await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+	}
 } );

@@ -57,6 +57,10 @@ final class AuditBatch {
 		$last      = $cursor;
 		$worker    = new AnalysePost();
 		foreach ( $ids as $post_id ) {
+			if ( $this->cancelled( $runs, $runId ) ) {
+				$runs->advance( $runId, $processed, $failed, $last, array( 'failures' => $failures ) );
+				return;
+			}
 			$last = $post_id;
 			++$processed;
 			if ( ! $worker->handle( $post_id ) ) {
@@ -66,6 +70,7 @@ final class AuditBatch {
 					'message' => 'The post could not be rendered.',
 				);
 			}
+			do_action( 'seostudio_audit_after_item', $runId, $post_id );
 			$pause = (int) $settings['batch_pause_ms'];
 			if ( $pause > 0 && ! Scheduler::inline() ) {
 				usleep( $pause * 1000 );
@@ -80,6 +85,10 @@ final class AuditBatch {
 			array( 'failures' => $failures )
 		);
 
+		if ( $this->cancelled( $runs, $runId ) ) {
+			return;
+		}
+
 		if ( array() !== $ids && count( $ids ) >= $batch && $this->hasMore( $last ) ) {
 			Scheduler::enqueue( 'seostudio_audit_batch', array( 'run_id' => $runId ) );
 			return;
@@ -91,9 +100,15 @@ final class AuditBatch {
 	public function countPosts(): int {
 		global $wpdb;
 
-		$statuses = "'" . implode( "','", self::STATUSES ) . "'";
-		$sql      = "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ('post', 'page') AND post_status IN ({$statuses})";
-		return (int) $wpdb->get_var( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Status list is a fixed internal set.
+		$types      = PostTypes::public();
+		$type_sql   = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		$status_sql = implode( ',', array_fill( 0, count( self::STATUSES ), '%s' ) );
+		$sql        = "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ({$type_sql}) AND post_status IN ({$status_sql})";
+		$prepared   = $wpdb->prepare( $sql, ...array_merge( $types, self::STATUSES ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders are internal. The values are prepared.
+		if ( ! is_string( $prepared ) ) {
+			return 0;
+		}
+		return (int) $wpdb->get_var( $prepared ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
 	}
 
 	/**
@@ -104,9 +119,11 @@ final class AuditBatch {
 	public function nextIds( int $cursor, int $limit ): array {
 		global $wpdb;
 
-		$statuses = "'" . implode( "','", self::STATUSES ) . "'";
-		$sql      = "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ('post', 'page') AND post_status IN ({$statuses}) AND ID > %d ORDER BY ID ASC LIMIT %d";
-		$prepared = $wpdb->prepare( $sql, $cursor, $limit ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Status list is a fixed internal set.
+		$types      = PostTypes::public();
+		$type_sql   = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		$status_sql = implode( ',', array_fill( 0, count( self::STATUSES ), '%s' ) );
+		$sql        = "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$type_sql}) AND post_status IN ({$status_sql}) AND ID > %d ORDER BY ID ASC LIMIT %d";
+		$prepared   = $wpdb->prepare( $sql, ...array_merge( $types, self::STATUSES, array( $cursor, $limit ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders are internal. The values are prepared.
 		if ( ! is_string( $prepared ) ) {
 			return array();
 		}
@@ -116,5 +133,13 @@ final class AuditBatch {
 
 	private function hasMore( int $cursor ): bool {
 		return array() !== $this->nextIds( $cursor, 1 );
+	}
+
+	/**
+	 * Whether the run was cancelled while this batch was still working.
+	 */
+	private function cancelled( AuditRunsRepository $runs, int $runId ): bool {
+		$run = $runs->find( $runId );
+		return null === $run || 'cancelled' === (string) ( $run['status'] ?? '' );
 	}
 }

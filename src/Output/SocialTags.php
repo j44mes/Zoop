@@ -19,16 +19,18 @@ final class SocialTags {
 	 * @param array<string, mixed> $page
 	 */
 	public function render( array $page ): void {
-		$type  = ! empty( $page['home'] ) ? 'website' : 'article';
-		$image = isset( $page['image'] ) && is_array( $page['image'] ) ? $page['image'] : array();
-		$tags  = array(
-			'og:title'            => (string) ( $page['title'] ?? '' ),
-			'og:description'      => (string) ( $page['description'] ?? '' ),
+		$type        = ! empty( $page['home'] ) ? 'website' : 'article';
+		$image       = isset( $page['image'] ) && is_array( $page['image'] ) ? $page['image'] : array();
+		$title       = $this->preferred( $page, 'social_title', 'title' );
+		$description = $this->preferred( $page, 'social_description', 'description' );
+		$tags        = array(
+			'og:title'            => $title,
+			'og:description'      => $description,
 			'og:type'             => $type,
 			'og:url'              => (string) ( $page['url'] ?? '' ),
 			'twitter:card'        => '' !== (string) ( $image['url'] ?? '' ) ? 'summary_large_image' : 'summary',
-			'twitter:title'       => (string) ( $page['title'] ?? '' ),
-			'twitter:description' => (string) ( $page['description'] ?? '' ),
+			'twitter:title'       => $title,
+			'twitter:description' => $description,
 		);
 
 		foreach ( $tags as $property => $content ) {
@@ -56,5 +58,19 @@ final class SocialTags {
 			printf( '<meta property="og:image:height" content="%d" />' . "\n", (int) $image['height'] );
 		}
 		printf( '<meta name="twitter:image" content="%s" />' . "\n", esc_url( (string) $image['url'] ) );
+	}
+
+	/**
+	 * Use the social override when one was saved, otherwise the SEO field.
+	 *
+	 * @param array<string, mixed> $page
+	 */
+	private function preferred( array $page, string $social, string $fallback ): string {
+		$value = trim( (string) ( $page[ $social ] ?? '' ) );
+		if ( '' !== $value ) {
+			return $value;
+		}
+
+		return (string) ( $page[ $fallback ] ?? '' );
 	}
 }

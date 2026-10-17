@@ -61,6 +61,42 @@ final class PageModel {
 	}
 
 	/**
+	 * Keep code measurements from an earlier live fetch when this render has none.
+	 */
+	public function retainCodeMeasurements( ?self $previous ): self {
+		if ( $this->codeChecksAvailable() || null === $previous || ! $previous->codeChecksAvailable() ) {
+			return $this;
+		}
+
+		return new self(
+			url: $this->url,
+			slug: $this->slug,
+			titleTag: $this->titleTag,
+			metaDescription: $this->metaDescription,
+			canonical: $this->canonical,
+			robots: $this->robots,
+			h1: $this->h1,
+			headings: $this->headings,
+			bodyText: $this->bodyText,
+			wordCount: $this->wordCount,
+			paragraphs: $this->paragraphs,
+			sentences: $this->sentences,
+			links: $this->links,
+			images: $this->images,
+			hasExternalCss: $previous->hasExternalCss,
+			htmlBytes: $previous->htmlBytes,
+			visibleTextBytes: $previous->visibleTextBytes,
+			isHttps: $this->isHttps,
+			lang: $this->lang,
+			renderMode: $this->renderMode,
+			contentSelectorUsed: $this->contentSelectorUsed,
+			renderedAt: $this->renderedAt,
+			pageType: $this->pageType,
+			metadataStatus: $this->metadataStatus
+		);
+	}
+
+	/**
 	 * From array.
 	 *
 	 * @param array<string, mixed> $data

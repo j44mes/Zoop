@@ -24,8 +24,9 @@ final class AnalysePost {
 		}
 
 		try {
-			$model   = ( new Renderer() )->renderPost( $postId );
-			$page_id = ( new PagesRepository() )->storeModel( $postId, $model, $model->inputHash() );
+			$pages   = new PagesRepository();
+			$model   = $pages->mergeMeasurements( $postId, ( new Renderer() )->renderPost( $postId ) );
+			$page_id = $pages->storeModel( $postId, $model, $model->inputHash() );
 			$phrase  = get_post_meta( $postId, '_seostudio_focus_keyphrase', true );
 			if ( is_string( $phrase ) && '' !== trim( $phrase ) ) {
 				$score = ( new Scorer() )->score( $model, $phrase );

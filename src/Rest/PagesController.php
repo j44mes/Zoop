@@ -241,6 +241,7 @@ final class PagesController {
 			return Responses::error( $code, $exception->getMessage(), 400, '', $exception->reason );
 		}
 
+		$model   = $this->pages->mergeMeasurements( $postId, $model );
 		$page_id = $this->pages->storeModel( $postId, $model, $model->inputHash() );
 		foreach ( $keyphrases as $keyphrase ) {
 			$this->scores->insert( $page_id, $keyphrase, $this->scorer->score( $model, $keyphrase ), SEOSTUDIO_VERSION );

@@ -36,7 +36,8 @@ The two code checks need a full-page fetch. A content render leaves them uncheck
 == Changelog ==
 
 = 0.5.0 =
-* Queue site audits, single-post analysis, and a small nightly live fetch through Action Scheduler.
+* Queue site audits, single-post analysis, and a nightly live fetch through Action Scheduler. The fetch walks every public post type in batches and scores the fetched page.
+* Print the homepage graph on a static front page, inherit robots fields one at a time, and publish saved social titles and descriptions.
 * Add Owner mode head output, including LocalBusiness, VideoObject, and NewsArticle schema.
 * Import Yoast SEO, Rank Math, and SEOPress fields without writing their meta or deactivating them.
 * Honour the uninstall flag: without it, remove the options and scheduled jobs and keep tables and meta.

@@ -50,10 +50,11 @@ final class ImportBatch {
 		}
 
 		$runs->markRunning( $runId );
-		$importer = Catalogue::make( $source );
-		$result   = $importer->import( $cursor, 200 );
-		$report   = json_decode( (string) ( $run['report'] ?? '' ), true );
-		$report   = is_array( $report ) ? $report : array();
+		$importer               = Catalogue::make( $source );
+		$result                 = $importer->import( $cursor, 200 );
+		$report                 = json_decode( (string) ( $run['report'] ?? '' ), true );
+		$report                 = is_array( $report ) ? $report : array();
+		$report['needs_review'] = (int) ( $report['needs_review'] ?? 0 ) + (int) ( $result['needs_review'] ?? 0 );
 		$runs->advance(
 			$runId,
 			(int) $run['processed'] + (int) $result['processed'],
@@ -61,6 +62,10 @@ final class ImportBatch {
 			(int) $result['cursor'],
 			$report
 		);
+
+		if ( $this->cancelled( $runs, $runId ) ) {
+			return;
+		}
 
 		if ( empty( $result['done'] ) ) {
 			Scheduler::enqueue(
@@ -75,5 +80,13 @@ final class ImportBatch {
 		}
 
 		$runs->finish( $runId, 'done' );
+	}
+
+	/**
+	 * Whether the run was cancelled while this batch was still copying meta.
+	 */
+	private function cancelled( AuditRunsRepository $runs, int $runId ): bool {
+		$run = $runs->find( $runId );
+		return null === $run || 'cancelled' === (string) ( $run['status'] ?? '' );
 	}
 }

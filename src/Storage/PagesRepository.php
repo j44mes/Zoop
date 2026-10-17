@@ -23,12 +23,15 @@ final class PagesRepository {
 	public function save( array $row ): int {
 		global $wpdb;
 
-		$table = Tables::pages();
-		$data  = array(
-			'object_type'      => (string) ( $row['object_type'] ?? 'post' ),
-			'object_id'        => (int) ( $row['object_id'] ?? 0 ),
-			'url'              => (string) ( $row['url'] ?? '' ),
-			'url_hash'         => md5( (string) ( $row['url'] ?? '' ) ),
+		$table     = Tables::pages();
+		$url       = (string) ( $row['url'] ?? '' );
+		$object_id = (int) ( $row['object_id'] ?? 0 );
+		$type      = (string) ( $row['object_type'] ?? 'post' );
+		$data      = array(
+			'object_type'      => $type,
+			'object_id'        => $object_id,
+			'url'              => $url,
+			'url_hash'         => '' === $url ? md5( $type . ':' . $object_id ) : md5( $url ),
 			'input_hash'       => (string) ( $row['input_hash'] ?? '' ),
 			'page_model'       => wp_json_encode( $row['page_model'] ?? array() ),
 			'render_mode'      => (string) ( $row['render_mode'] ?? 'content' ),
@@ -86,18 +89,30 @@ final class PagesRepository {
 	 * Store a freshly scored model for a post.
 	 */
 	public function storeModel( int $postId, PageModel $model, string $inputHash ): int {
+		$merged = $this->mergeMeasurements( $postId, $model );
+		if ( $merged !== $model ) {
+			$inputHash = $merged->inputHash();
+		}
+
 		return $this->save(
 			array(
 				'object_type'      => 'post',
 				'object_id'        => $postId,
-				'url'              => $model->url,
+				'url'              => $merged->url,
 				'input_hash'       => $inputHash,
-				'page_model'       => $model->toArray(),
-				'render_mode'      => $model->renderMode,
-				'content_selector' => $model->contentSelectorUsed,
-				'is_indexable'     => Indexability::forPost( $postId, $model ),
+				'page_model'       => $merged->toArray(),
+				'render_mode'      => $merged->renderMode,
+				'content_selector' => $merged->contentSelectorUsed,
+				'is_indexable'     => Indexability::forPost( $postId, $merged ),
 			)
 		);
+	}
+
+	/**
+	 * Copy live code measurements onto a content render that does not have them.
+	 */
+	public function mergeMeasurements( int $postId, PageModel $model ): PageModel {
+		return $model->retainCodeMeasurements( $this->loadModel( $postId ) );
 	}
 
 	/**
@@ -221,11 +236,12 @@ final class PagesRepository {
 
 		$existing = $this->findByObject( 'post', $postId );
 		if ( null === $existing ) {
+			$url = get_permalink( $postId );
 			$this->save(
 				array(
 					'object_type' => 'post',
 					'object_id'   => $postId,
-					'url'         => '',
+					'url'         => is_string( $url ) ? $url : '',
 					'page_model'  => array(),
 					'last_error'  => $message,
 				)

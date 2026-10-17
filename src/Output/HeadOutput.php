@@ -95,13 +95,15 @@ final class HeadOutput {
 	}
 
 	/**
-	 * Attachment URL and dimensions for the social image.
+	 * Resolve the front page or singular post for head output.
 	 *
-	 * @return array{description: string, url: string, title: string, home: bool, image: array<string, mixed>, schema: array<string, mixed>}|null
+	 * A static front page is singular. It still uses the homepage description and graph.
+	 *
+	 * @return array{description: string, url: string, title: string, social_title: string, social_description: string, home: bool, image: array<string, mixed>, schema: array<string, mixed>}|null
 	 */
 	private function page(): ?array {
 		$settings = Settings::all();
-		$home     = is_front_page() && ! is_singular();
+		$home     = is_front_page();
 		$image    = $this->image( (int) ( $settings['og_default_image'] ?? 0 ) );
 
 		if ( $home ) {
@@ -109,12 +111,14 @@ final class HeadOutput {
 			$title       = $this->titles->expand( 0, (string) ( $settings['home_title'] ?? '' ) );
 			$url         = (string) home_url( '/' );
 			return array(
-				'description' => $description,
-				'url'         => $url,
-				'title'       => '' === $title ? wp_strip_all_tags( get_bloginfo( 'name' ) ) : $title,
-				'home'        => true,
-				'image'       => $image,
-				'schema'      => array(
+				'description'        => $description,
+				'url'                => $url,
+				'title'              => '' === $title ? wp_strip_all_tags( get_bloginfo( 'name' ) ) : $title,
+				'social_title'       => '',
+				'social_description' => '',
+				'home'               => true,
+				'image'              => $image,
+				'schema'             => array(
 					'home'      => true,
 					'site_name' => wp_strip_all_tags( get_bloginfo( 'name' ) ),
 					'site_url'  => $url,
@@ -146,16 +150,20 @@ final class HeadOutput {
 		if ( $override > 0 ) {
 			$image = $this->image( $override );
 		}
-		$news  = get_post_meta( $post->ID, '_seostudio_is_news', true );
-		$video = get_post_meta( $post->ID, '_seostudio_video_url', true );
+		$news               = get_post_meta( $post->ID, '_seostudio_is_news', true );
+		$video              = get_post_meta( $post->ID, '_seostudio_video_url', true );
+		$social_title       = $this->socialText( $post->ID, '_seostudio_og_title' );
+		$social_description = $this->socialText( $post->ID, '_seostudio_og_description' );
 
 		return array(
-			'description' => $description,
-			'url'         => $url,
-			'title'       => $title,
-			'home'        => false,
-			'image'       => $image,
-			'schema'      => array(
+			'description'        => $description,
+			'url'                => $url,
+			'title'              => $title,
+			'social_title'       => $social_title,
+			'social_description' => $social_description,
+			'home'               => false,
+			'image'              => $image,
+			'schema'             => array(
 				'home'           => false,
 				'kind'           => $post->post_type,
 				'site_name'      => wp_strip_all_tags( get_bloginfo( 'name' ) ),
@@ -171,6 +179,18 @@ final class HeadOutput {
 				'author'         => wp_strip_all_tags( get_the_author_meta( 'display_name', (int) $post->post_author ) ),
 			),
 		);
+	}
+
+	/**
+	 * Expanded social title or description. An empty value leaves the SEO field in place.
+	 */
+	private function socialText( int $postId, string $key ): string {
+		$value = get_post_meta( $postId, $key, true );
+		if ( ! is_string( $value ) || '' === trim( $value ) ) {
+			return '';
+		}
+
+		return $this->titles->expand( $postId, $value );
 	}
 
 	/**

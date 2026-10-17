@@ -110,3 +110,14 @@ Action Scheduler 3.9.3 is GPL-3.0-or-later. Its package has no Composer autoload
 - Title templates are still the approximations recorded above. Owner mode output expands Zoop's own tokens only.
 - Uninstall with the flag off now deletes the options and the `seostudio` scheduled actions, and keeps tables and meta. The previous file returned immediately and left the option in place.
 - The migration source picker names Yoast SEO, Rank Math, and SEOPress. That is the exception to the rule that the scoring UI does not use those names. The picker cannot describe the source without them. The scoring panel still does not.
+
+## Phase 3 to 5 review corrections
+
+- A static front page is singular. Homepage description, title, and the WebSite, Organization, and LocalBusiness nodes still apply when `is_front_page()` is true.
+- Robots inheritance is per field. Null inherits the site default. False is an override. `max_snippet` and `max_image_preview` are printed from the resolved values. Site defaults also apply when the query is not a singular post.
+- A live fetch scores the fetched model when a focus keyphrase is saved. Content analysis and the analyse route keep `hasExternalCss`, `htmlBytes`, and `visibleTextBytes` from the previous live model, and the new score uses that merged model.
+- The nightly queue selects published public post types by ID, including pages that already have `last_fetched_at`. A batch of five re-queues the next cursor. Failures record `last_error` and do not stall the cursor. With WP-Cron disabled, nightly fetches one page and does not chain. `handle()` without continuation does not chain either.
+- Audits, save-triggered analysis, and live fetches use public post types except `attachment`.
+- `_seostudio_og_title` and `_seostudio_og_description` are printed when they are set. The meta description stays the SEO description.
+- Import runs add `needs_review` onto the stored report. An unresolved template token stays literal and the count remains visible.
+- An audit or import re-reads its status before `finish('done')` and before it re-queues. `seostudio_audit_after_item` fires after each audited post so a cancel during the final batch is not overwritten.

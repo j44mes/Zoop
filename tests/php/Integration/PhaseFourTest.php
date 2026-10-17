@@ -15,7 +15,10 @@ use SEOStudio\Integrations\Detector;
 use SEOStudio\Integrations\Importers\RankMath;
 use SEOStudio\Integrations\Importers\SeoPress;
 use SEOStudio\Integrations\Importers\Yoast;
+use SEOStudio\Jobs\ImportBatch;
 use SEOStudio\Output\HeadOutput;
+use SEOStudio\Output\RobotsFilter;
+use SEOStudio\Storage\AuditRunsRepository;
 use WP_REST_Request;
 use WP_UnitTestCase;
 
@@ -80,6 +83,99 @@ final class PhaseFourTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'Studio home description', $html );
 		$this->assertStringContainsString( '"@type":"LocalBusiness"', $html );
 		$this->assertStringContainsString( '"@type":"WebSite"', $html );
+	}
+
+	public function test_a_static_front_page_prints_the_homepage_graph(): void {
+		$page_id = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Static home',
+				'post_content' => '<p>Page body.</p>',
+			)
+		);
+		update_option( 'show_on_front', 'page' );
+		update_option( 'page_on_front', $page_id );
+		$settings                     = Settings::all();
+		$settings['mode']             = 'owner';
+		$settings['schema_version']   = 2;
+		$settings['home_description'] = 'Studio home description';
+		$settings['local_business']   = array(
+			'enabled'   => true,
+			'name'      => 'Example Shop',
+			'street'    => '1 High Street',
+			'city'      => 'York',
+			'telephone' => '01234',
+		);
+		update_option( Settings::OPTION, $settings, true );
+		$this->go_to( home_url( '/' ) );
+
+		$this->assertTrue( is_front_page() );
+		$this->assertTrue( is_singular() );
+		$html = $this->head();
+		$this->assertStringContainsString( 'Studio home description', $html );
+		$this->assertStringContainsString( '"@type":"WebSite"', $html );
+		$this->assertStringContainsString( '"@type":"Organization"', $html );
+		$this->assertStringContainsString( '"@type":"LocalBusiness"', $html );
+		$this->assertStringNotContainsString( '"@type":"Article"', $html );
+	}
+
+	public function test_a_null_robots_field_inherits_the_site_default(): void {
+		$this->saveMode( 'owner' );
+		$settings                     = Settings::all();
+		$settings['mode']             = 'owner';
+		$settings['schema_version']   = 2;
+		$settings['default_robots']   = array(
+			'index'             => false,
+			'follow'            => true,
+			'max_snippet'       => 80,
+			'max_image_preview' => 'large',
+		);
+		update_option( Settings::OPTION, $settings, true );
+		$post_id = $this->page();
+		update_post_meta(
+			$post_id,
+			'_seostudio_robots',
+			array(
+				'index'             => null,
+				'follow'            => true,
+				'max_snippet'       => null,
+				'max_image_preview' => null,
+			)
+		);
+		$this->go_to( (string) get_permalink( $post_id ) );
+
+		$robots = ( new RobotsFilter() )->filter( array() );
+		$this->assertTrue( $robots['noindex'] );
+		$this->assertArrayNotHasKey( 'nofollow', $robots );
+		$this->assertSame( '80', $robots['max-snippet'] );
+		$this->assertSame( 'large', $robots['max-image-preview'] );
+	}
+
+	public function test_saved_social_copy_is_printed(): void {
+		$this->saveMode( 'owner' );
+		$post_id = $this->page();
+		update_post_meta( $post_id, '_seostudio_og_title', 'Social headline' );
+		update_post_meta( $post_id, '_seostudio_og_description', 'Social blurb' );
+		$this->go_to( (string) get_permalink( $post_id ) );
+
+		$html = $this->head();
+		$this->assertStringContainsString( 'content="Social headline"', $html );
+		$this->assertStringContainsString( 'content="Social blurb"', $html );
+		$this->assertStringContainsString( 'name="description" content="A rank tracker page."', $html );
+	}
+
+	public function test_an_import_keeps_unresolved_template_warnings(): void {
+		$post_id = self::factory()->post->create( array( 'post_title' => 'Token title' ) );
+		update_post_meta( $post_id, '_yoast_wpseo_title', '%%unknown_token%%' );
+
+		$run_id = ( new ImportBatch() )->start( 'yoast' );
+		$run    = ( new AuditRunsRepository() )->find( $run_id );
+		$this->assertIsArray( $run );
+		$report = json_decode( (string) $run['report'], true );
+		$this->assertIsArray( $report );
+		$this->assertGreaterThan( 0, (int) ( $report['needs_review'] ?? 0 ) );
+		$this->assertStringContainsString( '%%unknown_token%%', (string) get_post_meta( $post_id, '_seostudio_title', true ) );
 	}
 
 	public function test_owner_mode_is_refused_while_a_plugin_is_detected(): void {
