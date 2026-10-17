@@ -64,7 +64,7 @@ final class HardeningTest extends WP_UnitTestCase {
 		Plugin::activate();
 		$settings                   = Settings::all();
 		$settings['mode']           = 'owner';
-		$settings['schema_version'] = 2;
+		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 		$settings['mode'] = 'analysis';
 		update_option( Settings::OPTION, $settings, true );
@@ -76,7 +76,7 @@ final class HardeningTest extends WP_UnitTestCase {
 	public function test_uninstall_without_the_flag_keeps_tables(): void {
 		global $wpdb;
 
-		update_option( Settings::OPTION, array( 'schema_version' => 2, 'uninstall_delete_data' => false ), true );
+		update_option( Settings::OPTION, array( 'schema_version' => \SEOStudio\Core\Upgrader::CURRENT, 'uninstall_delete_data' => false ), true );
 		Uninstaller::run();
 		$this->assertFalse( get_option( Settings::OPTION ) );
 		$table = $wpdb->prefix . 'seostudio_pages';
@@ -90,7 +90,7 @@ final class HardeningTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		try {
-			update_option( Settings::OPTION, array( 'schema_version' => 2, 'uninstall_delete_data' => true, 'mode' => 'analysis' ), true );
+			update_option( Settings::OPTION, array( 'schema_version' => \SEOStudio\Core\Upgrader::CURRENT, 'uninstall_delete_data' => true, 'mode' => 'analysis' ), true );
 			Uninstaller::run();
 			$table = $wpdb->prefix . 'seostudio_pages';
 			$this->assertNull( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );

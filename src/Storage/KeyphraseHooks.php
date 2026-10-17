@@ -36,6 +36,9 @@ final class KeyphraseHooks {
 		}
 
 		( new KeyphrasesIndex() )->syncPost( $postId );
+		if ( self::KEY === $metaKey ) {
+			( new PagesRepository() )->syncFocus( $postId );
+		}
 	}
 
 	public function deleted( mixed $metaIds, int $postId, string $metaKey, mixed $metaValue ): void {
@@ -45,6 +48,9 @@ final class KeyphraseHooks {
 		}
 
 		( new KeyphrasesIndex() )->syncPost( $postId );
+		if ( self::KEY === $metaKey ) {
+			( new PagesRepository() )->syncFocus( $postId );
+		}
 	}
 
 	public function forgetPost( int $postId ): void {

@@ -38,7 +38,7 @@ final class SsrfTest extends WP_UnitTestCase {
 	}
 
 	public function test_a_same_host_page_is_fetched(): void {
-		$filter = static fn (): string => 'https://example.test/page/';
+		$filter  = static fn (): string => 'https://example.test/page/';
 		add_filter( 'post_link', $filter );
 		$fetcher = new LoopbackFetcher(
 			policy: new FetchPolicy( static fn (): array => array( '93.184.216.34' ) ),

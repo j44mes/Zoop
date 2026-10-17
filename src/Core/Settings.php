@@ -84,7 +84,7 @@ final class Settings {
 			? sanitize_key( (string) $input['function_word_locale'] )
 			: 'en';
 		$clean['uninstall_delete_data'] = ! empty( $input['uninstall_delete_data'] );
-		$clean['schema_version']        = 2;
+		$clean['schema_version']        = (int) ( self::all()['schema_version'] ?? 0 );
 		$clean['default_robots']        = self::robots( $input['default_robots'] ?? $clean['default_robots'] );
 		$clean['local_business']        = self::localBusiness( $input['local_business'] ?? array() );
 

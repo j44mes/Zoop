@@ -27,8 +27,8 @@ final class CsrfTest extends WP_UnitTestCase {
 		Plugin::activate();
 		do_action( 'init' );
 		do_action( 'rest_api_init' );
-		$this->admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		$this->postId = self::factory()->post->create();
+		$this->admin                    = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->postId                   = self::factory()->post->create();
 		$GLOBALS['wp_rest_auth_cookie'] = true;
 	}
 

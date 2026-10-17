@@ -59,10 +59,18 @@ final class Tables {
 				last_fetched_at datetime NULL,
 				last_error text NULL,
 				is_indexable tinyint(1) NULL DEFAULT NULL,
+				focus_keyphrase varchar(255) NOT NULL DEFAULT '',
+				focus_hash char(32) NOT NULL DEFAULT '',
+				onpage_score_id bigint(20) unsigned NULL,
+				onpage_score smallint(6) NULL,
+				onpage_denominator smallint(6) NULL,
+				onpage_rating varchar(20) NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY url_hash (url_hash),
 				KEY object_lookup (object_type, object_id),
-				KEY last_rendered_at (last_rendered_at)
+				KEY last_rendered_at (last_rendered_at),
+				KEY list_score (object_type, onpage_score),
+				KEY list_rating (object_type, onpage_rating)
 			) {$charset};",
 			"CREATE TABLE {$scores} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,

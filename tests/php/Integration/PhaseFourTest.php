@@ -67,7 +67,7 @@ final class PhaseFourTest extends WP_UnitTestCase {
 	public function test_the_home_page_can_print_a_local_business(): void {
 		$settings                     = Settings::all();
 		$settings['mode']             = 'owner';
-		$settings['schema_version']   = 2;
+		$settings['schema_version']   = \SEOStudio\Core\Upgrader::CURRENT;
 		$settings['home_description'] = 'Studio home description';
 		$settings['local_business']   = array(
 			'enabled'   => true,
@@ -98,7 +98,7 @@ final class PhaseFourTest extends WP_UnitTestCase {
 		update_option( 'page_on_front', $page_id );
 		$settings                     = Settings::all();
 		$settings['mode']             = 'owner';
-		$settings['schema_version']   = 2;
+		$settings['schema_version']   = \SEOStudio\Core\Upgrader::CURRENT;
 		$settings['home_description'] = 'Studio home description';
 		$settings['local_business']   = array(
 			'enabled'   => true,
@@ -124,7 +124,7 @@ final class PhaseFourTest extends WP_UnitTestCase {
 		$this->saveMode( 'owner' );
 		$settings                     = Settings::all();
 		$settings['mode']             = 'owner';
-		$settings['schema_version']   = 2;
+		$settings['schema_version']   = \SEOStudio\Core\Upgrader::CURRENT;
 		$settings['default_robots']   = array(
 			'index'             => false,
 			'follow'            => true,
@@ -269,7 +269,7 @@ final class PhaseFourTest extends WP_UnitTestCase {
 	private function saveMode( string $mode ): void {
 		$settings                   = Settings::all();
 		$settings['mode']           = $mode;
-		$settings['schema_version'] = 2;
+		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 	}
 

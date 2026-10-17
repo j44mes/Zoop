@@ -184,7 +184,7 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 		$settings['schema_version'] = 1;
 		update_option( 'seostudio_settings', $settings );
 		\SEOStudio\Core\Upgrader::maybeUpgrade();
-		$this->assertSame( 2, get_option( 'seostudio_settings' )['schema_version'] );
+		$this->assertSame( \SEOStudio\Core\Upgrader::CURRENT, get_option( 'seostudio_settings' )['schema_version'] );
 		$this->assertNull( ( new PagesRepository() )->find( $page )['is_indexable'] );
 	}
 
@@ -216,13 +216,14 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 		$this->assertSame( 205, $data['total'] );
 		$this->assertCount( 5, $data['items'] );
 		$this->assertSame( 'Pagination fixture 200', $data['items'][0]['title'] );
-		$this->assertCount( 3, $queries );
+		// One aggregate for the total and summary, one bounded page query.
+		$this->assertCount( 2, $queries );
 		foreach ( $queries as $query ) {
 			$this->assertStringNotContainsString( 'pages.*', $query );
 			$this->assertStringNotContainsString( 'page_model', $query );
-			$this->assertStringContainsString( 'LIMIT', $query );
 		}
+		$this->assertStringContainsString( 'COUNT(*)', $queries[0] );
 		$this->assertStringNotContainsString( 'scores.details', $queries[0] );
-		$this->assertStringContainsString( 'LIMIT 10', $queries[2] );
+		$this->assertStringContainsString( 'LIMIT 10 OFFSET 200', $queries[1] );
 	}
 }

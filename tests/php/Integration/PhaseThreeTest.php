@@ -36,7 +36,7 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 	public function test_an_audit_walks_the_cursor_across_batches(): void {
 		$settings                = Settings::all();
 		$settings['batch_size']  = 10;
-		$settings['schema_version'] = 2;
+		$settings['schema_version'] = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 
 		$ids = array();
@@ -299,7 +299,7 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 	public function test_cancelling_during_the_final_batch_stays_cancelled(): void {
 		$settings                    = Settings::all();
 		$settings['batch_size']      = 100;
-		$settings['schema_version']  = 2;
+		$settings['schema_version']  = \SEOStudio\Core\Upgrader::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 
 		$ids  = ( new AuditBatch() )->nextIds( 0, 100 );
