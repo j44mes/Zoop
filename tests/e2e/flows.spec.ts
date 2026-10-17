@@ -12,21 +12,72 @@ async function login( page: Page ): Promise< void > {
 	await page.waitForURL( '**/wp-admin/**' );
 }
 
-async function openSeoSidebar( page: Page ): Promise< void > {
-	await page.waitForFunction( () => {
-		const plugins = (
+async function editorDiagnostics( page: Page ): Promise< string > {
+	const details = await page.evaluate( () => {
+		const wp = (
 			window as unknown as {
 				wp?: {
+					plugins?: { getPlugin?: ( name: string ) => unknown };
 					data?: {
 						select?: ( store: string ) => {
-							getPlugin?: ( name: string ) => unknown;
+							getActiveComplementaryArea?: (
+								scope: string
+							) => string | null | undefined;
 						};
 					};
 				};
+				seostudioEditor?: unknown;
 			}
-		 ).wp?.data?.select?.( 'core/plugins' );
-		return Boolean( plugins?.getPlugin?.( 'seostudio' ) );
+		 ).wp;
+		const script = document.getElementById( 'seostudio-editor-js' );
+		return {
+			config:
+				( window as unknown as { seostudioEditor?: unknown } )
+					.seostudioEditor ?? null,
+			registered: Boolean( wp?.plugins?.getPlugin?.( 'seostudio' ) ),
+			active:
+				wp?.data
+					?.select?.( 'core/interface' )
+					?.getActiveComplementaryArea?.( 'core' ) ?? null,
+			script: script?.getAttribute( 'src' ) ?? '',
+		};
 	} );
+	return JSON.stringify( details );
+}
+
+function watchPageErrors( page: Page ): string[] {
+	const errors: string[] = [];
+	page.on( 'pageerror', ( error ) => {
+		errors.push( error.message );
+	} );
+	return errors;
+}
+
+async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
+	try {
+		await page.waitForFunction(
+			() =>
+				Boolean(
+					(
+						window as unknown as {
+							wp?: {
+								plugins?: {
+									getPlugin?: ( name: string ) => unknown;
+								};
+							};
+						}
+					 ).wp?.plugins?.getPlugin?.( 'seostudio' )
+				),
+			undefined,
+			{ timeout: 20000 }
+		);
+	} catch ( error ) {
+		throw new Error(
+			`SEO plugin did not register. ${ await editorDiagnostics(
+				page
+			) } ${ errors.join( ' | ' ) }\n${ error }`
+		);
+	}
 	await page.evaluate( () => {
 		const dispatch = (
 			window as unknown as {
@@ -44,7 +95,17 @@ async function openSeoSidebar( page: Page ): Promise< void > {
 		 ).wp.data.dispatch( 'core/interface' );
 		dispatch.enableComplementaryArea?.( 'core', 'seostudio/seostudio' );
 	} );
-	await expect( page.getByLabel( 'Keyphrase' ) ).toBeVisible();
+	try {
+		await expect(
+			page.getByLabel( 'Keyphrase', { exact: true } )
+		).toBeVisible( { timeout: 20000 } );
+	} catch ( error ) {
+		throw new Error(
+			`SEO sidebar did not open. ${ await editorDiagnostics(
+				page
+			) } ${ errors.join( ' | ' ) }\n${ error }`
+		);
+	}
 }
 
 async function saveDraft( page: Page ): Promise< void > {
@@ -81,8 +142,8 @@ async function saveDraft( page: Page ): Promise< void > {
 }
 
 /**
- * A fresh WordPress shows the block editor welcome guide. While that modal is open, the rest of the
- * editor is hidden from accessibility queries, so role-based locators cannot find the SEO button.
+ * Open an editor URL with the welcome guide dismissed. A fresh WordPress shows that modal, which
+ * hides the rest of the editor from accessibility queries.
  *
  * @param page Playwright page.
  * @param url  Editor URL to open.
@@ -131,14 +192,17 @@ test( 'dashboard is available after activation', async ( { page } ) => {
 test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	page,
 } ) => {
+	const errors = watchPageErrors( page );
 	await login( page );
 	await openEditor( page, '/wp-admin/post-new.php' );
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'Welcome note' );
 	await saveDraft( page );
 	editedPostUrl = page.url();
-	await openSeoSidebar( page );
-	await page.getByLabel( 'Keyphrase' ).fill( 'rank tracker' );
+	await openSeoSidebar( page, errors );
+	await page
+		.getByLabel( 'Keyphrase', { exact: true } )
+		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse now' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
 	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
@@ -152,9 +216,10 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 test( 'editing the title updates the title assessment without a reload', async ( {
 	page,
 } ) => {
+	const errors = watchPageErrors( page );
 	await login( page );
 	await openEditor( page, editedPostUrl );
-	await page.getByRole( 'button', { name: 'SEO', exact: true } ).click();
+	await openSeoSidebar( page, errors );
 	const titleCheck = page.locator(
 		'details[data-assessment="title.entire_keyphrase"]'
 	);
