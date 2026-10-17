@@ -66,7 +66,7 @@ final class PageRecord {
 	/**
 	 * Filtered, capability-checked page list.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
 		$filters  = array(
@@ -85,6 +85,15 @@ final class PageRecord {
 		$total    = 0;
 		$ids      = array();
 		$offset   = 0;
+		$summary  = array(
+			'analysed' => 0,
+			'average'  => null,
+			'red'      => 0,
+			'orange'   => 0,
+			'green'    => 0,
+		);
+		$sum      = 0.0;
+		$counted  = 0;
 		// Exact totals must honour edit_post filters, including custom capabilities.
 		// Scan only IDs in bounded batches; hydrate details for the requested page.
 		do {
@@ -98,10 +107,15 @@ final class PageRecord {
 					$ids[] = (int) $row['id'];
 				}
 				++$total;
+				$this->tally( $summary, $sum, $counted, $row );
 			}
 			$offset    += 200;
 			$batch_size = count( $rows );
 		} while ( 200 === $batch_size );
+		$summary['analysed'] = $total;
+		if ( $counted > 0 ) {
+			$summary['average'] = (int) round( $sum / $counted );
+		}
 		$visible = array();
 		if ( array() !== $ids ) {
 			$filters['ids'] = $ids;
@@ -111,10 +125,37 @@ final class PageRecord {
 		}
 
 		return array(
-			'items' => $visible,
-			'total' => $total,
-			'pages' => (int) max( 1, (int) ceil( $total / $per_page ) ),
+			'items'   => $visible,
+			'total'   => $total,
+			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
+			'summary' => $summary,
 		);
+	}
+
+	/**
+	 * Count a visible row's on-page rating and score in the summary strip.
+	 *
+	 * @param array<string, int|null> $summary
+	 * @param array<string, mixed>    $row
+	 */
+	private function tally( array &$summary, float &$sum, int &$counted, array $row ): void {
+		$colour = (string) ( $row['onpage_rating'] ?? '' );
+		if ( in_array( $colour, array( 'red', 'orange', 'green' ), true ) ) {
+			++$summary[ $colour ];
+		}
+		$denominator = isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : 0;
+		if ( $denominator > 0 && isset( $row['onpage_score'] ) ) {
+			$sum += ( (int) $row['onpage_score'] / $denominator ) * 100;
+			++$counted;
+		}
+	}
+
+	private function rating( mixed $value ): ?string {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return null;
+		}
+
+		return $value;
 	}
 
 	private function flag( mixed $value ): ?bool {
@@ -163,8 +204,8 @@ final class PageRecord {
 				'score'       => isset( $row['onpage_score'] ) ? (int) $row['onpage_score'] : null,
 				'denominator' => isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : null,
 			),
-			'seo_rating'         => null,
-			'readability_rating' => null,
+			'seo_rating'         => $this->rating( $row['seo_rating'] ?? null ),
+			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
 			'top_issue'          => $issue,
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,

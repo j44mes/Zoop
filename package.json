@@ -1,0 +1,26 @@
+{
+  "name": "zoop",
+  "private": true,
+  "description": "Admin UI and content-analysis worker for the Zoop WordPress plugin.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "build": "wp-scripts build --config webpack.ui.js && webpack --config webpack.worker.js",
+    "test": "wp-scripts test-unit-js --config tests/js/jest.config.js --watchAll=false",
+    "test:e2e": "playwright test",
+    "lint": "wp-scripts lint-js assets/src tests/js tests/e2e"
+  },
+  "dependencies": {
+    "url": "^0.11.4",
+    "yoastseo": "3.6.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@wordpress/scripts": "^30.22.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack-cli": "^5.1.4"
+  }
+}

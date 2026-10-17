@@ -181,10 +181,16 @@ final class PagesRepository {
 
 		$order   = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
 		$columns = $details
-			? 'pages.id, pages.object_id, pages.object_type, pages.url, pages.last_rendered_at, pages.last_error,
+			? "pages.id, pages.object_id, pages.object_type, pages.url, pages.last_rendered_at, pages.last_error,
 				posts.post_title, focus.meta_value AS focus_keyphrase,
-				scores.score AS onpage_score, scores.denominator AS onpage_denominator, scores.details AS onpage_details'
-			: 'pages.id, pages.object_id';
+				scores.score AS onpage_score, scores.denominator AS onpage_denominator, scores.details AS onpage_details,
+				(SELECT rating FROM {$scores} seo_scores WHERE seo_scores.page_id = pages.id AND seo_scores.engine = 'seo'
+					AND COALESCE(focus.meta_value, '') <> '' AND seo_scores.keyphrase_hash = MD5(LOWER(focus.meta_value))
+					ORDER BY seo_scores.id DESC LIMIT 1) AS seo_rating,
+				(SELECT rating FROM {$scores} read_scores WHERE read_scores.page_id = pages.id AND read_scores.engine = 'readability'
+					AND COALESCE(focus.meta_value, '') <> '' AND read_scores.keyphrase_hash = MD5(LOWER(focus.meta_value))
+					ORDER BY read_scores.id DESC LIMIT 1) AS readability_rating"
+			: 'pages.id, pages.object_id, scores.score AS onpage_score, scores.denominator AS onpage_denominator, scores.rating AS onpage_rating';
 		$sql     = "SELECT {$columns}
 			FROM {$pages} pages
 			INNER JOIN {$posts} posts ON pages.object_id = posts.ID

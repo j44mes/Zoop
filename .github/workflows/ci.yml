@@ -82,3 +82,64 @@ jobs:
           # PHPUnit\Util\Test::parseTestMethodAnnotations(), which PHPUnit 10 removed.
           curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
           wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.integration.xml.dist
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, intl
+          coverage: none
+          tools: composer
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium webkit
+
+      - name: Start WordPress
+        run: |
+          npm install -g @wordpress/env
+          wp-env start
+
+      - name: Browser flows
+        run: npm run test:e2e
+
+      - name: Keep failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

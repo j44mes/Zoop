@@ -79,6 +79,29 @@ final class Renderer {
 		);
 	}
 
+	/**
+	 * Score unsaved editor content with the same metadata rules as a saved post.
+	 *
+	 * Keys in $draft: post_title, excerpt, seo_title, seo_description. A missing key keeps the saved value.
+	 *
+	 * @param array<string, string> $draft
+	 */
+	public function renderDraft( \WP_Post $post, string $html, array $draft ): PageModel {
+		$url = get_permalink( $post );
+		$url = is_string( $url ) ? $url : '';
+
+		return $this->renderResolved(
+			$html,
+			$this->contextFor( $post, $url, $draft ),
+			array(
+				'url'              => $url,
+				'is_https'         => str_starts_with( strtolower( $url ), 'https://' ),
+				'page_type'        => $post->post_type,
+				'content_selector' => $this->selectorFor( $post ),
+			)
+		);
+	}
+
 	private function captureContent( \WP_Post $post ): string {
 		$query = new \WP_Query(
 			array(
@@ -99,15 +122,20 @@ final class Renderer {
 		return $html;
 	}
 
-	private function contextFor( \WP_Post $post, string $permalink ): AnalysisContext {
+	/**
+	 * Build the resolver input, with optional unsaved editor values.
+	 *
+	 * @param array<string, string> $draft
+	 */
+	private function contextFor( \WP_Post $post, string $permalink, array $draft = array() ): AnalysisContext {
 		$settings  = Settings::all();
 		$separator = (string) ( $settings['site_title_separator'] ?? '–' );
 		$category  = $this->categoryName( $post->ID );
 		$values    = new TemplateValues(
-			wp_strip_all_tags( get_the_title( $post ) ),
+			wp_strip_all_tags( $draft['post_title'] ?? get_the_title( $post ) ),
 			wp_strip_all_tags( get_bloginfo( 'name' ) ),
 			$separator,
-			wp_strip_all_tags( has_excerpt( $post ) ? get_the_excerpt( $post ) : '' ),
+			wp_strip_all_tags( $draft['excerpt'] ?? ( has_excerpt( $post ) ? get_the_excerpt( $post ) : '' ) ),
 			$category,
 			wp_strip_all_tags( get_bloginfo( 'description' ) )
 		);
@@ -119,8 +147,8 @@ final class Renderer {
 			$values->excerpt,
 			$permalink,
 			$values,
-			$this->metaString( $post->ID, '_seostudio_title' ),
-			$this->metaString( $post->ID, '_seostudio_description' ),
+			$draft['seo_title'] ?? $this->metaString( $post->ID, '_seostudio_title' ),
+			$draft['seo_description'] ?? $this->metaString( $post->ID, '_seostudio_description' ),
 			$this->metaString( $post->ID, '_seostudio_canonical' ),
 			$this->activeHead->forPost( $post->ID, $values, $permalink )
 		);
