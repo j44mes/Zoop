@@ -1,0 +1,63 @@
+# Architecture
+
+Zoop is a WordPress plugin. The user-facing name is Zoop. The PHP namespace, text domain, options, and REST namespace stay `SEOStudio` / `seo-studio`, which is the name in the build specification.
+
+Phase 1 is the foundation and the on-page engine. It does not include the editor UI, the Yoast-style JavaScript engine, background workers, or front-end meta output.
+
+## Pipeline
+
+`Renderer` turns a post into HTML through `the_content` and marks the page `render_mode = content`. Code measurements stay null, so the code checks are `not_checked`.
+
+`LoopbackFetcher` downloads the public URL of the same site and marks the page `render_mode = live`. `FetchPolicy` allows only that site's scheme, host, and port. It rejects userinfo, non-HTTP URLs, IP literals, `localhost`, `.local`, `.internal`, and any DNS answer that is private, reserved, or empty. Redirects are followed manually, at most two hops, and each hop must pass the same check. The body is capped at 2 MB.
+
+`Extractor` reads the HTML with `DOMDocument`. In content mode the root is `body`. In live mode it uses an optional selector, then `main`, `article`, `[role=main]`, then the densest `div` or `section` that is not inside navigation, header, footer, or aside. Script, style, and hidden nodes are removed before the text is read. Images are collected from the whole document.
+
+`Scorer` runs the 22 assessments in `docs/scoring.md`. `seostudio/assessments` can add or remove assessments. A result with status `not_checked` is omitted from the earned total and the denominator.
+
+## Storage
+
+Activation runs the initial migration. Tables, all prefixed with `seostudio_`:
+
+- `pages` — one row per post, including the extracted model
+- `scores` — one row per scoring run
+- `keyphrases` — which posts use a keyphrase
+- `audit_runs` — one row per audit, import, or fetch run, with `cursor_id`
+
+Post inputs live in `_seostudio_*` meta. Settings live in the `seostudio_settings` option. Uninstall drops tables and meta only when `uninstall_delete_data` is true.
+
+## HTTP and CLI
+
+REST routes are under `seostudio/v1`, require a logged-in user, and are not public.
+
+- `GET /pages/{page_id}`
+- `POST /pages/{page_id}/analyse` with a `keyphrase` argument
+- `GET` and `PUT /posts/{post_id}/seo`
+- `GET /keyphrases/usage`
+
+`wp seostudio analyse <post_id> <keyphrase>` renders the post, prints the category breakdown, and stores the page and score. `wp seostudio detect` reports whether Yoast, Rank Math, SEOPress, AIOSEO, or The SEO Framework constants are defined. `wp seostudio openapi` prints the Phase 1 route list.
+
+`POST /pages/{page_id}/analyse` re-scores a page row that already exists. The CLI command creates that row.
+
+## Admin
+
+The dashboard is the SEO Studio menu. The block editor gets a sidebar, and other edit screens get a classic meta box. Both mount the same panel. `POST /posts/{id}/model` previews unsaved content and an on-page score without writing a row. Analyse now stores the on-page score, then the browser worker stores the SEO and readability ratings.
+
+`yoastseo` 3.6.0 runs in `assets/build/worker.js`. If that file fails to load, the panel keeps the on-page score and says the worker is unavailable.
+
+## Jobs
+
+Action Scheduler 3.9.3 is loaded from `vendor/woocommerce/action-scheduler/action-scheduler.php` before `plugins_loaded`, so its own bootstrap still runs. Jobs use the group `seostudio`. `seostudio_audit_batch` scores 25 posts (or `batch_size`) ordered by post ID and stores the cursor on the run. It re-queues itself instead of looping the whole site in one request. Integration tests define `SEOSTUDIO_JOBS_SYNC` and run the same handlers inline.
+
+`seostudio_analyse_post` is scheduled from `save_post` only in admin, REST, cron, or WP-CLI, for every public post type except attachments. A front-end view does not analyse. `seostudio_fetch_live` walks published public content in batches of five, including pages fetched on an earlier night, and stores a fresh on-page score when the post has a focus keyphrase. A full batch queues the next cursor. When `DISABLE_WP_CRON` is set, the dashboard shows `wp action-scheduler run --group=seostudio` and the nightly path falls back to one synchronous fetch. The editor's Verify live button stays the synchronous same-host fetch from Phase 1. A later content analysis keeps the fetched code measurements.
+
+`wp seostudio audit` starts a run. `POST /audits` returns 202, 409 when a run is already queued or running, and 429 when the same user starts another within ten minutes. The synchronous test mode skips that rate limit so the suite can start a run and then assert the conflict separately.
+
+## Owner mode
+
+`HeadOutput` prints tags only when the mode is `owner` and `Detector::first()` is null. Activating another SEO plugin suspends output and shows an admin warning. Nothing is deleted. The graph is `WebSite` and `Organization` on the home page, `WebPage` or `Article` plus `BreadcrumbList` on a post, and the V2 nodes `LocalBusiness` (when the local setting is enabled), `VideoObject` (when `_seostudio_video_url` is set), and `NewsArticle` (when `_seostudio_is_news` is set, instead of `Article`).
+
+Importers for Yoast, Rank Math, and SEOPress copy into `_seostudio_*` keys. They expand the common title variables and leave unknown tokens in place. They never write the source keys and never deactivate the other plugin.
+
+## Builders
+
+`GutenbergAdapter`, `DiviAdapter`, and `ElementorAdapter` report how content is reached. The Divi 5 Visual Builder panel is a no-go in `docs/divi5-spike.md` because Divi is not installed here. The classic meta box remains the panel for Divi and Elementor.

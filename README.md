@@ -1,50 +1,75 @@
 # Zoop
 
-Zoop is a new software project, ready to develop with GitHub and Cursor Cloud Agents.
+Zoop is a WordPress plugin that scores a page against a 100-point on-page rubric. The plugin header says Zoop. The PHP namespace is `SEOStudio` and the text domain is `seo-studio`.
 
-> **Project stage:** Repository bootstrap. The product requirements and technical stack have not been chosen yet. This is intentional: an agent should not invent an application before the goal is defined.
+Phase 1 is the scoring engine, storage, REST routes, and WP-CLI. The specification is in [docs/SPEC.md](docs/SPEC.md). How the points are awarded is in [docs/scoring.md](docs/scoring.md).
 
-## Start building
+## Requirements
 
-1. Open this repository in [Cursor Cloud Agents](https://cursor.com/agents) or clone it locally:
-   ```bash
-   git clone https://github.com/j44mes/Zoop.git
-   cd Zoop
-   ```
-2. Describe what Zoop should do, its users, and any constraints.
-3. Ask the agent to propose the smallest useful implementation, including a development command, a test command, and a deployment plan.
-4. Work on a feature branch and open a pull request for review.
+- PHP 8.1 or newer, with `mbstring`, `intl`, and `dom`
+- Composer 2
+- WordPress 6.4 or newer to run the plugin
 
-Cursor instructions are in [AGENTS.md](AGENTS.md). Agents should read that file before making changes.
+The unit tests do not boot WordPress.
 
-## Current repository structure
+## Install
 
-| File | Purpose |
+```bash
+composer install
+```
+
+Copy this directory to `wp-content/plugins/` and activate Zoop. For a production tree, install without dev dependencies:
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+## Commands
+
+```bash
+composer test             # PHPUnit unit suite
+composer test:coverage    # Line coverage for src/Scoring and src/Content
+composer lint             # PHPCS (WordPress-Extra and WordPress-Docs)
+composer analyse          # PHPStan level 6
+npm run build             # Dashboard, editor, and the content-analysis worker
+npm test                  # Jest
+npm run test:e2e          # Playwright against wp-env on http://localhost:8888
+```
+
+`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed.
+
+Integration tests boot WordPress through wp-env:
+
+```bash
+npm install -g @wordpress/env
+wp-env start
+curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
+wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" php phpunit-9.phar -c phpunit.integration.xml.dist
+wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" php phpunit-9.phar -c phpunit.queue.xml.dist
+```
+
+On a site with WP-CLI:
+
+```bash
+wp seostudio analyse <post_id> <keyphrase>
+wp seostudio detect
+wp seostudio openapi
+```
+
+`analyse` prints the category breakdown and stores the page and score. `detect` only reports whether another SEO plugin's version constant is defined.
+
+## Layout
+
+| Path | Purpose |
 | --- | --- |
-| `README.md` | Project overview and getting started |
-| `AGENTS.md` | Shared instructions for coding agents |
-| `.editorconfig` | Consistent basic editor formatting |
-| `.gitignore` | Keep secrets, dependencies, and generated files out of Git |
-| `.github/pull_request_template.md` | Review checklist for proposed changes |
-| `.github/workflows/repository-checks.yml` | Basic repository checks on pushes and pull requests |
+| `seo-studio.php` | Plugin bootstrap |
+| `src/Scoring/OnPage` | 22 assessments and the scorer |
+| `src/Content` | Extraction, rendering, and the fetch guard |
+| `src/Storage` | Tables and repositories |
+| `src/Rest` | Logged-in REST routes |
+| `tests/fixtures/onpage` | The ten scoring fixtures |
+| `docs/` | Specification, scoring rules, and decisions |
 
-## Development environment
+## Licence
 
-There is **no application runtime yet** and therefore no installation, build, or test commands. Once a stack is chosen, the first feature PR should:
-
-- Document prerequisite tools and exact install, run, test, and build commands here.
-- Include dependency lockfiles where the ecosystem supports them.
-- Add meaningful automated tests and CI that actually run those tests.
-- Set up the [Cursor cloud development environment](https://cursor.com/docs/cloud-agent/setup) using those same reproducible commands.
-- If configuration is required, commit an `.env.example` listing **names only** and put real secrets in Cursor's environment settings or the deployment provider. Never commit real credentials.
-
-## Working agreement
-
-- Create feature branches rather than pushing application changes directly to `main`.
-- Open a PR with a summary, tests performed, and any changes needed before deployment.
-- Keep changes small and reversible. Do not run destructive commands against live services without explicit approval.
-- If requirements are unclear, record assumptions in the PR and avoid unrelated functionality.
-
-## Security
-
-Never commit private keys, access tokens, passwords, production data, or local environment files. Review every PR before merging. This repository's GitHub visibility and Cursor GitHub App permissions must be managed separately in account settings.
+GPL-2.0-or-later. See `seo-studio.php`.

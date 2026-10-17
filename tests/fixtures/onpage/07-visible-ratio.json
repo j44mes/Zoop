@@ -1,0 +1,19 @@
+{
+    "name": "visible-ratio-1-5",
+    "keyphrase": "rank tracker",
+    "page": {
+        "url": "https://example.test/rank-tracker",
+        "has_external_css": true,
+        "html_bytes": 10000,
+        "visible_text_bytes": 150,
+        "is_https": true,
+        "render_mode": "live"
+    },
+    "expect": {
+        "assessments": {
+            "code.visible_ratio": {
+                "earned": 1
+            }
+        }
+    }
+}

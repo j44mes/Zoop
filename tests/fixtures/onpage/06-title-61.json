@@ -1,0 +1,17 @@
+{
+    "name": "title-61",
+    "keyphrase": "rank tracker",
+    "page": {
+        "url": "https://example.test/rank-tracker",
+        "title_tag": "Rank tracker title length boundary checkxxxxxxxxxxxxxxxxxxxxx",
+        "is_https": true,
+        "render_mode": "content"
+    },
+    "expect": {
+        "assessments": {
+            "title.length": {
+                "earned": 4
+            }
+        }
+    }
+}

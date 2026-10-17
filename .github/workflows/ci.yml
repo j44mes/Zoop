@@ -1,0 +1,146 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3']
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, xml, intl
+          coverage: pcov
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Lint
+        run: composer lint
+
+      - name: Analyse
+        run: composer analyse
+
+      - name: Test
+        run: composer test
+
+      - name: Coverage for scoring and content
+        run: |
+          vendor/bin/phpunit --testsuite unit --coverage-text --coverage-clover coverage/clover.xml
+          php scripts/coverage-floor.php coverage/clover.xml 95 src/Content src/Scoring
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3']
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, xml, intl
+          coverage: none
+          tools: composer
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Start the WordPress test suite
+        run: |
+          npm install -g @wordpress/env
+          printf '{\n  "core": "WordPress/WordPress#6.6",\n  "phpVersion": "%s",\n  "plugins": ["."]\n}\n' "${{ matrix.php }}" > .wp-env.override.json
+          wp-env start
+
+      - name: Integration tests
+        run: |
+          plugin="$(basename "$PWD")"
+          # The tests-cli image installs PHPUnit 10. WordPress 6.6's test library still calls
+          # PHPUnit\Util\Test::parseTestMethodAnnotations(), which PHPUnit 10 removed.
+          curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
+          wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.integration.xml.dist
+          wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.queue.xml.dist
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, intl
+          coverage: none
+          tools: composer
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium webkit
+
+      - name: Start WordPress
+        run: |
+          npm install -g @wordpress/env
+          wp-env start
+
+      - name: Browser flows
+        run: npm run test:e2e
+
+      - name: Keep failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

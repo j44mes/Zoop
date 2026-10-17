@@ -1,0 +1,22 @@
+{
+    "name": "nav-only-body",
+    "keyphrase": "rank tracker",
+    "page": {
+        "url": "https://example.test/quiet",
+        "title_tag": "Guide",
+        "h1": [
+            "A quiet page"
+        ],
+        "body_text": "This paragraph does not mention the phrase.",
+        "is_https": true,
+        "render_mode": "content"
+    },
+    "expect": {
+        "assessments": {
+            "body.mentions": {
+                "earned": 0,
+                "status": "fail"
+            }
+        }
+    }
+}

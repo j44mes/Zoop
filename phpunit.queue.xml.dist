@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="tests/queue/bootstrap.php" colors="true" failOnRisky="true" failOnWarning="true">
+    <testsuites>
+        <testsuite name="external-cron">
+            <directory>tests/queue</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

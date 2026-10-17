@@ -7,6 +7,7 @@
 *.key
 
 # Dependencies and virtual environments
+/vendor/
 node_modules/
 .pnpm-store/
 .venv/
@@ -20,10 +21,19 @@ __pycache__/
 dist/
 build/
 out/
+assets/build/
 coverage/
 .turbo/
 .cache/
 .pytest_cache/
+.phpunit.cache/
+.phpunit.result.cache
+phpunit-9.phar
+.wp-env/
+.wp-env.override.json
+.phpcs.cache/
+test-results/
+playwright-report/
 .mypy_cache/
 .ruff_cache/
 

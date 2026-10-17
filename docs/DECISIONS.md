@@ -1,0 +1,140 @@
+# Decisions
+
+These choices are recorded so later phases do not treat them as accidental.
+
+## Names
+
+The repository and the plugin header use Zoop. Internal identifiers follow the specification: namespace `SEOStudio`, text domain `seo-studio`, option `seostudio_settings`, REST namespace `seostudio/v1`. Renaming those would break the spec.
+
+## Rubric
+
+The 22 checks, their points, and the published 92/100 reference are fixed in `docs/scoring.md`. Partial credit is awarded even when the entire-keyphrase check also passes. The visible-text full score starts at 2% of HTML bytes. Code checks stay out of the denominator until a fetch has supplied measurements.
+
+## Storage enums
+
+Specification enums (`object_type`, `engine`, `rating`, `status`) are `varchar` columns. `dbDelta` does not alter MySQL enums reliably. The allowed values are enforced in PHP.
+
+## HTML parser
+
+`Extractor` uses `DOMDocument` to build the tree. `WP_HTML_Tag_Processor` reads `hidden`, `aria-hidden`, and `style` when WordPress is loaded, then marks those elements so the DOM step can remove them. The processor does not expose the tree operations the extractor needs, and `masterminds/html5` is not a Phase 1 dependency. Without WordPress, the same attribute checks run on the DOM attributes, including `display: none` and `visibility: hidden` with arbitrary whitespace.
+
+## Fetch policy
+
+DNS that returns no address is blocked. A host that resolves to a private or reserved address is blocked, including when the site itself is on localhost. Content rendering still works there. Verify-live does not. That is the specification's SSRF rule, not an oversight. Basic authentication is read only from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS`.
+
+## Coding standards
+
+PHPCS runs `WordPress-Extra` and `WordPress-Docs` with three exclusions:
+
+- `WordPress.Files.FileName` and `WordPress.NamingConventions.PrefixAllGlobals`, because the code is PSR-4 under `SEOStudio`.
+- `WordPress.NamingConventions.ValidFunctionName` and `ValidVariableName`, because methods and promoted properties are camelCase. Options, meta keys, and table columns stay snake_case.
+- `Squiz.Commenting.FunctionComment` parameter tags, because parameter types are declared in PHP. Array shapes still use `@param` and `@return`.
+
+Filters keep the published slash names `seostudio/assessments` and `seostudio/function_words`.
+
+## Detect-only plugins
+
+`wp seostudio detect` reports AIOSEO and The SEO Framework. Phase 1 has no importer for them, and it does not switch the plugin into Owner mode.
+
+## Names stay split
+
+Zoop is the repository and the plugin header. SEO Studio is the product name in the specification. Internal prefixes stay `seostudio_` for tables, meta keys, the REST namespace, and the text domain. Renaming those prefixes would need a migration, so Phase 2 must not introduce a second prefix.
+
+## Resolved metadata
+
+Content-mode scoring uses estimated metadata. Only a live fetch observes the public HTML; plugin filters, dynamic variables and theme output can differ from stored templates.
+
+- Owner mode with no other SEO plugin active expands `_seostudio_title`, `_seostudio_description` and `_seostudio_canonical`, then falls back to the post title, excerpt, and permalink.
+- Analysis-only mode, and Owner mode while another SEO plugin is still active, ignore saved SEO Studio fields. Those fields are not being printed. An estimate from the active plugin's stored title, description, and canonical is used instead, including its default template when the stored value is empty.
+- The first detected plugin wins: Yoast, Rank Math, SEOPress, All in One SEO, The SEO Framework.
+
+Template approximations, recorded because none of these plugins exposes a stable public function for "the title you printed":
+
+- Yoast: stored `_yoast_wpseo_*`, otherwise `wpseo_titles` `title-{post_type}` and `metadesc-{post_type}`, otherwise `%%title%% %%sep%% %%sitename%%` and the excerpt. Separator symbols follow Yoast's `sc-*` names.
+- Rank Math: stored `rank_math_*`, otherwise `rank-math-options-titles` `pt_{post_type}_title` and `pt_{post_type}_description`, otherwise `%title% %sep% %sitename%` and the excerpt.
+- SEOPress: stored `_seopress_titles_*` and `_seopress_robots_canonical`, otherwise `seopress_titles_option_name` nested `seopress_titles_single_titles[post_type][title|description]`, otherwise `%%post_title%% %%sep%% %%sitetitle%%` and the excerpt.
+- All in One SEO: the `aioseo_posts` row when that table exists, otherwise `#post_title #separator_sa #site_title` and the excerpt.
+- The SEO Framework: `_genesis_title`, `_genesis_description`, `_genesis_canonical_uri`. An empty title is the post title. When `autodescription-site-settings` `title_rem_additions` is off, the site name is appended. This is not TSF's full title generator.
+
+## Public meta
+
+`show_in_rest` is false for every `_seostudio_*` key. The specification previously asked for `show_in_rest` plus `auth_callback`. In WordPress that callback only guards writes, so a published post would have leaked keyphrases through `/wp/v2/posts`. Reads and writes go through `seostudio/v1`.
+
+## First analysis and live fetch
+
+`POST /analyse/{object_type}/{object_id}` creates the page row. Phase 1 accepts `object_type=post` only. `term` and `home` stay in the schema and return `seostudio_validation` until those objects are modelled.
+
+Live mode in this phase performs one synchronous same-host fetch and returns the page record. It does not queue Action Scheduler. That queue is Phase 3. A third same-host redirect is rejected. The HTTP API is asked for 2 MB + 1 byte so a body cut off at 2 MB is distinguishable from a complete 2 MB body.
+
+## Keyphrase index
+
+`added_post_meta`, `updated_post_meta`, and `deleted_post_meta` on `_seostudio_focus_keyphrase` update `seostudio_keyphrases`. `before_delete_post` removes every index row for that post. `wp seostudio analyse` still writes the index for a keyphrase that was passed on the command line and not saved as meta.
+
+## Tests that need WordPress
+
+Unit tests still do not boot WordPress. Integration tests under `tests/php/Integration` boot the WordPress test suite through `@wordpress/env` and run in CI on PHP 8.1, 8.2, and 8.3. The tests-cli image installs PHPUnit 10, and the WordPress 6.6 test library still calls `PHPUnit\Util\Test::parseTestMethodAnnotations()`, which that release removed. CI and the README therefore run `phpunit-9.6.22.phar` inside the container. Coverage for `src/Scoring` and `src/Content` is printed from the unit job with pcov. The 95% line target applies to those two directories.
+
+## Licence
+
+Phase 1 is GPL-2.0-or-later. Phase 2 bundles `yoastseo` 3.6.0, which is GPL-3.0. Shipping that package means the combined plugin is distributed under GPL-3.0: the plugin header, `readme.txt` and `package.json` say GPL-3.0-or-later. `composer.json` still says GPL-2.0-or-later because it describes the PHP source alone. Its licence file is kept at `vendor-js/yoastseo/LICENSE`, it is listed under third-party code in `readme.txt`, and the admin UI does not use the Yoast name, logo, or yoast.com links. Assessment text from the package is shown with HTML stripped.
+
+Action Scheduler 3.9.3 is GPL-3.0-or-later. Its package has no Composer autoload, so `seo-studio.php` loads `action-scheduler.php` directly. The library header asks for WordPress 6.5. Zoop still declares 6.4 because the scoring code does not need 6.5; the job queue does use the library's own bootstrap, which runs on `plugins_loaded`. If that file cannot be loaded, `Scheduler::enqueue()` runs the handler inline.
+
+## Phase 1 review corrections
+
+- Content models carry `metadata_status: estimated`; live HTML extraction carries `observed_html`. Resolving stored templates over a live model is still estimated. This is provenance, not a guarantee of search-engine indexing or exact compatibility with every SEO plugin. Option-shape regression tests cover Yoast and SEOPress; installed-plugin end-to-end parity remains unverified.
+- The SEOPress option shape follows its own [wpml-config.xml](https://github.com/wp-seopress/wp-seopress-public/blob/master/wpml-config.xml). Yoast templates use the actual post type. Unsupported dynamic variables and filters remain a reason to use Verify live.
+- A single selector resolver applies post overrides, then the filtered site post-type map in both render modes.
+- `is_indexable` is nullable. False means a detected blocker (non-public post, password, site visibility or robots noindex/none). Null means unverified; true means the checks passed against fetched HTML and HTTP robots headers, not that Google has indexed the page. Robots.txt, canonical consolidation and search-engine decisions are outside this flag. Schema version 2 clears the previous unconditional true values; re-analysis repopulates them. Upgrades run on init as well as activation.
+- Dashboard scores match the saved focus phrase. A changed, cleared or unanalysed focus phrase never inherits a score from a different phrase. Explicit ad-hoc analyses remain in the full record, without silently becoming the saved focus phrase.
+- Related phrases and the primary phrase are rebuilt from current meta on either key's save/delete hooks. Case-insensitive duplicates share one index row, with primary taking precedence. Hook registration is idempotent even when WordPress restores hooks between tests.
+- Lists scan only page/post IDs in batches of 200 to honour custom `edit_post` capability filters and produce exact authorised totals. Only the requested page loads score details; no collection query loads PageModel JSON. Ties sort by page ID. Counting still requires O(n) permission checks; this is not a constant-time pagination claim or a 10,000-page benchmark. Background audit/large-site optimisation remains a later phase.
+- SEO validation is scoped to `/seostudio/v1/posts/{id}/seo`, including its trailing-slash form. Other plugins' routes are untouched.
+
+## Phase 2 review corrections
+
+- Phase 2 now builds on the Phase 1 correction pass. The page list keeps its batched ID scan; the dashboard summary is counted during that scan, so a list request still never loads every model.
+- SEO and readability lights follow the saved focus keyphrase, the same rule as the on-page score. A result stored for another phrase never colours the row.
+- `POST /posts/{id}/model` takes the editor's unsaved `title` and `excerpt`, plus optional `seo_title` and `seo_description`, and runs them through the metadata resolver. In Analysis-only mode the preview therefore scores the post title, or the active SEO plugin's estimate, not SEO Studio fields that are not printed. The result is `estimated`.
+- The panel labels the preview "Unsaved preview" rather than "Live", and states which title and description the scores use for the current mode.
+- The editor script loads only on post editing screens, not the site or widget editors.
+- E2E flows dismiss the block editor welcome guide before using role-based locators. Flow 3 changes the post title, which is the printed title in the default Analysis-only mode.
+
+## Phase 3 to 5
+
+- Audits walk post IDs in `batch_size` slices (default 25) and store the cursor in `cursor_id`. One batch re-queues the next. The integration suite sets `SEOSTUDIO_JOBS_SYNC` so the handlers run inside the request. That is a test seam, not the production cron path. A 12-post run with a batch of 10 proves the cursor. A 300-post browser audit and the 15-minute shared-host target were not run.
+- Divi 5 is a written no-go. See `docs/divi5-spike.md`. The commercial plugin is not in this environment, so no Visual Builder panel was executed.
+- V2 schema types are in this build because the owner asked for them: `LocalBusiness` when the local setting is enabled and named, `VideoObject` when a post has `_seostudio_video_url`, and `NewsArticle` instead of `Article` when `_seostudio_is_news` is set. The specification had listed further schema types as roadmap. These three are the ones that were requested.
+- Owner mode is refused, and an imported settings file is forced back to Analysis-only, while `Detector` reports an active plugin. Tests inject that report with `Detector::force()` so the suite never defines `WPSEO_VERSION` or the other plugin constants.
+- Importer key maps follow the specification. SEOPress `_seopress_robots_index` value `yes` is treated as noindex. Unknown title tokens are left literal.
+- Title templates are still the approximations recorded above. Owner mode output expands Zoop's own tokens only.
+- Uninstall with the flag off now deletes the options and the `seostudio` scheduled actions, and keeps tables and meta. The previous file returned immediately and left the option in place.
+- The migration source picker names Yoast SEO, Rank Math, and SEOPress. That is the exception to the rule that the scoring UI does not use those names. The picker cannot describe the source without them. The scoring panel still does not.
+
+## Phase 3 to 5 review corrections
+
+- A static front page is singular. Homepage description, title, and the WebSite, Organization, and LocalBusiness nodes still apply when `is_front_page()` is true.
+- Robots inheritance is per field. Null inherits the site default. False is an override. `max_snippet` and `max_image_preview` are printed from the resolved values. Site defaults also apply when the query is not a singular post.
+- A live fetch scores the fetched model when a focus keyphrase is saved. Content analysis and the analyse route keep `hasExternalCss`, `htmlBytes`, and `visibleTextBytes` from the previous live model, and the new score uses that merged model.
+- The nightly queue selects published public post types by ID, including pages that already have `last_fetched_at`. A batch of five re-queues the next cursor. Failures record `last_error` and do not stall the cursor. With WP-Cron disabled, nightly fetches one page and does not chain. `handle()` without continuation does not chain either.
+- Audits, save-triggered analysis, and live fetches use public post types except `attachment`.
+- `_seostudio_og_title` and `_seostudio_og_description` are printed when they are set. The meta description stays the SEO description.
+- Import runs add `needs_review` onto the stored report. An unresolved template token stays literal and the count remains visible.
+- An audit or import re-reads its status before `finish('done')` and before it re-queues. `seostudio_audit_after_item` fires after each audited post so a cancel during the final batch is not overwritten.
+
+## Phase 5 review corrections
+
+- **Settings import.** Uploaded files are untrusted. The import never unserializes; a serialized string is rejected. Every row must name a Zoop field on a post that exists and that the admin can edit, and passes the editor's `SeoValidator`. Rows are written through `SeoMeta::store()`, the editor's sanitising path, which the importers also use. Export writes decoded values.
+- **Owner-mode title escaping.** `wp_get_document_title()` returns a `pre_get_document_title` value without escaping and `_wp_render_title_tag()` prints it raw, so Owner mode escapes the title it supplies.
+- **Imported templates stay live.** Supported variables are kept as SEO Studio tokens, and vendor tokens (Rank Math `%title%`, SEOPress `%%post_title%%`, Yoast `%%sitedesc%%`) are converted, so imported titles follow later renames. Only unsupported tokens count as needing review. The preview counts every source field and the posts whose SEO Studio values the import would replace.
+- **Test seams.** `Detector::force()` and the `seostudio_live_model` filter only act when the test bootstrap defines `SEOSTUDIO_TESTING`, so production code cannot disable the Owner-mode interlock.
+- **Documented error codes.** Permission failures on `/seostudio/v1/` routes report `seostudio_forbidden` (status 401 or 403) instead of WordPress's `rest_forbidden`.
+- **Dashboard at 10,000 rows.** Measured before the change: 455 ms for the list query and 15.8 s for the request, because the list re-ran a query with per-row subqueries in batches and checked `edit_post` for every row in PHP. Schema 3 keeps the focus keyphrase and its latest on-page score on the page row (`syncFocus()` on page creation and focus changes, `recordScore()` on each on-page score). The list applies core's `edit_post` rules in SQL (`Capabilities::editableSql()`), takes the total and summary from one aggregate, and fetches only the requested page; `canEditPost()` re-checks those rows so custom capability filters still hide posts, which can make the total overstate by the rows hidden that way. Measured after: under 2 ms for the query and under 40 ms for the request on CI-class hardware; the schema 3 backfill took about 0.4–0.7 s for 10,000 rows. `Settings::sanitize()` now keeps the stored schema version instead of resetting it.
+- **Phase 5 test layers.** `tests/php/Security` (every route for anonymous, subscriber and contributor callers; SSRF; XSS; CSRF; import), `tests/regression` (snapshot of permalinks, IDs, content hashes, head tags of sample URLs, sitemap and other plugins' meta, before and after activation, mode switches, migration and the schema upgrade), and `tests/perf` (10,000 rows, a batch of 25 under 10 s and 64 MB) run in the integration job. `tests/regression/snapshot.php` also runs on a staging site through `wp eval-file` for Gate C.
+
+
+## Phase 3 to 5 correction pass — 17 October 2026
+
+- Dashboard items, totals, pagination and score summaries now use the same authorised set. The SQL path is limited to built-in post types/statuses and unmodified capability mappings (the three core `user_has_cap` callbacks that only grant language, recovery and site-health capabilities are safe). Custom `map_meta_cap`/`user_has_cap` callbacks, post types or statuses switch to exact per-object checks before any aggregate or pagination. This path reads candidate IDs only, primes post caches in batches of 200 to avoid one database read per permission check, and loads details for the requested page only. It is deliberately O(n) on custom-permission sites; no permission result is cached across users or requests. The standard SQL path also respects the privacy-policy page's extra capability.
+- `DISABLE_WP_CRON` disables automatic spawning, not an external Action Scheduler runner. Nightly sweeps always queue continued batches and retain the two-second pacing in production, including external cron. Interactive Verify live remains a single synchronous fetch. The obsolete one-page-nightly test is replaced by a separate real-queue suite (`phpunit.queue.xml.dist`) on all three CI PHP versions. That suite does not enable the inline job shortcut, drains persisted actions, and checks two 12-post sweeps including a public custom post type and a failed URL.
+- Homepage title/description settings remain authoritative in Owner mode on both a static front page and the latest-posts homepage. A shared `HomepageMetadata` policy feeds output, document titles, saved analysis and unsaved previews. Empty settings fall back to the site name and tagline; homepage variables use site values (`%%title%%` is the site name), and the canonical is the site home URL. Static-page SEO title/description/canonical fields remain saved but do not override the homepage policy. The editor explains this next to its preview. Static-page social title, description and image overrides still apply. Analysis-only and active-plugin interlocks continue to ignore unpublished Zoop fields.

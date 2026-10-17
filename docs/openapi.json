@@ -1,0 +1,33 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SEO Studio",
+    "version": "0.5.0"
+  },
+  "paths": {
+    "/seostudio/v1/pages": { "get": { "summary": "List analysed pages", "responses": { "200": { "description": "Page list" } } } },
+    "/seostudio/v1/pages/{page_id}": { "get": { "summary": "One analysed page", "responses": { "200": { "description": "Page record" } } } },
+    "/seostudio/v1/analyse/{object_type}/{object_id}": { "post": { "summary": "Analyse an object", "responses": { "200": { "description": "Page record" } } } },
+    "/seostudio/v1/pages/{page_id}/analyse": { "post": { "summary": "Re-analyse a page", "responses": { "200": { "description": "Page record" } } } },
+    "/seostudio/v1/posts/{post_id}/seo": {
+      "get": { "summary": "Read SEO fields", "responses": { "200": { "description": "SEO fields" } } },
+      "put": { "summary": "Save SEO fields", "responses": { "200": { "description": "SEO fields" } } }
+    },
+    "/seostudio/v1/posts/{post_id}/model": { "post": { "summary": "Preview unsaved content", "responses": { "200": { "description": "Page model" } } } },
+    "/seostudio/v1/keyphrases/usage": { "get": { "summary": "Keyphrase usage", "responses": { "200": { "description": "Posts" } } } },
+    "/seostudio/v1/audits": { "post": { "summary": "Queue a site audit", "responses": { "202": { "description": "Run" }, "409": { "description": "Already running" }, "429": { "description": "Rate limited" } } } },
+    "/seostudio/v1/audits/{run_id}": {
+      "get": { "summary": "Audit progress", "responses": { "200": { "description": "Run" } } },
+      "delete": { "summary": "Cancel an audit", "responses": { "200": { "description": "Cancelled" } } }
+    },
+    "/seostudio/v1/settings": {
+      "get": { "summary": "Read settings", "responses": { "200": { "description": "Settings" } } },
+      "put": { "summary": "Save settings", "responses": { "200": { "description": "Settings" }, "409": { "description": "Owner mode blocked" } } }
+    },
+    "/seostudio/v1/detect": { "get": { "summary": "Detected SEO plugins", "responses": { "200": { "description": "Plugins" } } } },
+    "/seostudio/v1/migrations/preview": { "post": { "summary": "Count importable fields", "responses": { "200": { "description": "Counts" } } } },
+    "/seostudio/v1/migrations": { "post": { "summary": "Start an import", "responses": { "202": { "description": "Run id" } } } },
+    "/seostudio/v1/export": { "get": { "summary": "Export settings and meta", "responses": { "200": { "description": "JSON" } } } },
+    "/seostudio/v1/import": { "post": { "summary": "Restore settings and meta", "responses": { "200": { "description": "Write count" } } } }
+  }
+}

@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build admin assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pack the plugin
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/seo-studio
+          rsync -a \
+            --exclude ".git" \
+            --exclude "node_modules" \
+            --exclude "tests" \
+            --exclude "docs" \
+            --exclude ".github" \
+            --exclude "coverage" \
+            --exclude ".phpunit.cache" \
+            ./ dist/seo-studio/
+          (cd dist && zip -r "seo-studio-${version}.zip" seo-studio)
+
+      - name: Attach the zip to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/seo-studio-*.zip

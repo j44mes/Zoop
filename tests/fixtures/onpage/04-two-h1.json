@@ -1,0 +1,62 @@
+{
+    "name": "two-h1",
+    "keyphrase": "rank tracker",
+    "page": {
+        "has_external_css": true,
+        "html_bytes": 10000,
+        "visible_text_bytes": 300,
+        "is_https": true,
+        "render_mode": "live",
+        "lang": "en",
+        "url": "https://example.test/rank-tracker",
+        "title_tag": "Rank tracker weekly reports for marketers",
+        "meta_description": "A rank tracker for marketers who check positions every week.",
+        "h1": [
+            "Rank tracker",
+            "Site overview"
+        ],
+        "headings": [
+            {
+                "level": 1,
+                "text": "Rank tracker",
+                "order": 0
+            },
+            {
+                "level": 1,
+                "text": "Site overview",
+                "order": 1
+            },
+            {
+                "level": 2,
+                "text": "Weekly rank tracker notes",
+                "order": 2
+            },
+            {
+                "level": 2,
+                "text": "Method",
+                "order": 3
+            }
+        ],
+        "body_text": "rank tracker rank tracker rank tracker rank tracker content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content content",
+        "images": [
+            {
+                "src": "https://example.test/chart.png",
+                "alt": "rank tracker chart",
+                "in_body": true
+            }
+        ]
+    },
+    "expect": {
+        "earned": 96,
+        "denominator": 100,
+        "categories": {
+            "headings": 16
+        },
+        "assessments": {
+            "headings.h1_count": {
+                "earned": 0,
+                "status": "fail"
+            }
+        }
+    }
+}
