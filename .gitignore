@@ -27,6 +27,7 @@ coverage/
 .pytest_cache/
 .phpunit.cache/
 .phpunit.result.cache
+phpunit-9.phar
 .wp-env/
 .wp-env.override.json
 .phpcs.cache/

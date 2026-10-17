@@ -72,7 +72,7 @@ Live mode in this phase performs one synchronous same-host fetch and returns the
 
 ## Tests that need WordPress
 
-Unit tests still do not boot WordPress. Integration tests under `tests/php/Integration` boot the WordPress test suite through `@wordpress/env` and run in CI on PHP 8.1, 8.2, and 8.3. Coverage for `src/Scoring` and `src/Content` is printed from the unit job with pcov. The 95% line target applies to those two directories.
+Unit tests still do not boot WordPress. Integration tests under `tests/php/Integration` boot the WordPress test suite through `@wordpress/env` and run in CI on PHP 8.1, 8.2, and 8.3. The tests-cli image installs PHPUnit 10, and the WordPress 6.6 test library still calls `PHPUnit\Util\Test::parseTestMethodAnnotations()`, which that release removed. CI and the README therefore run `phpunit-9.6.22.phar` inside the container. Coverage for `src/Scoring` and `src/Content` is printed from the unit job with pcov. The 95% line target applies to those two directories.
 
 ## Licence
 

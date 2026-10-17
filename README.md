@@ -38,7 +38,8 @@ Integration tests boot WordPress through wp-env:
 ```bash
 npm install -g @wordpress/env
 wp-env start
-wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" phpunit -c phpunit.integration.xml.dist
+curl -fsSL -o phpunit-9.phar https://github.com/sebastianbergmann/phpunit/releases/download/9.6.22/phpunit.phar
+wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" php phpunit-9.phar -c phpunit.integration.xml.dist
 ```
 
 On a site with WP-CLI:
