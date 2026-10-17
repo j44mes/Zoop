@@ -62,6 +62,9 @@ export interface PageList {
 	pages: number;
 	summary?: {
 		analysed: number;
+		scored?: number;
+		unscored?: number;
+		failed?: number;
 		average: number | null;
 		red: number;
 		orange: number;
@@ -71,6 +74,7 @@ export interface PageList {
 
 export interface PageRecord {
 	page_id: number;
+	url?: string;
 	page_model: PageModelResponse;
 	scores: Array< {
 		keyphrase: string;
@@ -185,6 +189,16 @@ export interface StudioSettings {
 	batch_pause_ms: number;
 	uninstall_delete_data: boolean;
 	publishing?: boolean;
+	detected?: { name?: string } | null;
+	function_word_locale?: string;
+	og_default_image?: number;
+	default_robots?: {
+		index?: boolean;
+		follow?: boolean;
+		max_snippet?: number | null;
+		max_image_preview?: string | null;
+	};
+	content_selectors?: Record< string, string >;
 	local_business: {
 		enabled: boolean;
 		name: string;
@@ -192,6 +206,21 @@ export interface StudioSettings {
 		city: string;
 		telephone: string;
 	};
+}
+
+export function fetchPage( pageId: number ): Promise< PageRecord > {
+	return apiFetch( { path: `/seostudio/v1/pages/${ pageId }` } );
+}
+
+export function fetchAudit( runId: number ): Promise< AuditRun > {
+	return apiFetch( { path: `/seostudio/v1/audits/${ runId }` } );
+}
+
+export function cancelAudit( runId: number ): Promise< unknown > {
+	return apiFetch( {
+		path: `/seostudio/v1/audits/${ runId }`,
+		method: 'DELETE',
+	} );
 }
 
 export function startAudit(): Promise< AuditRun > {

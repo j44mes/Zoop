@@ -118,6 +118,10 @@ final class PagesController {
 				'sanitize_callback' => 'absint',
 			),
 			'search'        => $string(),
+			'object_id'     => array(
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+			),
 			'post_type'     => $string(),
 			'rating'        => array(
 				'type'              => 'string',

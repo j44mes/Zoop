@@ -47,7 +47,19 @@ final class CorrectionPassTest extends WP_UnitTestCase {
 			$secret = $this->listing( 'Permission fixture secret' );
 			$this->assertSame( array(), $secret['items'] );
 			$this->assertSame( 0, $secret['total'] );
-			$this->assertSame( array( 'analysed' => 0, 'average' => null, 'red' => 0, 'orange' => 0, 'green' => 0 ), $secret['summary'] );
+			$this->assertSame(
+				array(
+					'analysed' => 0,
+					'scored'   => 0,
+					'unscored' => 0,
+					'failed'   => 0,
+					'average'  => null,
+					'red'      => 0,
+					'orange'   => 0,
+					'green'    => 0,
+				),
+				$secret['summary']
+			);
 			$one = $this->listing( 'Permission fixture', 1 );
 			$two = $this->listing( 'Permission fixture', 2 );
 			$this->assertSame( 2, $one['total'] );

@@ -71,6 +71,7 @@ final class PageRecord {
 	public function collection( WP_REST_Request $request ): array {
 		$filters  = array(
 			'search'        => $request->get_param( 'search' ),
+			'object_id'     => $request->get_param( 'object_id' ),
 			'post_type'     => $request->get_param( 'post_type' ),
 			'rating'        => $request->get_param( 'rating' ),
 			'score_min'     => $request->get_param( 'score_min' ),
@@ -102,6 +103,9 @@ final class PageRecord {
 		$total   = $stats['total'];
 		$summary = array(
 			'analysed' => $total,
+			'scored'   => $stats['scored'],
+			'unscored' => $stats['unscored'],
+			'failed'   => $stats['failed'],
 			'average'  => $stats['average'],
 			'red'      => $stats['red'],
 			'orange'   => $stats['orange'],

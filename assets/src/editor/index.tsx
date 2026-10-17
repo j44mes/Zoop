@@ -25,7 +25,7 @@ if ( config?.blockEditor ) {
 			return (
 				<PluginSidebar
 					name="seostudio"
-					title={ __( 'SEO', 'seo-studio' ) }
+					title={ __( 'Zoop', 'seo-studio' ) }
 					icon="chart-bar"
 				>
 					<Panel

@@ -6,7 +6,7 @@ import {
 	TextControl,
 } from '@wordpress/components';
 import { useEffect, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	fetchSettings,
 	previewMigration,
@@ -40,6 +40,7 @@ export function SettingsPanel() {
 	const [ counts, setCounts ] = useState< Record< string, number > | null >(
 		null
 	);
+	const [ confirmDelete, setConfirmDelete ] = useState( false );
 
 	useEffect( () => {
 		fetchSettings()
@@ -62,6 +63,15 @@ export function SettingsPanel() {
 	async function save() {
 		setNotice( '' );
 		setError( '' );
+		if ( settings.uninstall_delete_data && ! confirmDelete ) {
+			setError(
+				__(
+					'Confirm that uninstall should permanently delete Zoop data.',
+					'seo-studio'
+				)
+			);
+			return;
+		}
 		try {
 			const saved = await saveSettings( settings );
 			setSettings( {
@@ -101,7 +111,11 @@ export function SettingsPanel() {
 		try {
 			const result = await startMigration( source );
 			setNotice(
-				`${ __( 'Import queued.', 'seo-studio' ) } ${ result.run_id }`
+				sprintf(
+					/* translators: %d: import run id. */
+					__( 'Import queued. %d', 'seo-studio' ),
+					result.run_id
+				)
 			);
 		} catch ( caught ) {
 			const message =
@@ -113,10 +127,15 @@ export function SettingsPanel() {
 	}
 
 	const local = settings.local_business;
+	const robots = settings.default_robots || {
+		index: true,
+		follow: true,
+	};
+	const selectors = settings.content_selectors || {};
 
 	return (
 		<div className="seostudio-settings">
-			<h2>{ __( 'Settings', 'seo-studio' ) }</h2>
+			<h2>{ __( 'General', 'seo-studio' ) }</h2>
 			{ notice ? (
 				<Notice status="success" isDismissible={ false }>
 					{ notice }
@@ -128,14 +147,28 @@ export function SettingsPanel() {
 				</Notice>
 			) : null }
 			<SelectControl
-				label={ __( 'Mode', 'seo-studio' ) }
+				label={ __( 'Metadata mode', 'seo-studio' ) }
 				value={ settings.mode }
+				help={
+					settings.publishing
+						? __(
+								'Zoop prints the supported search and social tags.',
+								'seo-studio'
+						  )
+						: __(
+								'Analysis-only. Another plugin, or this mode, keeps Zoop from printing tags.',
+								'seo-studio'
+						  )
+				}
 				options={ [
 					{
 						label: __( 'Analysis only', 'seo-studio' ),
 						value: 'analysis',
 					},
-					{ label: __( 'Owner', 'seo-studio' ), value: 'owner' },
+					{
+						label: __( 'Zoop manages metadata', 'seo-studio' ),
+						value: 'owner',
+					},
 				] }
 				onChange={ ( value ) =>
 					setSettings( {
@@ -168,7 +201,91 @@ export function SettingsPanel() {
 					} )
 				}
 			/>
-			<h3>{ __( 'Local business', 'seo-studio' ) }</h3>
+			<h2>{ __( 'Analysis', 'seo-studio' ) }</h2>
+			<TextControl
+				label={ __( 'Batch size', 'seo-studio' ) }
+				value={ String( settings.batch_size ) }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						batch_size: Number( value ) || 1,
+					} )
+				}
+			/>
+			<TextControl
+				label={ __(
+					'Pause between batches, milliseconds',
+					'seo-studio'
+				) }
+				value={ String( settings.batch_pause_ms ) }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						batch_pause_ms: Number( value ) || 0,
+					} )
+				}
+			/>
+			<TextControl
+				label={ __( 'Function-word language', 'seo-studio' ) }
+				value={ settings.function_word_locale || 'en' }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						function_word_locale: value,
+					} )
+				}
+			/>
+			<TextControl
+				label={ __( 'Post content selector', 'seo-studio' ) }
+				value={ selectors.post || '' }
+				help={ __(
+					'Optional CSS selector used when rendering a post.',
+					'seo-studio'
+				) }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						content_selectors: { ...selectors, post: value },
+					} )
+				}
+			/>
+			<h2>{ __( 'Search appearance', 'seo-studio' ) }</h2>
+			<CheckboxControl
+				label={ __( 'Index pages by default', 'seo-studio' ) }
+				checked={ robots.index !== false }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						default_robots: { ...robots, index: value },
+					} )
+				}
+			/>
+			<CheckboxControl
+				label={ __( 'Follow links by default', 'seo-studio' ) }
+				checked={ robots.follow !== false }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						default_robots: { ...robots, follow: value },
+					} )
+				}
+			/>
+			<h2>{ __( 'Social appearance', 'seo-studio' ) }</h2>
+			<TextControl
+				label={ __( 'Default social image ID', 'seo-studio' ) }
+				help={ __(
+					'Media library attachment ID. Leave 0 when there is no default image.',
+					'seo-studio'
+				) }
+				value={ String( settings.og_default_image || 0 ) }
+				onChange={ ( value ) =>
+					setSettings( {
+						...settings,
+						og_default_image: Number( value ) || 0,
+					} )
+				}
+			/>
+			<h2>{ __( 'Local business', 'seo-studio' ) }</h2>
 			<CheckboxControl
 				label={ __( 'Add a LocalBusiness schema node', 'seo-studio' ) }
 				checked={ local.enabled }
@@ -219,25 +336,37 @@ export function SettingsPanel() {
 					} )
 				}
 			/>
+			<h2>{ __( 'Tools and data', 'seo-studio' ) }</h2>
 			<CheckboxControl
 				label={ __(
 					'Delete data when Zoop is uninstalled',
 					'seo-studio'
 				) }
 				checked={ settings.uninstall_delete_data }
-				onChange={ ( value ) =>
+				onChange={ ( value ) => {
+					setConfirmDelete( false );
 					setSettings( {
 						...settings,
 						uninstall_delete_data: value,
-					} )
-				}
+					} );
+				} }
 			/>
+			{ settings.uninstall_delete_data ? (
+				<CheckboxControl
+					label={ __(
+						'I understand this permanently deletes Zoop tables and post meta on uninstall.',
+						'seo-studio'
+					) }
+					checked={ confirmDelete }
+					onChange={ setConfirmDelete }
+				/>
+			) : null }
 			<p>
 				<Button variant="primary" onClick={ save }>
 					{ __( 'Save settings', 'seo-studio' ) }
 				</Button>
 			</p>
-			<h3>{ __( 'Migration', 'seo-studio' ) }</h3>
+			<h2>{ __( 'Import', 'seo-studio' ) }</h2>
 			<SelectControl
 				label={ __( 'Source plugin', 'seo-studio' ) }
 				value={ source }
@@ -281,7 +410,7 @@ export function SettingsPanel() {
 					</li>
 					<li data-testid="migration-overwrites">
 						{ __(
-							'Posts where the import replaces existing SEO Studio values:',
+							'Posts where the import replaces existing Zoop values:',
 							'seo-studio'
 						) }{ ' ' }
 						{ counts.overwrites ?? 0 }

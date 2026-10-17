@@ -1,4 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { assessmentTitle } from './assessment-labels';
 
 export interface ListedAssessment {
 	id: string;
@@ -20,11 +21,11 @@ const statusWord: Record< string, string > = {
 	pass: __( 'Good', 'seo-studio' ),
 	partial: __( 'Ok', 'seo-studio' ),
 	fail: __( 'Poor', 'seo-studio' ),
-	not_checked: __( 'Not scored', 'seo-studio' ),
+	not_checked: __( 'Not analysed yet', 'seo-studio' ),
 	red: __( 'Poor', 'seo-studio' ),
 	orange: __( 'Ok', 'seo-studio' ),
 	green: __( 'Good', 'seo-studio' ),
-	grey: __( 'Not scored', 'seo-studio' ),
+	grey: __( 'Not analysed yet', 'seo-studio' ),
 };
 
 export function AssessmentList( { items }: AssessmentListProps ) {
@@ -44,37 +45,54 @@ export function AssessmentList( { items }: AssessmentListProps ) {
 					{ rows.map( ( row ) => {
 						const word =
 							statusWord[ row.status || row.rating || 'grey' ] ||
-							__( 'Not scored', 'seo-studio' );
-						const detail =
-							row.recommendation ||
-							row.explanation ||
-							row.text ||
-							'';
+							__( 'Not analysed yet', 'seo-studio' );
+						const found = row.explanation || row.text || '';
+						const action = row.recommendation || '';
 						return (
 							<details key={ row.id } data-assessment={ row.id }>
 								<summary>
-									{ row.id }{ ' ' }
+									{ assessmentTitle( row.id ) }{ ' ' }
 									<span className="seostudio-chip">
 										{ word }
 									</span>
+								</summary>
+								{ found ? (
+									<p>
+										<strong>
+											{ __(
+												'What Zoop found:',
+												'seo-studio'
+											) }
+										</strong>{ ' ' }
+										{ found }
+									</p>
+								) : null }
+								{ action ? (
+									<p>
+										<strong>
+											{ __(
+												'Suggested action:',
+												'seo-studio'
+											) }
+										</strong>{ ' ' }
+										{ action }
+									</p>
+								) : null }
+								<p className="seostudio-technical">
 									{ typeof row.earned === 'number' &&
 									typeof row.max === 'number'
-										? ' ' +
-										  sprintf(
-												/* translators: 1: points earned, 2: points available */
+										? sprintf(
+												/* translators: 1: assessment id, 2: points earned, 3: points available. */
 												__(
-													'%1$d / %2$d',
+													'%1$s — %2$d/%3$d',
 													'seo-studio'
 												),
+												row.id,
 												row.earned,
 												row.max
 										  )
-										: null }
-								</summary>
-								{ detail ? <p>{ detail }</p> : null }
-								{ row.explanation && row.recommendation ? (
-									<p>{ row.explanation }</p>
-								) : null }
+										: row.id }
+								</p>
 							</details>
 						);
 					} ) }

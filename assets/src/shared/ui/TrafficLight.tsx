@@ -4,7 +4,7 @@ const labels: Record< string, string > = {
 	red: __( 'Poor', 'seo-studio' ),
 	orange: __( 'Ok', 'seo-studio' ),
 	green: __( 'Good', 'seo-studio' ),
-	grey: __( 'Not scored', 'seo-studio' ),
+	grey: __( 'Not analysed yet', 'seo-studio' ),
 };
 
 interface TrafficLightProps {
