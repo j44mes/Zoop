@@ -12,6 +12,7 @@ namespace SEOStudio\Rest;
 use SEOStudio\Content\TemplateValues;
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\Settings;
+use SEOStudio\Storage\SeoMeta;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -112,6 +113,10 @@ final class PostSeoController {
 			'cornerstone'        => array(
 				'type' => 'boolean',
 			),
+			'video_url'          => $string( 2048 ),
+			'is_news'            => array(
+				'type' => 'boolean',
+			),
 		);
 	}
 
@@ -178,28 +183,10 @@ final class PostSeoController {
 			if ( ! array_key_exists( $name, $params ) ) {
 				continue;
 			}
-			$this->store( $post_id, $meta_key, $params[ $name ] );
+			SeoMeta::store( $post_id, $meta_key, $params[ $name ] );
 		}
 
 		return $this->show( $request );
-	}
-
-	private function store( int $postId, string $metaKey, mixed $value ): void {
-		$empty = ( is_string( $value ) && '' === trim( $value ) ) || ( is_int( $value ) && 0 === $value && '_seostudio_og_image' === $metaKey );
-		if ( $empty ) {
-			delete_post_meta( $postId, $metaKey );
-			return;
-		}
-
-		if ( is_string( $value ) && '_seostudio_description' === $metaKey ) {
-			$value = sanitize_textarea_field( $value );
-		} elseif ( is_string( $value ) && '_seostudio_canonical' === $metaKey ) {
-			$value = esc_url_raw( $value );
-		} elseif ( is_string( $value ) ) {
-			$value = sanitize_text_field( $value );
-		}
-
-		update_post_meta( $postId, $metaKey, $value );
 	}
 
 	/**

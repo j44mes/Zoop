@@ -78,7 +78,7 @@ Unit tests still do not boot WordPress. Integration tests under `tests/php/Integ
 
 Phase 1 is GPL-2.0-or-later. Phase 2 bundles `yoastseo` 3.6.0, which is GPL-3.0. Shipping that package means the combined plugin is distributed under GPL-3.0: the plugin header, `readme.txt` and `package.json` say GPL-3.0-or-later. `composer.json` still says GPL-2.0-or-later because it describes the PHP source alone. Its licence file is kept at `vendor-js/yoastseo/LICENSE`, it is listed under third-party code in `readme.txt`, and the admin UI does not use the Yoast name, logo, or yoast.com links. Assessment text from the package is shown with HTML stripped.
 
-Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in Composer now. Zoop's own code can be distributed under GPL-3 because it is GPL-2.0-or-later. The library is not loaded: its package has no Composer autoload, and Phase 1 does not include `action-scheduler.php`. Its plugin header requires WordPress 6.5. Zoop still declares 6.4, because this phase does not boot the library. Phase 3 has to reconcile that before jobs run.
+Action Scheduler 3.9.3 is GPL-3.0-or-later. Its package has no Composer autoload, so `seo-studio.php` loads `action-scheduler.php` directly. The library header asks for WordPress 6.5. Zoop still declares 6.4 because the scoring code does not need 6.5; the job queue does use the library's own bootstrap, which runs on `plugins_loaded`. If that file cannot be loaded, `Scheduler::enqueue()` runs the handler inline.
 
 ## Phase 1 review corrections
 
@@ -99,3 +99,36 @@ Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in 
 - The panel labels the preview "Unsaved preview" rather than "Live", and states which title and description the scores use for the current mode.
 - The editor script loads only on post editing screens, not the site or widget editors.
 - E2E flows dismiss the block editor welcome guide before using role-based locators. Flow 3 changes the post title, which is the printed title in the default Analysis-only mode.
+
+## Phase 3 to 5
+
+- Audits walk post IDs in `batch_size` slices (default 25) and store the cursor in `cursor_id`. One batch re-queues the next. The integration suite sets `SEOSTUDIO_JOBS_SYNC` so the handlers run inside the request. That is a test seam, not the production cron path. A 12-post run with a batch of 10 proves the cursor. A 300-post browser audit and the 15-minute shared-host target were not run.
+- Divi 5 is a written no-go. See `docs/divi5-spike.md`. The commercial plugin is not in this environment, so no Visual Builder panel was executed.
+- V2 schema types are in this build because the owner asked for them: `LocalBusiness` when the local setting is enabled and named, `VideoObject` when a post has `_seostudio_video_url`, and `NewsArticle` instead of `Article` when `_seostudio_is_news` is set. The specification had listed further schema types as roadmap. These three are the ones that were requested.
+- Owner mode is refused, and an imported settings file is forced back to Analysis-only, while `Detector` reports an active plugin. Tests inject that report with `Detector::force()` so the suite never defines `WPSEO_VERSION` or the other plugin constants.
+- Importer key maps follow the specification. SEOPress `_seopress_robots_index` value `yes` is treated as noindex. Unknown title tokens are left literal.
+- Title templates are still the approximations recorded above. Owner mode output expands Zoop's own tokens only.
+- Uninstall with the flag off now deletes the options and the `seostudio` scheduled actions, and keeps tables and meta. The previous file returned immediately and left the option in place.
+- The migration source picker names Yoast SEO, Rank Math, and SEOPress. That is the exception to the rule that the scoring UI does not use those names. The picker cannot describe the source without them. The scoring panel still does not.
+
+## Phase 3 to 5 review corrections
+
+- A static front page is singular. Homepage description, title, and the WebSite, Organization, and LocalBusiness nodes still apply when `is_front_page()` is true.
+- Robots inheritance is per field. Null inherits the site default. False is an override. `max_snippet` and `max_image_preview` are printed from the resolved values. Site defaults also apply when the query is not a singular post.
+- A live fetch scores the fetched model when a focus keyphrase is saved. Content analysis and the analyse route keep `hasExternalCss`, `htmlBytes`, and `visibleTextBytes` from the previous live model, and the new score uses that merged model.
+- The nightly queue selects published public post types by ID, including pages that already have `last_fetched_at`. A batch of five re-queues the next cursor. Failures record `last_error` and do not stall the cursor. With WP-Cron disabled, nightly fetches one page and does not chain. `handle()` without continuation does not chain either.
+- Audits, save-triggered analysis, and live fetches use public post types except `attachment`.
+- `_seostudio_og_title` and `_seostudio_og_description` are printed when they are set. The meta description stays the SEO description.
+- Import runs add `needs_review` onto the stored report. An unresolved template token stays literal and the count remains visible.
+- An audit or import re-reads its status before `finish('done')` and before it re-queues. `seostudio_audit_after_item` fires after each audited post so a cancel during the final batch is not overwritten.
+
+## Phase 5 review corrections
+
+- **Settings import.** Uploaded files are untrusted. The import never unserializes; a serialized string is rejected. Every row must name a Zoop field on a post that exists and that the admin can edit, and passes the editor's `SeoValidator`. Rows are written through `SeoMeta::store()`, the editor's sanitising path, which the importers also use. Export writes decoded values.
+- **Owner-mode title escaping.** `wp_get_document_title()` returns a `pre_get_document_title` value without escaping and `_wp_render_title_tag()` prints it raw, so Owner mode escapes the title it supplies.
+- **Imported templates stay live.** Supported variables are kept as SEO Studio tokens, and vendor tokens (Rank Math `%title%`, SEOPress `%%post_title%%`, Yoast `%%sitedesc%%`) are converted, so imported titles follow later renames. Only unsupported tokens count as needing review. The preview counts every source field and the posts whose SEO Studio values the import would replace.
+- **Test seams.** `Detector::force()` and the `seostudio_live_model` filter only act when the test bootstrap defines `SEOSTUDIO_TESTING`, so production code cannot disable the Owner-mode interlock.
+- **Documented error codes.** Permission failures on `/seostudio/v1/` routes report `seostudio_forbidden` (status 401 or 403) instead of WordPress's `rest_forbidden`.
+- **Dashboard at 10,000 rows.** Measured before the change: 455 ms for the list query and 15.8 s for the request, because the list re-ran a query with per-row subqueries in batches and checked `edit_post` for every row in PHP. Schema 3 keeps the focus keyphrase and its latest on-page score on the page row (`syncFocus()` on page creation and focus changes, `recordScore()` on each on-page score). The list applies core's `edit_post` rules in SQL (`Capabilities::editableSql()`), takes the total and summary from one aggregate, and fetches only the requested page; `canEditPost()` re-checks those rows so custom capability filters still hide posts, which can make the total overstate by the rows hidden that way. Measured after: under 2 ms for the query and under 40 ms for the request on CI-class hardware; the schema 3 backfill took about 0.4–0.7 s for 10,000 rows. `Settings::sanitize()` now keeps the stored schema version instead of resetting it.
+- **Phase 5 test layers.** `tests/php/Security` (every route for anonymous, subscriber and contributor callers; SSRF; XSS; CSRF; import), `tests/regression` (snapshot of permalinks, IDs, content hashes, head tags of sample URLs, sitemap and other plugins' meta, before and after activation, mode switches, migration and the schema upgrade), and `tests/perf` (10,000 rows, a batch of 25 under 10 s and 64 MB) run in the integration job. `tests/regression/snapshot.php` also runs on a staging site through `wp eval-file` for Gate C.
+

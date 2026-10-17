@@ -10,5 +10,14 @@
         <testsuite name="integration">
             <directory>tests/php/Integration</directory>
         </testsuite>
+        <testsuite name="security">
+            <directory>tests/php/Security</directory>
+        </testsuite>
+        <testsuite name="regression">
+            <directory>tests/regression</directory>
+        </testsuite>
+        <testsuite name="perf">
+            <directory>tests/perf</directory>
+        </testsuite>
     </testsuites>
 </phpunit>

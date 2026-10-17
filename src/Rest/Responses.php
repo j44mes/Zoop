@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use WP_Error;
+use WP_REST_Request;
 use WP_REST_Response;
 
 /**
@@ -37,5 +38,25 @@ final class Responses {
 		}
 
 		return new WP_Error( $code, $message, $data );
+	}
+
+	/**
+	 * Report a failed permission check on Zoop routes as seostudio_forbidden.
+	 * WordPress names it rest_forbidden; the status (401 or 403) is kept.
+	 *
+	 * @param array<string, mixed> $handler
+	 */
+	public static function documentForbidden( mixed $response, array $handler, WP_REST_Request $request ): mixed {
+		unset( $handler );
+		if ( ! $response instanceof WP_Error || 'rest_forbidden' !== $response->get_error_code() ) {
+			return $response;
+		}
+		if ( ! str_starts_with( $request->get_route(), '/seostudio/v1/' ) ) {
+			return $response;
+		}
+
+		$data   = $response->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : rest_authorization_required_code();
+		return self::error( 'seostudio_forbidden', __( 'You are not allowed to do that.', 'seo-studio' ), $status );
 	}
 }

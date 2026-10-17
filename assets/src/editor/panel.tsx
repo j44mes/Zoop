@@ -124,6 +124,8 @@ export function Panel( {
 	const [ title, setTitle ] = useState( '' );
 	const [ description, setDescription ] = useState( '' );
 	const [ canonical, setCanonical ] = useState( '' );
+	const [ videoUrl, setVideoUrl ] = useState( '' );
+	const [ isNews, setIsNews ] = useState( false );
 	const [ indexable, setIndexable ] = useState( true );
 	const [ follow, setFollow ] = useState( true );
 	const [ ogTitle, setOgTitle ] = useState( '' );
@@ -156,6 +158,12 @@ export function Panel( {
 				setTitle( seo.title || '' );
 				setDescription( seo.description || '' );
 				setCanonical( seo.canonical || '' );
+				setVideoUrl( seo.video_url || '' );
+				setIsNews(
+					seo.is_news === true ||
+						seo.is_news === 1 ||
+						seo.is_news === '1'
+				);
 				setIndexable( seo.robots?.index !== false );
 				setFollow( seo.robots?.follow !== false );
 				setOgTitle( seo.og_title || '' );
@@ -301,6 +309,8 @@ export function Panel( {
 			title,
 			description,
 			canonical,
+			video_url: videoUrl,
+			is_news: isNews,
 			robots: { index: indexable, follow },
 			og_title: ogTitle,
 			og_description: ogDescription,
@@ -409,6 +419,24 @@ export function Panel( {
 				label={ __( 'Canonical', 'seo-studio' ) }
 				value={ canonical }
 				onChange={ setCanonical }
+			/>
+			<TextControl
+				label={ __( 'Video URL', 'seo-studio' ) }
+				value={ videoUrl }
+				onChange={ setVideoUrl }
+				help={ __(
+					'Adds a VideoObject node when Owner mode is printing tags.',
+					'seo-studio'
+				) }
+			/>
+			<CheckboxControl
+				label={ __( 'News article', 'seo-studio' ) }
+				checked={ isNews }
+				onChange={ setIsNews }
+				help={ __(
+					'Prints NewsArticle instead of Article.',
+					'seo-studio'
+				) }
 			/>
 			<CheckboxControl
 				label={ __( 'Index', 'seo-studio' ) }

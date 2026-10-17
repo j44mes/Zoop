@@ -17,7 +17,7 @@ use WP_REST_Response;
 use WP_UnitTestCase;
 
 /**
- * Unsaved models, content-analysis storage, and the audit stub.
+ * Unsaved models, content-analysis storage, and the audit route.
  */
 final class PhaseTwoTest extends WP_UnitTestCase {
 	public function set_up(): void {
@@ -207,8 +207,8 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 
 		wp_set_current_user( $admin );
 		$response = $this->dispatch( new WP_REST_Request( 'POST', '/seostudio/v1/audits' ) );
-		$this->assertSame( 501, $response->get_status() );
-		$this->assertSame( 'seostudio_not_available', $response->get_data()['code'] );
+		$this->assertSame( 202, $response->get_status() );
+		$this->assertGreaterThan( 0, $response->get_data()['run_id'] );
 	}
 
 	/**

@@ -21,7 +21,7 @@ Activation runs the initial migration. Tables, all prefixed with `seostudio_`:
 - `pages` — one row per post, including the extracted model
 - `scores` — one row per scoring run
 - `keyphrases` — which posts use a keyphrase
-- `audit_runs` — reserved for the Phase 3 worker
+- `audit_runs` — one row per audit, import, or fetch run, with `cursor_id`
 
 Post inputs live in `_seostudio_*` meta. Settings live in the `seostudio_settings` option. Uninstall drops tables and meta only when `uninstall_delete_data` is true.
 
@@ -44,4 +44,20 @@ The dashboard is the SEO Studio menu. The block editor gets a sidebar, and other
 
 `yoastseo` 3.6.0 runs in `assets/build/worker.js`. If that file fails to load, the panel keeps the on-page score and says the worker is unavailable.
 
-`POST /audits` returns 501. The queue is Phase 3. Action Scheduler is still not loaded. Owner mode, head output, and importers are Phase 4. `detect` only reads constants.
+## Jobs
+
+Action Scheduler 3.9.3 is loaded from `vendor/woocommerce/action-scheduler/action-scheduler.php` before `plugins_loaded`, so its own bootstrap still runs. Jobs use the group `seostudio`. `seostudio_audit_batch` scores 25 posts (or `batch_size`) ordered by post ID and stores the cursor on the run. It re-queues itself instead of looping the whole site in one request. Integration tests define `SEOSTUDIO_JOBS_SYNC` and run the same handlers inline.
+
+`seostudio_analyse_post` is scheduled from `save_post` only in admin, REST, cron, or WP-CLI, for every public post type except attachments. A front-end view does not analyse. `seostudio_fetch_live` walks published public content in batches of five, including pages fetched on an earlier night, and stores a fresh on-page score when the post has a focus keyphrase. A full batch queues the next cursor. When `DISABLE_WP_CRON` is set, the dashboard shows `wp action-scheduler run --group=seostudio` and the nightly path falls back to one synchronous fetch. The editor's Verify live button stays the synchronous same-host fetch from Phase 1. A later content analysis keeps the fetched code measurements.
+
+`wp seostudio audit` starts a run. `POST /audits` returns 202, 409 when a run is already queued or running, and 429 when the same user starts another within ten minutes. The synchronous test mode skips that rate limit so the suite can start a run and then assert the conflict separately.
+
+## Owner mode
+
+`HeadOutput` prints tags only when the mode is `owner` and `Detector::first()` is null. Activating another SEO plugin suspends output and shows an admin warning. Nothing is deleted. The graph is `WebSite` and `Organization` on the home page, `WebPage` or `Article` plus `BreadcrumbList` on a post, and the V2 nodes `LocalBusiness` (when the local setting is enabled), `VideoObject` (when `_seostudio_video_url` is set), and `NewsArticle` (when `_seostudio_is_news` is set, instead of `Article`).
+
+Importers for Yoast, Rank Math, and SEOPress copy into `_seostudio_*` keys. They expand the common title variables and leave unknown tokens in place. They never write the source keys and never deactivate the other plugin.
+
+## Builders
+
+`GutenbergAdapter`, `DiviAdapter`, and `ElementorAdapter` report how content is reached. The Divi 5 Visual Builder panel is a no-go in `docs/divi5-spike.md` because Divi is not installed here. The classic meta box remains the panel for Divi and Elementor.

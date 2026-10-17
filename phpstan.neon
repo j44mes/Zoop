@@ -6,6 +6,8 @@ parameters:
         - src
     bootstrapFiles:
         - stubs/wp-cli.php
+        - stubs/action-scheduler.php
     scanFiles:
         - stubs/wp-cli.php
+        - stubs/action-scheduler.php
     treatPhpDocTypesAsCertain: false

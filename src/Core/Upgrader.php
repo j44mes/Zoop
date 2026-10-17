@@ -9,16 +9,20 @@ declare(strict_types=1);
 
 namespace SEOStudio\Core;
 
+use SEOStudio\Storage\PagesRepository;
+
 use SEOStudio\Storage\Migrations\Migration_001_Initial;
 
 /**
  * Runs ordered migrations when the stored schema version is behind.
  */
 final class Upgrader {
+	public const CURRENT = 3;
+
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
 		$current  = (int) ( $settings['schema_version'] ?? 0 );
-		if ( $current >= 2 && self::tablesExist() ) {
+		if ( $current >= self::CURRENT && self::tablesExist() ) {
 			return;
 		}
 
@@ -33,7 +37,11 @@ final class Upgrader {
 			}
 			$wpdb->query( "UPDATE {$table} SET is_indexable = NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
 		}
-		$settings['schema_version'] = 2;
+		// Schema 3 keeps the focus keyphrase and its latest on-page score on the page row.
+		if ( $current < 3 ) {
+			( new PagesRepository() )->backfillFocus();
+		}
+		$settings['schema_version'] = self::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 	}
 

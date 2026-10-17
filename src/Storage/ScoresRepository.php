@@ -34,7 +34,9 @@ final class ScoresRepository {
 			)
 		);
 
-		return (int) $wpdb->insert_id;
+		$id = (int) $wpdb->insert_id;
+		( new PagesRepository() )->recordScore( $pageId, md5( mb_strtolower( $keyphrase, 'UTF-8' ) ), $id, $score->earned, $score->denominator, $this->rating( $score ) );
+		return $id;
 	}
 
 	/**

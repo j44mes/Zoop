@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Zoop
  * Description: On-page SEO scoring for WordPress, with an editor panel and dashboard.
- * Version: 0.2.0
+ * Version: 0.5.0
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: Zoop
@@ -17,13 +17,18 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SEOSTUDIO_VERSION', '0.2.0' );
+define( 'SEOSTUDIO_VERSION', '0.5.0' );
 define( 'SEOSTUDIO_FILE', __FILE__ );
 define( 'SEOSTUDIO_DIR', plugin_dir_path( __FILE__ ) );
 
 $seostudio_autoload = SEOSTUDIO_DIR . 'vendor/autoload.php';
 if ( is_readable( $seostudio_autoload ) ) {
 	require_once $seostudio_autoload;
+}
+
+$seostudio_scheduler = SEOSTUDIO_DIR . 'vendor/woocommerce/action-scheduler/action-scheduler.php';
+if ( is_readable( $seostudio_scheduler ) ) {
+	require_once $seostudio_scheduler;
 }
 
 if ( ! class_exists( \SEOStudio\Core\Plugin::class ) ) {

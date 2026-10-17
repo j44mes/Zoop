@@ -69,7 +69,7 @@ final class PageRecord {
 	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
-		$filters  = array(
+		$filters                 = array(
 			'search'        => $request->get_param( 'search' ),
 			'post_type'     => $request->get_param( 'post_type' ),
 			'rating'        => $request->get_param( 'rating' ),
@@ -79,47 +79,25 @@ final class PageRecord {
 			'order'         => $request->get_param( 'order' ),
 			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
 		);
-		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
-		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-		$start    = ( $page - 1 ) * $per_page;
-		$total    = 0;
-		$ids      = array();
-		$offset   = 0;
-		$summary  = array(
-			'analysed' => 0,
-			'average'  => null,
-			'red'      => 0,
-			'orange'   => 0,
-			'green'    => 0,
+		$per_page                = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
+		$page                    = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
+		$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
+
+		// The database applies core's edit_post rules, so the total, summary and page each take one
+		// query. canEditPost() then re-checks the shown rows, which honours custom capability filters;
+		// a row hidden that way can make the total overstate by that many.
+		$stats   = $this->pages->aggregate( $filters );
+		$total   = $stats['total'];
+		$summary = array(
+			'analysed' => $total,
+			'average'  => $stats['average'],
+			'red'      => $stats['red'],
+			'orange'   => $stats['orange'],
+			'green'    => $stats['green'],
 		);
-		$sum      = 0.0;
-		$counted  = 0;
-		// Exact totals must honour edit_post filters, including custom capabilities.
-		// Scan only IDs in bounded batches; hydrate details for the requested page.
-		do {
-			$rows = $this->pages->search( $filters, 200, $offset );
-			_prime_post_caches( array_map( 'intval', array_column( $rows, 'object_id' ) ), false, false );
-			foreach ( $rows as $row ) {
-				if ( ! Capabilities::canEditPost( (int) $row['object_id'] ) ) {
-					continue;
-				}
-				if ( $total >= $start && count( $ids ) < $per_page ) {
-					$ids[] = (int) $row['id'];
-				}
-				++$total;
-				$this->tally( $summary, $sum, $counted, $row );
-			}
-			$offset    += 200;
-			$batch_size = count( $rows );
-		} while ( 200 === $batch_size );
-		$summary['analysed'] = $total;
-		if ( $counted > 0 ) {
-			$summary['average'] = (int) round( $sum / $counted );
-		}
 		$visible = array();
-		if ( array() !== $ids ) {
-			$filters['ids'] = $ids;
-			foreach ( $this->pages->search( $filters, $per_page, 0, true ) as $row ) {
+		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
+			if ( Capabilities::canEditPost( (int) $row['object_id'] ) ) {
 				$visible[] = $this->item( $row );
 			}
 		}
@@ -130,24 +108,6 @@ final class PageRecord {
 			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
 			'summary' => $summary,
 		);
-	}
-
-	/**
-	 * Count a visible row's on-page rating and score in the summary strip.
-	 *
-	 * @param array<string, int|null> $summary
-	 * @param array<string, mixed>    $row
-	 */
-	private function tally( array &$summary, float &$sum, int &$counted, array $row ): void {
-		$colour = (string) ( $row['onpage_rating'] ?? '' );
-		if ( in_array( $colour, array( 'red', 'orange', 'green' ), true ) ) {
-			++$summary[ $colour ];
-		}
-		$denominator = isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : 0;
-		if ( $denominator > 0 && isset( $row['onpage_score'] ) ) {
-			$sum += ( (int) $row['onpage_score'] / $denominator ) * 100;
-			++$counted;
-		}
 	}
 
 	private function rating( mixed $value ): ?string {

@@ -14,6 +14,37 @@ namespace SEOStudio\Integrations;
  */
 final class Detector {
 	/**
+	 * Whether a test has replaced constant detection.
+	 *
+	 * @var bool
+	 */
+	private static bool $usingForce = false;
+
+	/**
+	 * Test double. Production code leaves this unset so constants stay the source of truth.
+	 *
+	 * @var array{slug: string, name: string, version: string}|null
+	 */
+	private static ?array $forced = null;
+
+	/**
+	 * Pretend a plugin is active, or pass null for none. Call clearForce() afterwards.
+	 * Honoured only when the test bootstrap defines SEOSTUDIO_TESTING, so no production
+	 * code can switch off the Owner-mode interlock.
+	 *
+	 * @param array{slug: string, name: string, version: string}|null $plugin
+	 */
+	public static function force( ?array $plugin ): void {
+		self::$usingForce = true;
+		self::$forced     = $plugin;
+	}
+
+	public static function clearForce(): void {
+		self::$usingForce = false;
+		self::$forced     = null;
+	}
+
+	/**
 	 * Plugins in the order the resolver consults them.
 	 *
 	 * @return array<int, array{slug: string, name: string, constant: string}>
@@ -54,6 +85,10 @@ final class Detector {
 	 * @return array<int, array{slug: string, name: string, version: string}>
 	 */
 	public function active(): array {
+		if ( self::$usingForce && defined( 'SEOSTUDIO_TESTING' ) && SEOSTUDIO_TESTING ) {
+			return null === self::$forced ? array() : array( self::$forced );
+		}
+
 		$found = array();
 		foreach ( $this->catalogue() as $plugin ) {
 			$version = $this->version( $plugin['constant'] );

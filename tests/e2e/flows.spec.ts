@@ -258,13 +258,66 @@ test( 'editing the title updates the title assessment without a reload', async (
 	).toBeVisible();
 } );
 
-test( 're-analyse all reports that the queue is not available', async ( {
-	page,
-} ) => {
+test( 're-analyse all queues an audit', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
 	await page.getByRole( 'button', { name: 'Re-analyse all' } ).click();
 	await expect(
-		page.getByText( 'The site audit queue is not available in this phase.' )
+		page.getByText(
+			/Audit queued\.|An audit is already running\.|An audit was started recently/
+		)
 	).toBeVisible();
+} );
+
+/**
+ * Save the settings form and wait for the REST write, not only the notice.
+ * WordPress also copies the notice into its screen-reader live region, so the
+ * notice locator is scoped to the dashboard.
+ *
+ * @param page Playwright page.
+ */
+async function saveSettings( page: Page ): Promise< void > {
+	const saved = page.waitForResponse(
+		( response ) =>
+			response.url().includes( 'seostudio/v1/settings' ) &&
+			response.request().method() !== 'GET'
+	);
+	await page.getByRole( 'button', { name: 'Save settings' } ).click();
+	expect( ( await saved ).ok() ).toBe( true );
+	await expect(
+		page.locator( '#seostudio-dashboard' ).getByText( 'Settings saved.' )
+	).toBeVisible();
+}
+
+test( 'owner mode prints the home description', async ( { page } ) => {
+	await login( page );
+	const settingsUrl = '/wp-admin/admin.php?page=seostudio';
+	try {
+		await page.goto( settingsUrl );
+		await page
+			.getByRole( 'button', { name: 'Settings', exact: true } )
+			.click();
+		const settings = page.locator( '.seostudio-settings' );
+		await settings.locator( 'select' ).first().selectOption( 'owner' );
+		await settings
+			.getByLabel( 'Home description' )
+			.fill( 'Studio home description' );
+		await saveSettings( page );
+		await page.goto( '/' );
+		await expect(
+			page.locator(
+				'meta[name="description"][content="Studio home description"]'
+			)
+		).toHaveCount( 1 );
+	} finally {
+		await page.goto( settingsUrl );
+		await page
+			.getByRole( 'button', { name: 'Settings', exact: true } )
+			.click();
+		await page
+			.locator( '.seostudio-settings select' )
+			.first()
+			.selectOption( 'analysis' );
+		await saveSettings( page );
+	}
 } );

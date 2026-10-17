@@ -22,7 +22,7 @@ final class Settings {
 	 */
 	public static function defaults(): array {
 		return array(
-			'schema_version'        => 1,
+			'schema_version'        => 2,
 			'mode'                  => 'analysis',
 			'site_title_separator'  => '–',
 			'home_title'            => '%%sitename%% %%sep%% %%tagline%%',
@@ -39,6 +39,13 @@ final class Settings {
 			'batch_pause_ms'        => 0,
 			'function_word_locale'  => 'en',
 			'uninstall_delete_data' => false,
+			'local_business'        => array(
+				'enabled'   => false,
+				'name'      => '',
+				'street'    => '',
+				'city'      => '',
+				'telephone' => '',
+			),
 		);
 	}
 
@@ -77,7 +84,9 @@ final class Settings {
 			? sanitize_key( (string) $input['function_word_locale'] )
 			: 'en';
 		$clean['uninstall_delete_data'] = ! empty( $input['uninstall_delete_data'] );
-		$clean['schema_version']        = 1;
+		$clean['schema_version']        = (int) ( self::all()['schema_version'] ?? 0 );
+		$clean['default_robots']        = self::robots( $input['default_robots'] ?? $clean['default_robots'] );
+		$clean['local_business']        = self::localBusiness( $input['local_business'] ?? array() );
 
 		if ( isset( $input['content_selectors'] ) && is_array( $input['content_selectors'] ) ) {
 			$selectors = array();
@@ -88,5 +97,41 @@ final class Settings {
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Normalise a robots payload.
+	 *
+	 * @param mixed $robots
+	 * @return array<string, mixed>
+	 */
+	public static function robots( mixed $robots ): array {
+		$robots  = is_array( $robots ) ? $robots : array();
+		$preview = isset( $robots['max_image_preview'] ) ? sanitize_key( (string) $robots['max_image_preview'] ) : '';
+
+		return array(
+			'index'             => array_key_exists( 'index', $robots ) ? (bool) $robots['index'] : true,
+			'follow'            => array_key_exists( 'follow', $robots ) ? (bool) $robots['follow'] : true,
+			'max_snippet'       => isset( $robots['max_snippet'] ) && is_numeric( $robots['max_snippet'] ) ? (int) $robots['max_snippet'] : null,
+			'max_image_preview' => in_array( $preview, array( 'none', 'standard', 'large' ), true ) ? $preview : null,
+		);
+	}
+
+	/**
+	 * Normalise the optional local-business block used by the V2 schema graph.
+	 *
+	 * @param mixed $input
+	 * @return array{enabled: bool, name: string, street: string, city: string, telephone: string}
+	 */
+	public static function localBusiness( mixed $input ): array {
+		$input = is_array( $input ) ? $input : array();
+
+		return array(
+			'enabled'   => ! empty( $input['enabled'] ),
+			'name'      => sanitize_text_field( (string) ( $input['name'] ?? '' ) ),
+			'street'    => sanitize_text_field( (string) ( $input['street'] ?? '' ) ),
+			'city'      => sanitize_text_field( (string) ( $input['city'] ?? '' ) ),
+			'telephone' => sanitize_text_field( (string) ( $input['telephone'] ?? '' ) ),
+		);
 	}
 }

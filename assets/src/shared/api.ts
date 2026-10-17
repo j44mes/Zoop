@@ -35,6 +35,8 @@ export interface SeoFields {
 	robots?: { index?: boolean | null; follow?: boolean | null };
 	og_title?: string;
 	og_description?: string;
+	video_url?: string;
+	is_news?: boolean | string | number;
 	resolved_title?: string;
 	resolved_description?: string;
 }
@@ -164,10 +166,73 @@ export function keyphraseUsage(
 	} );
 }
 
-export function startAudit(): Promise< { message?: string; code?: string } > {
+export interface AuditRun {
+	run_id: number;
+	status?: string;
+	processed?: number;
+	total?: number;
+	failed?: number;
+	message?: string;
+	code?: string;
+}
+
+export interface StudioSettings {
+	mode: 'analysis' | 'owner';
+	site_title_separator: string;
+	home_title: string;
+	home_description: string;
+	batch_size: number;
+	batch_pause_ms: number;
+	uninstall_delete_data: boolean;
+	publishing?: boolean;
+	local_business: {
+		enabled: boolean;
+		name: string;
+		street: string;
+		city: string;
+		telephone: string;
+	};
+}
+
+export function startAudit(): Promise< AuditRun > {
 	return apiFetch( {
 		path: '/seostudio/v1/audits',
 		method: 'POST',
 		data: { type: 'audit' },
+	} );
+}
+
+export function fetchSettings(): Promise< StudioSettings > {
+	return apiFetch( { path: '/seostudio/v1/settings' } );
+}
+
+export function saveSettings(
+	body: Partial< StudioSettings >
+): Promise< StudioSettings > {
+	return apiFetch( {
+		path: '/seostudio/v1/settings',
+		method: 'PUT',
+		data: body,
+	} );
+}
+
+export function previewMigration( source: string ): Promise< {
+	source: string;
+	counts: Record< string, number >;
+} > {
+	return apiFetch( {
+		path: '/seostudio/v1/migrations/preview',
+		method: 'POST',
+		data: { source },
+	} );
+}
+
+export function startMigration(
+	source: string
+): Promise< { run_id: number } > {
+	return apiFetch( {
+		path: '/seostudio/v1/migrations',
+		method: 'POST',
+		data: { source },
 	} );
 }

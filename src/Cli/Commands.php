@@ -11,6 +11,8 @@ namespace SEOStudio\Cli;
 
 use SEOStudio\Content\Renderer;
 use SEOStudio\Core\Upgrader;
+use SEOStudio\Jobs\AuditBatch;
+use SEOStudio\Storage\AuditRunsRepository;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
 use SEOStudio\Scoring\OnPage\Scorer;
 use SEOStudio\Storage\KeyphrasesIndex;
@@ -27,6 +29,7 @@ final class Commands {
 		}
 
 		\WP_CLI::add_command( 'seostudio analyse', array( self::class, 'analyse' ) );
+		\WP_CLI::add_command( 'seostudio audit', array( self::class, 'audit' ) );
 		\WP_CLI::add_command( 'seostudio detect', array( self::class, 'detect' ) );
 		\WP_CLI::add_command( 'seostudio openapi', array( self::class, 'openapi' ) );
 	}
@@ -63,6 +66,14 @@ final class Commands {
 		\WP_CLI::success( 'Analysis complete.' );
 	}
 
+	public static function audit(): void {
+		Upgrader::maybeUpgrade();
+		$run_id = ( new AuditBatch() )->start();
+		$row    = ( new AuditRunsRepository() )->find( $run_id );
+		$status = is_array( $row ) ? (string) $row['status'] : 'queued';
+		\WP_CLI::success( sprintf( 'Audit %d is %s.', $run_id, $status ) );
+	}
+
 	public static function detect(): void {
 		$plugins = array(
 			'yoast'     => defined( 'WPSEO_VERSION' ) ? (string) WPSEO_VERSION : '',
@@ -86,6 +97,18 @@ final class Commands {
 			'GET /seostudio/v1/posts/{post_id}/seo',
 			'PUT /seostudio/v1/posts/{post_id}/seo',
 			'GET /seostudio/v1/keyphrases/usage',
+			'POST /seostudio/v1/audits',
+			'GET /seostudio/v1/audits/{run_id}',
+			'DELETE /seostudio/v1/audits/{run_id}',
+			'GET /seostudio/v1/settings',
+			'PUT /seostudio/v1/settings',
+			'GET /seostudio/v1/detect',
+			'POST /seostudio/v1/migrations/preview',
+			'POST /seostudio/v1/migrations',
+			'GET /seostudio/v1/export',
+			'POST /seostudio/v1/import',
+			'POST /seostudio/v1/posts/{post_id}/model',
+			'POST /seostudio/v1/pages/{page_id}/content-scores',
 		);
 		\WP_CLI::line( (string) wp_json_encode( $routes, JSON_PRETTY_PRINT ) );
 	}

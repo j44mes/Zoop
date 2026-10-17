@@ -22,6 +22,31 @@ final class PageModelRoundTripTest extends TestCase {
 		$this->assertSame( $model->toArray(), $again->toArray() );
 	}
 
+	public function testAContentModelKeepsEarlierCodeMeasurements(): void {
+		$live    = PageModel::fromArray( $this->payload() );
+		$content = PageModel::fromArray(
+			array_merge(
+				$this->payload(),
+				array(
+					'body_text'          => 'Fresh content.',
+					'has_external_css'   => null,
+					'html_bytes'         => null,
+					'visible_text_bytes' => null,
+					'render_mode'        => 'content',
+				)
+			)
+		);
+
+		$kept = $content->retainCodeMeasurements( $live );
+		$this->assertSame( 'Fresh content.', $kept->bodyText );
+		$this->assertTrue( $kept->hasExternalCss );
+		$this->assertSame( 1200, $kept->htmlBytes );
+		$this->assertSame( 40, $kept->visibleTextBytes );
+		$this->assertSame( 'content', $kept->renderMode );
+		$this->assertSame( $live, $live->retainCodeMeasurements( $content ) );
+		$this->assertSame( $content->toArray(), $content->retainCodeMeasurements( null )->toArray() );
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */

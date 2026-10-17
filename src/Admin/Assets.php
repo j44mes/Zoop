@@ -11,6 +11,7 @@ namespace SEOStudio\Admin;
 
 use SEOStudio\Core\Settings;
 use SEOStudio\Integrations\Detector;
+use SEOStudio\Jobs\Scheduler;
 
 /**
  * Enqueues the built dashboard, sidebar, and classic meta box.
@@ -86,14 +87,16 @@ final class Assets {
 			$handle,
 			'window.seostudioEditor = ' . wp_json_encode(
 				array(
-					'postId'      => $post_id,
-					'blockEditor' => $block_editor,
-					'workerUrl'   => plugins_url( 'assets/build/worker.js', SEOSTUDIO_FILE ),
-					'permalink'   => is_string( $permalink ) ? $permalink : '',
-					'metadata'    => array(
+					'postId'       => $post_id,
+					'blockEditor'  => $block_editor,
+					'workerUrl'    => plugins_url( 'assets/build/worker.js', SEOSTUDIO_FILE ),
+					'permalink'    => is_string( $permalink ) ? $permalink : '',
+					'metadata'     => array(
 						'publishesOwn' => 'owner' === ( $settings['mode'] ?? 'analysis' ) && null === $active,
 						'activePlugin' => null === $active ? '' : $active['name'],
 					),
+					'cronDisabled' => Scheduler::cronDisabled(),
+					'cronCommand'  => Scheduler::cronCommand(),
 				)
 			) . ';',
 			'before'
