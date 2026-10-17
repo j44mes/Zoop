@@ -76,6 +76,6 @@ Unit tests still do not boot WordPress. Integration tests under `tests/php/Integ
 
 ## Licence
 
-Phase 1 is GPL-2.0-or-later. `yoastseo` is GPL-3.0 and is not installed yet. The licence question for that package is deferred to Phase 2.
+Phase 1 is GPL-2.0-or-later. Phase 2 bundles `yoastseo` 3.6.0, which is GPL-3.0. Shipping that package means the combined plugin is distributed under GPL-3.0. Its licence file is kept at `vendor-js/yoastseo/LICENSE`, it is listed under third-party code in `readme.txt`, and the admin UI does not use the Yoast name, logo, or yoast.com links. Assessment text from the package is shown with HTML stripped.
 
 Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in Composer now. Zoop's own code can be distributed under GPL-3 because it is GPL-2.0-or-later. The library is not loaded: its package has no Composer autoload, and Phase 1 does not include `action-scheduler.php`. Its plugin header requires WordPress 6.5. Zoop still declares 6.4, because this phase does not boot the library. Phase 3 has to reconcile that before jobs run.

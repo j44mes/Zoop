@@ -83,11 +83,33 @@ final class PageRecord {
 		);
 
 		$visible = array();
+		$summary = array(
+			'analysed' => 0,
+			'average'  => null,
+			'red'      => 0,
+			'orange'   => 0,
+			'green'    => 0,
+		);
+		$sum     = 0.0;
+		$counted = 0;
 		foreach ( $rows as $row ) {
 			if ( ! Capabilities::canEditPost( (int) $row['object_id'] ) ) {
 				continue;
 			}
 			$visible[] = $this->item( $row );
+			++$summary['analysed'];
+			$colour = (string) ( $row['onpage_rating'] ?? '' );
+			if ( isset( $summary[ $colour ] ) && is_int( $summary[ $colour ] ) ) {
+				++$summary[ $colour ];
+			}
+			$denominator = isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : 0;
+			if ( $denominator > 0 && isset( $row['onpage_score'] ) ) {
+				$sum += ( (int) $row['onpage_score'] / $denominator ) * 100;
+				++$counted;
+			}
+		}
+		if ( $counted > 0 ) {
+			$summary['average'] = (int) round( $sum / $counted );
 		}
 
 		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
@@ -95,10 +117,19 @@ final class PageRecord {
 		$total    = count( $visible );
 
 		return array(
-			'items' => array_values( array_slice( $visible, ( $page - 1 ) * $per_page, $per_page ) ),
-			'total' => $total,
-			'pages' => (int) max( 1, (int) ceil( $total / $per_page ) ),
+			'items'   => array_values( array_slice( $visible, ( $page - 1 ) * $per_page, $per_page ) ),
+			'total'   => $total,
+			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
+			'summary' => $summary,
 		);
+	}
+
+	private function rating( mixed $value ): ?string {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return null;
+		}
+
+		return $value;
 	}
 
 	private function flag( mixed $value ): ?bool {
@@ -150,8 +181,8 @@ final class PageRecord {
 				'score'       => isset( $row['onpage_score'] ) ? (int) $row['onpage_score'] : null,
 				'denominator' => isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : null,
 			),
-			'seo_rating'         => null,
-			'readability_rating' => null,
+			'seo_rating'         => $this->rating( $row['seo_rating'] ?? null ),
+			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
 			'top_issue'          => $issue,
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,

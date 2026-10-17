@@ -21,6 +21,7 @@ __pycache__/
 dist/
 build/
 out/
+assets/build/
 coverage/
 .turbo/
 .cache/

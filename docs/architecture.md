@@ -38,6 +38,10 @@ REST routes are under `seostudio/v1`, require a logged-in user, and are not publ
 
 `POST /pages/{page_id}/analyse` re-scores a page row that already exists. The CLI command creates that row.
 
-## Not in this phase
+## Admin
 
-The dashboard, Gutenberg sidebar, classic meta box, and `yoastseo` worker are Phase 2. Action Scheduler is installed so Phase 3 can queue audits; no worker class is registered yet. Owner mode, head output, and importers are Phase 4. `detect` only reads constants.
+The dashboard is the SEO Studio menu. The block editor gets a sidebar, and other edit screens get a classic meta box. Both mount the same panel. `POST /posts/{id}/model` previews unsaved content and an on-page score without writing a row. Analyse now stores the on-page score, then the browser worker stores the SEO and readability ratings.
+
+`yoastseo` 3.6.0 runs in `assets/build/worker.js`. If that file fails to load, the panel keeps the on-page score and says the worker is unavailable.
+
+`POST /audits` returns 501. The queue is Phase 3. Action Scheduler is still not loaded. Owner mode, head output, and importers are Phase 4. `detect` only reads constants.

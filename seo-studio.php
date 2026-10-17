@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Zoop
- * Description: On-page SEO scoring for WordPress. Phase 1 scores a rendered page against a 100-point rubric.
- * Version: 0.1.0
+ * Description: On-page SEO scoring for WordPress, with an editor panel and dashboard.
+ * Version: 0.2.0
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: Zoop
@@ -17,7 +17,7 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SEOSTUDIO_VERSION', '0.1.0' );
+define( 'SEOSTUDIO_VERSION', '0.2.0' );
 define( 'SEOSTUDIO_FILE', __FILE__ );
 define( 'SEOSTUDIO_DIR', plugin_dir_path( __FILE__ ) );
 

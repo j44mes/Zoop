@@ -176,7 +176,9 @@ final class PagesRepository {
 		$order = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
 		$sql   = "SELECT pages.*, posts.post_title, posts.post_type, posts.post_status,
 			scores.score AS onpage_score, scores.denominator AS onpage_denominator,
-			scores.rating AS onpage_rating, scores.details AS onpage_details, scores.keyphrase AS score_keyphrase
+			scores.rating AS onpage_rating, scores.details AS onpage_details, scores.keyphrase AS score_keyphrase,
+			(SELECT rating FROM {$scores} seo_scores WHERE seo_scores.page_id = pages.id AND seo_scores.engine = 'seo' ORDER BY seo_scores.id DESC LIMIT 1) AS seo_rating,
+			(SELECT rating FROM {$scores} read_scores WHERE read_scores.page_id = pages.id AND read_scores.engine = 'readability' ORDER BY read_scores.id DESC LIMIT 1) AS readability_rating
 			FROM {$pages} pages
 			INNER JOIN {$posts} posts ON pages.object_id = posts.ID
 			LEFT JOIN {$scores} scores ON scores.id = (

@@ -31,7 +31,12 @@ composer test             # PHPUnit unit suite
 composer test:coverage    # Line coverage for src/Scoring and src/Content
 composer lint             # PHPCS (WordPress-Extra and WordPress-Docs)
 composer analyse          # PHPStan level 6
+npm run build             # Dashboard, editor, and the content-analysis worker
+npm test                  # Jest
+npm run test:e2e          # Playwright against wp-env on http://localhost:8888
 ```
+
+`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed.
 
 Integration tests boot WordPress through wp-env:
 

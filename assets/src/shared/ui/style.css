@@ -1,0 +1,123 @@
+.seostudio-panel,
+.seostudio-dashboard {
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.seostudio-panel :focus-visible,
+.seostudio-dashboard :focus-visible {
+	outline: 2px solid #3858e9;
+	outline-offset: 2px;
+}
+
+.seostudio-summary,
+.seostudio-scores,
+.seostudio-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 12px 0;
+}
+
+.seostudio-card,
+.seostudio-summary article {
+	border: 1px solid #dcdcde;
+	padding: 12px;
+	min-width: 8rem;
+	background: #fff;
+}
+
+.seostudio-ring {
+	width: 4.5rem;
+	height: 4.5rem;
+	border: 3px solid #1d2327;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	font-weight: 600;
+}
+
+.seostudio-chip {
+	display: inline-block;
+	border: 1px solid #1d2327;
+	border-radius: 999px;
+	padding: 2px 8px;
+	background: #f0f0f1;
+}
+
+.seostudio-chip[data-rating="red"] {
+	background: #f6d5d5;
+}
+
+.seostudio-chip[data-rating="orange"] {
+	background: #fde7c7;
+}
+
+.seostudio-chip[data-rating="green"] {
+	background: #d5f0d8;
+}
+
+.seostudio-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.seostudio-table th,
+.seostudio-table td {
+	text-align: left;
+	padding: 8px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.seostudio-field {
+	display: block;
+	margin: 8px 0;
+}
+
+.seostudio-field input,
+.seostudio-field textarea {
+	width: 100%;
+	max-width: 40rem;
+}
+
+.seostudio-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.seostudio-live {
+	font-weight: 600;
+}
+
+.seostudio-note,
+.seostudio-error {
+	margin: 8px 0;
+}
+
+.seostudio-error {
+	color: #8a2424;
+}
+
+.seostudio-preview {
+	border: 1px solid #dcdcde;
+	padding: 12px;
+	max-width: 36rem;
+	background: #fff;
+}
+
+.seostudio-preview[data-viewport="mobile"] {
+	max-width: 22rem;
+}
+
+.seostudio-bar {
+	height: 8px;
+	background: #dcdcde;
+}
+
+.seostudio-bar span {
+	display: block;
+	height: 100%;
+	background: #3858e9;
+}

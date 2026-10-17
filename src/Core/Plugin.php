@@ -9,8 +9,12 @@ declare(strict_types=1);
 
 namespace SEOStudio\Core;
 
+use SEOStudio\Admin\Menu;
 use SEOStudio\Cli\Commands;
+use SEOStudio\Rest\AuditsController;
+use SEOStudio\Rest\ContentScoresController;
 use SEOStudio\Rest\KeyphrasesController;
+use SEOStudio\Rest\ModelController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
 use SEOStudio\Storage\KeyphraseHooks;
@@ -30,6 +34,7 @@ final class Plugin {
 		self::registerMeta();
 		KeyphraseHooks::register();
 		Commands::register();
+		Menu::register();
 	}
 
 	public static function rest(): void {
@@ -44,6 +49,9 @@ final class Plugin {
 		( new PagesController() )->register();
 		( new PostSeoController() )->register();
 		( new KeyphrasesController() )->register();
+		( new ModelController() )->register();
+		( new ContentScoresController() )->register();
+		( new AuditsController() )->register();
 	}
 
 	public static function activate(): void {
