@@ -80,5 +80,5 @@ jobs:
           plugin="$(basename "$PWD")"
           # The tests-cli image installs PHPUnit 10. WordPress 6.6's test library still calls
           # PHPUnit\Util\Test::parseTestMethodAnnotations(), which PHPUnit 10 removed.
-          curl -fsSL -o phpunit-9.phar https://github.com/sebastianbergmann/phpunit/releases/download/9.6.22/phpunit.phar
+          curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
           wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.integration.xml.dist
