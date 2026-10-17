@@ -63,11 +63,14 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 	}
 
 	public function test_validation_does_not_intercept_other_plugins(): void {
-		register_rest_route( 'other/v1', '/seo', array(
-			'methods' => 'PUT',
-			'callback' => static fn () => array( 'accepted' => true ),
-			'permission_callback' => '__return_true',
-		) );
+		add_action( 'rest_api_init', static function (): void {
+			register_rest_route( 'other/v1', '/seo', array(
+				'methods' => 'PUT',
+				'callback' => static fn () => array( 'accepted' => true ),
+				'permission_callback' => '__return_true',
+			) );
+		} );
+		do_action( 'rest_api_init', rest_get_server() );
 		$request = new WP_REST_Request( 'PUT', '/other/v1/seo' );
 		$request->set_header( 'Content-Type', 'application/json' );
 		$request->set_body( '{"title":123,"canonical":"https://elsewhere.test"}' );
@@ -97,6 +100,10 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 	}
 
 	public function test_live_and_content_apply_the_same_selector_precedence(): void {
+		// wp-env defines WP_HOME as localhost, which the fetch policy blocks; pre_option wins over the constant.
+		$home = static fn () => 'https://example.test';
+		add_filter( 'pre_option_home', $home );
+		add_filter( 'pre_option_siteurl', $home );
 		$html = '<html><head><title>Observed title</title></head><body><main>Noise</main><div class="chosen"><p>Chosen copy</p></div><section>Site copy</section></body></html>';
 		$id = self::factory()->post->create( array( 'post_status' => 'publish', 'post_content' => $html ) );
 		$settings = get_option( 'seostudio_settings' );
@@ -131,6 +138,8 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 			}
 		} finally {
 			remove_filter( 'seostudio/content_selectors', $filter );
+			remove_filter( 'pre_option_home', $home );
+			remove_filter( 'pre_option_siteurl', $home );
 		}
 	}
 
