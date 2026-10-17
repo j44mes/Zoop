@@ -64,7 +64,7 @@ declare module '@wordpress/data' {
 	): T;
 }
 
-declare module '@wordpress/edit-post' {
+declare module '@wordpress/editor' {
 	export function PluginSidebar( props: {
 		name: string;
 		title: string;

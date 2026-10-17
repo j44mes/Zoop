@@ -12,6 +12,41 @@ async function login( page: Page ): Promise< void > {
 	await page.waitForURL( '**/wp-admin/**' );
 }
 
+async function openSeoSidebar( page: Page ): Promise< void > {
+	await page.waitForFunction( () => {
+		const plugins = (
+			window as unknown as {
+				wp?: {
+					data?: {
+						select?: ( store: string ) => {
+							getPlugin?: ( name: string ) => unknown;
+						};
+					};
+				};
+			}
+		 ).wp?.data?.select?.( 'core/plugins' );
+		return Boolean( plugins?.getPlugin?.( 'seostudio' ) );
+	} );
+	await page.evaluate( () => {
+		const dispatch = (
+			window as unknown as {
+				wp: {
+					data: {
+						dispatch: ( store: string ) => {
+							enableComplementaryArea?: (
+								scope: string,
+								identifier: string
+							) => void;
+						};
+					};
+				};
+			}
+		 ).wp.data.dispatch( 'core/interface' );
+		dispatch.enableComplementaryArea?.( 'core', 'seostudio/seostudio' );
+	} );
+	await expect( page.getByLabel( 'Keyphrase' ) ).toBeVisible();
+}
+
 async function saveDraft( page: Page ): Promise< void > {
 	await page.evaluate( () => {
 		const editor = (
@@ -65,7 +100,7 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	await canvas.getByLabel( 'Add title' ).fill( 'Welcome note' );
 	await saveDraft( page );
 	editedPostUrl = page.url();
-	await page.getByRole( 'button', { name: 'SEO', exact: true } ).click();
+	await openSeoSidebar( page );
 	await page.getByLabel( 'Keyphrase' ).fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse now' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
@@ -78,7 +113,7 @@ test( 'editing the SEO title updates the title assessment without a reload', asy
 } ) => {
 	await login( page );
 	await page.goto( editedPostUrl );
-	await page.getByRole( 'button', { name: 'SEO', exact: true } ).click();
+	await openSeoSidebar( page );
 	const titleCheck = page.locator(
 		'details[data-assessment="title.entire_keyphrase"]'
 	);
