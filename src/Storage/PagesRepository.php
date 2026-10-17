@@ -35,7 +35,7 @@ final class PagesRepository {
 			'content_selector' => (string) ( $row['content_selector'] ?? '' ),
 			'last_rendered_at' => current_time( 'mysql', true ),
 			'last_error'       => isset( $row['last_error'] ) ? (string) $row['last_error'] : null,
-			'is_indexable'     => empty( $row['is_indexable'] ) ? 0 : 1,
+			'is_indexable'     => isset( $row['is_indexable'] ) ? (int) (bool) $row['is_indexable'] : null,
 		);
 
 		$existing = $this->findByObject( $data['object_type'], (int) $data['object_id'] );
@@ -95,7 +95,7 @@ final class PagesRepository {
 				'page_model'       => $model->toArray(),
 				'render_mode'      => $model->renderMode,
 				'content_selector' => $model->contentSelectorUsed,
-				'is_indexable'     => true,
+				'is_indexable'     => Indexability::forPost( $postId, $model ),
 			)
 		);
 	}
@@ -123,12 +123,13 @@ final class PagesRepository {
 	 * @param array<string, mixed> $filters
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function search( array $filters ): array {
+	public function search( array $filters, int $limit = 200, int $offset = 0, bool $details = false ): array {
 		global $wpdb;
 
 		$pages  = Tables::pages();
 		$scores = Tables::scores();
 		$posts  = $wpdb->posts;
+		$meta   = $wpdb->postmeta;
 		$where  = array( "pages.object_type = 'post'" );
 		$values = array();
 
@@ -159,8 +160,13 @@ final class PagesRepository {
 
 		if ( array_key_exists( 'has_keyphrase', $filters ) && null !== $filters['has_keyphrase'] ) {
 			$where[] = ! empty( $filters['has_keyphrase'] )
-				? "COALESCE(scores.keyphrase, '') <> ''"
-				: "COALESCE(scores.keyphrase, '') = ''";
+				? "COALESCE(focus.meta_value, '') <> ''"
+				: "COALESCE(focus.meta_value, '') = ''";
+		}
+
+		if ( isset( $filters['ids'] ) && is_array( $filters['ids'] ) ) {
+			$ids     = array_map( 'intval', $filters['ids'] );
+			$where[] = 'pages.id IN (' . implode( ',', array( 0, ...$ids ) ) . ')';
 		}
 
 		$orderby = 'pages.last_rendered_at';
@@ -173,16 +179,24 @@ final class PagesRepository {
 			$orderby = $allowed[ $filters['orderby'] ];
 		}
 
-		$order = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
-		$sql   = "SELECT pages.*, posts.post_title, posts.post_type, posts.post_status,
-			scores.score AS onpage_score, scores.denominator AS onpage_denominator,
-			scores.rating AS onpage_rating, scores.details AS onpage_details, scores.keyphrase AS score_keyphrase
+		$order   = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
+		$columns = $details
+			? 'pages.id, pages.object_id, pages.object_type, pages.url, pages.last_rendered_at, pages.last_error,
+				posts.post_title, focus.meta_value AS focus_keyphrase,
+				scores.score AS onpage_score, scores.denominator AS onpage_denominator, scores.details AS onpage_details'
+			: 'pages.id, pages.object_id';
+		$sql     = "SELECT {$columns}
 			FROM {$pages} pages
 			INNER JOIN {$posts} posts ON pages.object_id = posts.ID
+			LEFT JOIN {$meta} focus ON focus.meta_id = (
+				SELECT MAX(pm.meta_id) FROM {$meta} pm WHERE pm.post_id = posts.ID AND pm.meta_key = '_seostudio_focus_keyphrase'
+			)
 			LEFT JOIN {$scores} scores ON scores.id = (
 				SELECT MAX(latest.id) FROM {$scores} latest WHERE latest.page_id = pages.id AND latest.engine = 'onpage'
+				AND COALESCE(focus.meta_value, '') <> '' AND latest.keyphrase_hash = MD5(LOWER(focus.meta_value))
 			)
-			WHERE " . implode( ' AND ', $where ) . " ORDER BY {$orderby} {$order}";
+			WHERE " . implode( ' AND ', $where ) . " ORDER BY {$orderby} {$order}, pages.id {$order}";
+		$sql    .= ' LIMIT ' . max( 1, min( 200, $limit ) ) . ' OFFSET ' . max( 0, $offset );
 
 		if ( array() !== $values ) {
 			$prepared = $wpdb->prepare( $sql, $values ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders are added with the values.

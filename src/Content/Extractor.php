@@ -61,9 +61,12 @@ final class Extractor {
 				'canonical'             => array_key_exists( 'canonical', $context )
 					? (string) $context['canonical']
 					: $this->attributeOfFirst( $document, '//link[contains(@rel, "canonical")]', 'href' ),
-				'robots'                => array_key_exists( 'robots', $context )
+				'robots'                => trim(
+					( array_key_exists( 'robots', $context )
 					? (string) $context['robots']
-					: $this->metaContent( $document, 'robots' ),
+					: $this->metaContent( $document, 'robots' ) ) . ', ' . (string) ( $context['http_robots'] ?? '' ),
+					', '
+				),
 				'h1'                    => $h1,
 				'headings'              => $headings,
 				'body_text'             => $body,
@@ -79,6 +82,7 @@ final class Extractor {
 					? (bool) $context['is_https']
 					: str_starts_with( strtolower( $url ), 'https://' ),
 				'lang'                  => (string) ( $context['lang'] ?? ( is_string( $lang_attr ) && '' !== $lang_attr ? $lang_attr : 'en' ) ),
+				'metadata_status'       => (string) ( $context['metadata_status'] ?? ( 'live' === $render_mode ? 'observed_html' : 'estimated' ) ),
 				'render_mode'           => $render_mode,
 				'content_selector_used' => $root['selector'],
 				'rendered_at'           => gmdate( 'c' ),

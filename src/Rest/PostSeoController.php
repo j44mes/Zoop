@@ -125,7 +125,7 @@ final class PostSeoController {
 	 */
 	public function rejectInvalidSeo( mixed $result, \WP_REST_Server $server, WP_REST_Request $request ): mixed {
 		unset( $server );
-		if ( null !== $result || ! str_ends_with( $request->get_route(), '/seo' ) ) {
+		if ( null !== $result || 1 !== preg_match( '#^/seostudio/v1/posts/[0-9]+/seo/?$#D', $request->get_route() ) ) {
 			return $result;
 		}
 		if ( ! in_array( $request->get_method(), array( 'PUT', 'POST', 'PATCH' ), true ) ) {

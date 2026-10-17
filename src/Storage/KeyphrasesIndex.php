@@ -13,6 +13,32 @@ namespace SEOStudio\Storage;
  * Tracks which posts use a keyphrase.
  */
 final class KeyphrasesIndex {
+	/**
+	 * Rebuild the index from saved meta; primary wins when a phrase occurs twice.
+	 */
+	public function syncPost( int $postId ): void {
+		global $wpdb;
+		$this->deleteObject( $postId );
+		$primary = get_post_meta( $postId, '_seostudio_focus_keyphrase', true );
+		$related = get_post_meta( $postId, '_seostudio_related_keyphrases', true );
+		foreach ( is_array( $related ) ? $related : array() as $entry ) {
+			$phrase = is_array( $entry ) ? ( $entry['keyphrase'] ?? '' ) : '';
+			if ( ! is_string( $phrase ) || '' === trim( $phrase ) ) {
+				continue;
+			}
+			$wpdb->replace(
+				Tables::keyphrases(),
+				array(
+					'keyphrase_hash' => md5( mb_strtolower( $phrase, 'UTF-8' ) ),
+					'object_type'    => 'post',
+					'object_id'      => $postId,
+					'is_primary'     => 0,
+				)
+			);
+		}
+		$this->replacePrimary( $postId, is_string( $primary ) ? $primary : '' );
+	}
+
 	public function replacePrimary( int $postId, string $keyphrase ): void {
 		global $wpdb;
 

@@ -46,7 +46,8 @@ final class PageModel {
 		public readonly string $renderMode = 'content',
 		public readonly string $contentSelectorUsed = '',
 		public readonly string $renderedAt = '',
-		public readonly string $pageType = ''
+		public readonly string $pageType = '',
+		public readonly string $metadataStatus = 'estimated'
 	) {}
 
 	/**
@@ -134,7 +135,8 @@ final class PageModel {
 			renderMode: (string) ( $data['render_mode'] ?? 'content' ),
 			contentSelectorUsed: (string) ( $data['content_selector_used'] ?? '' ),
 			renderedAt: (string) ( $data['rendered_at'] ?? '' ),
-			pageType: (string) ( $data['page_type'] ?? '' )
+			pageType: (string) ( $data['page_type'] ?? '' ),
+			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' )
 		);
 	}
 
@@ -165,6 +167,7 @@ final class PageModel {
 			'is_https'              => $this->isHttps,
 			'lang'                  => $this->lang,
 			'render_mode'           => $this->renderMode,
+			'metadata_status'       => $this->metadataStatus,
 			'content_selector_used' => $this->contentSelectorUsed,
 			'rendered_at'           => $this->renderedAt,
 			'page_type'             => $this->pageType,

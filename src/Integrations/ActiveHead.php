@@ -79,8 +79,8 @@ final class ActiveHead {
 		$row['title']                = $this->metaString( $postId, '_yoast_wpseo_title' );
 		$row['description']          = $this->metaString( $postId, '_yoast_wpseo_metadesc' );
 		$row['canonical']            = $this->metaString( $postId, '_yoast_wpseo_canonical' );
-		$row['title_template']       = isset( $options['title-post'] ) ? (string) $options['title-post'] : '';
-		$row['description_template'] = isset( $options['metadesc-post'] ) ? (string) $options['metadesc-post'] : '';
+		$row['title_template']       = isset( $options[ 'title-' . get_post_type( $postId ) ] ) ? (string) $options[ 'title-' . get_post_type( $postId ) ] : '';
+		$row['description_template'] = isset( $options[ 'metadesc-' . get_post_type( $postId ) ] ) ? (string) $options[ 'metadesc-' . get_post_type( $postId ) ] : '';
 		$row['separator']            = $this->yoastSeparator( isset( $options['separator'] ) ? (string) $options['separator'] : '' );
 		return $row;
 	}
@@ -113,11 +113,13 @@ final class ActiveHead {
 	 */
 	private function seopress( int $postId, array $row ): array {
 		$options                     = $this->optionArray( 'seopress_titles_option_name' );
+		$templates                   = $options['seopress_titles_single_titles'][ get_post_type( $postId ) ] ?? array();
+		$templates                   = is_array( $templates ) ? $templates : array();
 		$row['title']                = $this->metaString( $postId, '_seopress_titles_title' );
 		$row['description']          = $this->metaString( $postId, '_seopress_titles_desc' );
 		$row['canonical']            = $this->metaString( $postId, '_seopress_robots_canonical' );
-		$row['title_template']       = isset( $options['seopress_titles_single_post_title'] ) ? (string) $options['seopress_titles_single_post_title'] : '';
-		$row['description_template'] = isset( $options['seopress_titles_single_post_desc'] ) ? (string) $options['seopress_titles_single_post_desc'] : '';
+		$row['title_template']       = isset( $templates['title'] ) ? (string) $templates['title'] : '';
+		$row['description_template'] = isset( $templates['description'] ) ? (string) $templates['description'] : '';
 		return $row;
 	}
 

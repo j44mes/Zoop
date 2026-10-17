@@ -26,6 +26,7 @@ final class Plugin {
 	}
 
 	public static function init(): void {
+		Upgrader::maybeUpgrade();
 		load_plugin_textdomain( 'seo-studio', false, dirname( plugin_basename( SEOSTUDIO_FILE ) ) . '/languages' );
 		self::registerMeta();
 		KeyphraseHooks::register();

@@ -18,12 +18,22 @@ final class Upgrader {
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
 		$current  = (int) ( $settings['schema_version'] ?? 0 );
-		if ( $current >= 1 && self::tablesExist() ) {
+		if ( $current >= 2 && self::tablesExist() ) {
 			return;
 		}
 
 		( new Migration_001_Initial() )->up();
-		$settings['schema_version'] = 1;
+		// Old rows were unconditionally marked indexable; invalidate that claim.
+		if ( $current < 2 ) {
+			global $wpdb;
+			$table   = $wpdb->prefix . 'seostudio_pages';
+			$altered = $wpdb->query( "ALTER TABLE {$table} MODIFY is_indexable tinyint(1) NULL DEFAULT NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name. dbDelta does not reliably change nullability.
+			if ( false === $altered ) {
+				return;
+			}
+			$wpdb->query( "UPDATE {$table} SET is_indexable = NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+		}
+		$settings['schema_version'] = 2;
 		update_option( Settings::OPTION, $settings, true );
 	}
 

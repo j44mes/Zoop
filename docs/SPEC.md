@@ -133,10 +133,10 @@ Every analysis starts from rendered HTML, so the plugin works on any theme or bu
 
 Full-page fetch may only target `home_url()`'s scheme and host. Any other host, any IP literal, any redirect off-host, and any non-200 status is rejected before the body is read. Same-host redirects are followed manually, at most two; the third is rejected. A response of exactly 2 MB is accepted. A response of 2 MB + 1 byte, including one truncated by `limit_response_size`, is rejected with `seostudio_fetch_failed` and reason `oversized`. Credentials for a password-protected staging site are read from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS` in `wp-config.php`, never from the database.
 
-**Resolved metadata.** The scorer never reads the raw post title, excerpt, or permalink until the resolver has decided what a crawler would actually receive. Amended 17 October 2026.
+**Resolved metadata.** Content-mode scoring resolves stored metadata as an estimate; it must not claim to have verified the crawler response. Live mode extracts the fetched head. `metadata_status` is `estimated` or `observed_html` and is persisted with the PageModel. Amended 17 October 2026.
 
 1. Owner mode, and no other SEO plugin active: expand `_seostudio_title`, `_seostudio_description` and `_seostudio_canonical`. Variables are `%%title%%`, `%%sitename%%`, `%%sep%%`, `%%excerpt%%`, `%%category%%` and `%%tagline%%`. An empty title falls back to the post title, an empty description to the excerpt, an empty canonical to the permalink.
-2. Analysis-only mode, or Owner mode while another SEO plugin is still active: use that plugin's rendered title, description and canonical, including its default template and fallbacks when the stored field is empty. SEO Studio fields are unpublished in this case and are ignored, even if they are saved.
+2. Analysis-only mode, or Owner mode while another SEO plugin is still active: estimate that plugin's title, description and canonical from its stored settings, including its default template and fallbacks when the stored field is empty. SEO Studio fields are unpublished in this case and are ignored, even if they are saved.
 3. No SEO plugin and not publishing SEO Studio fields: post title, excerpt, and permalink.
 
 The first active plugin wins, in this order: Yoast SEO, Rank Math, SEOPress, All in One SEO, The SEO Framework. Detection uses the constants in section 4.
@@ -316,7 +316,7 @@ All meta is registered with `register_post_meta()` with `show_in_rest` set to `f
 
 **Tables.**
 
-`seostudio_pages` (one row per analysable object): `id` bigint PK, `object_type` enum(post, term, home), `object_id` bigint, `url` varchar(2048), `url_hash` char(32) unique, `input_hash` char(32), `page_model` longtext (JSON), `render_mode` enum, `content_selector` varchar(255), `last_rendered_at` datetime, `last_fetched_at` datetime null, `last_error` text null, `is_indexable` tinyint. Indexes: `object (object_type, object_id)`, `url_hash`, `last_rendered_at`.
+`seostudio_pages` (one row per analysable object): `id` bigint PK, `object_type` enum(post, term, home), `object_id` bigint, `url` varchar(2048), `url_hash` char(32) unique, `input_hash` char(32), `page_model` longtext (JSON), `render_mode` enum, `content_selector` varchar(255), `last_rendered_at` datetime, `last_fetched_at` datetime null, `last_error` text null, `is_indexable` nullable tinyint (false: known blocker; null: unverified; true: live-response checks passed, not proof of indexing). Indexes: `object (object_type, object_id)`, `url_hash`, `last_rendered_at`.
 
 `seostudio_scores` (one row per page per keyphrase per engine run): `id` bigint PK, `page_id` bigint FK, `keyphrase` varchar(255), `keyphrase_hash` char(32), `engine` enum(onpage, seo, readability), `score` smallint, `denominator` smallint, `rating` enum(red, orange, green, grey), `details` longtext (JSON array of assessment results), `plugin_version` varchar(16), `created_at` datetime. Indexes: `page_keyphrase (page_id, keyphrase_hash, engine, created_at)`, `score`. The dashboard reads the latest row per `(page_id, keyphrase_hash, engine)`; history older than 90 days is pruned weekly, keeping the first and last row per month.
 
