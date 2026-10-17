@@ -25,6 +25,10 @@ if ( '' === $tests_dir ) {
 	exit( 1 );
 }
 
+if ( ! defined( 'SEOSTUDIO_JOBS_SYNC' ) ) {
+	define( 'SEOSTUDIO_JOBS_SYNC', true );
+}
+
 require dirname( __DIR__, 3 ) . '/vendor/autoload.php';
 require $tests_dir . '/includes/functions.php';
 

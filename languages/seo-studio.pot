@@ -1,0 +1,69 @@
+# Copyright (C) 2026 Zoop
+# This file is distributed under the GPL-3.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Zoop 0.5.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-17 12:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: seo-studio\n"
+
+#: assets/src/dashboard/index.tsx
+msgid "SEO Studio"
+msgstr ""
+
+#: assets/src/dashboard/index.tsx
+msgid "Re-analyse all"
+msgstr ""
+
+#: assets/src/dashboard/index.tsx
+msgid "Audit queued."
+msgstr ""
+
+#: assets/src/dashboard/index.tsx
+msgid "Settings"
+msgstr ""
+
+#: assets/src/dashboard/settings/SettingsPanel.tsx
+msgid "Settings saved."
+msgstr ""
+
+#: assets/src/dashboard/settings/SettingsPanel.tsx
+msgid "Mode"
+msgstr ""
+
+#: assets/src/dashboard/settings/SettingsPanel.tsx
+msgid "Home description"
+msgstr ""
+
+#: assets/src/dashboard/settings/SettingsPanel.tsx
+msgid "Save settings"
+msgstr ""
+
+#: assets/src/editor/panel.tsx
+msgid "Video URL"
+msgstr ""
+
+#: assets/src/editor/panel.tsx
+msgid "News article"
+msgstr ""
+
+#: src/Admin/Notices.php
+msgid "The active theme does not support the title-tag feature, so SEO Studio will not print a second title."
+msgstr ""
+
+#: src/Rest/AuditsController.php
+msgid "An audit is already running."
+msgstr ""
+
+#: src/Rest/AuditsController.php
+msgid "An audit was started recently. Wait a few minutes and try again."
+msgstr ""
+
+#: src/Rest/SettingsController.php
+msgid "Owner mode stays off while another SEO plugin is active."
+msgstr ""

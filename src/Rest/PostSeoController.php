@@ -112,6 +112,10 @@ final class PostSeoController {
 			'cornerstone'        => array(
 				'type' => 'boolean',
 			),
+			'video_url'          => $string( 2048 ),
+			'is_news'            => array(
+				'type' => 'boolean',
+			),
 		);
 	}
 
@@ -191,9 +195,18 @@ final class PostSeoController {
 			return;
 		}
 
+		if ( '_seostudio_is_news' === $metaKey ) {
+			if ( empty( $value ) ) {
+				delete_post_meta( $postId, $metaKey );
+				return;
+			}
+			update_post_meta( $postId, $metaKey, '1' );
+			return;
+		}
+
 		if ( is_string( $value ) && '_seostudio_description' === $metaKey ) {
 			$value = sanitize_textarea_field( $value );
-		} elseif ( is_string( $value ) && '_seostudio_canonical' === $metaKey ) {
+		} elseif ( is_string( $value ) && in_array( $metaKey, array( '_seostudio_canonical', '_seostudio_video_url' ), true ) ) {
 			$value = esc_url_raw( $value );
 		} elseif ( is_string( $value ) ) {
 			$value = sanitize_text_field( $value );

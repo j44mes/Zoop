@@ -212,4 +212,47 @@ final class PagesRepository {
 		$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared above when the query has values. The no-value query interpolates only internal table names.
 		return is_array( $rows ) ? $rows : array();
 	}
+
+	/**
+	 * Remember a per-page failure without stopping the batch.
+	 */
+	public function recordError( int $postId, string $message ): void {
+		global $wpdb;
+
+		$existing = $this->findByObject( 'post', $postId );
+		if ( null === $existing ) {
+			$this->save(
+				array(
+					'object_type' => 'post',
+					'object_id'   => $postId,
+					'url'         => '',
+					'page_model'  => array(),
+					'last_error'  => $message,
+				)
+			);
+			return;
+		}
+
+		$wpdb->update(
+			Tables::pages(),
+			array( 'last_error' => $message ),
+			array( 'id' => (int) $existing['id'] )
+		);
+	}
+
+	/**
+	 * Stamp a successful live fetch.
+	 */
+	public function markFetched( int $pageId ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			Tables::pages(),
+			array(
+				'last_fetched_at' => current_time( 'mysql', true ),
+				'last_error'      => null,
+			),
+			array( 'id' => $pageId )
+		);
+	}
 }

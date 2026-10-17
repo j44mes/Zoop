@@ -28,6 +28,8 @@ final class SeoValidator {
 		'og_image'           => '_seostudio_og_image',
 		'cornerstone'        => '_seostudio_cornerstone',
 		'content_selector'   => '_seostudio_content_selector',
+		'video_url'          => '_seostudio_video_url',
+		'is_news'            => '_seostudio_is_news',
 	);
 
 	/**
@@ -68,6 +70,8 @@ final class SeoValidator {
 			'robots' => $this->robots( $value ),
 			'og_image' => $this->image( $value ),
 			'cornerstone' => is_bool( $value ) ? null : $this->error( $field, 'Cornerstone must be true or false.' ),
+			'video_url' => $this->videoUrl( $value ),
+			'is_news' => is_bool( $value ) ? null : $this->error( $field, 'News must be true or false.' ),
 			default => null,
 		};
 	}
@@ -87,6 +91,26 @@ final class SeoValidator {
 		}
 		if ( $length > $max ) {
 			return $this->error( $field, 'This field is too long.' );
+		}
+
+		return null;
+	}
+
+	/**
+	 * A video URL may live on another host. Only http and https are accepted.
+	 *
+	 * @return array{field: string, message: string}|null
+	 */
+	private function videoUrl( mixed $value ): ?array {
+		$error = $this->boundedString( 'video_url', $value, 2048, true );
+		if ( null !== $error || ! is_string( $value ) || '' === trim( $value ) ) {
+			return $error;
+		}
+
+		$parts  = wp_parse_url( $value );
+		$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return $this->error( 'video_url', 'The video URL is not valid.' );
 		}
 
 		return null;

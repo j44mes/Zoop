@@ -78,7 +78,7 @@ Unit tests still do not boot WordPress. Integration tests under `tests/php/Integ
 
 Phase 1 is GPL-2.0-or-later. Phase 2 bundles `yoastseo` 3.6.0, which is GPL-3.0. Shipping that package means the combined plugin is distributed under GPL-3.0: the plugin header, `readme.txt` and `package.json` say GPL-3.0-or-later. `composer.json` still says GPL-2.0-or-later because it describes the PHP source alone. Its licence file is kept at `vendor-js/yoastseo/LICENSE`, it is listed under third-party code in `readme.txt`, and the admin UI does not use the Yoast name, logo, or yoast.com links. Assessment text from the package is shown with HTML stripped.
 
-Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in Composer now. Zoop's own code can be distributed under GPL-3 because it is GPL-2.0-or-later. The library is not loaded: its package has no Composer autoload, and Phase 1 does not include `action-scheduler.php`. Its plugin header requires WordPress 6.5. Zoop still declares 6.4, because this phase does not boot the library. Phase 3 has to reconcile that before jobs run.
+Action Scheduler 3.9.3 is GPL-3.0-or-later. Its package has no Composer autoload, so `seo-studio.php` loads `action-scheduler.php` directly. The library header asks for WordPress 6.5. Zoop still declares 6.4 because the scoring code does not need 6.5; the job queue does use the library's own bootstrap, which runs on `plugins_loaded`. If that file cannot be loaded, `Scheduler::enqueue()` runs the handler inline.
 
 ## Phase 1 review corrections
 
@@ -99,3 +99,14 @@ Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in 
 - The panel labels the preview "Unsaved preview" rather than "Live", and states which title and description the scores use for the current mode.
 - The editor script loads only on post editing screens, not the site or widget editors.
 - E2E flows dismiss the block editor welcome guide before using role-based locators. Flow 3 changes the post title, which is the printed title in the default Analysis-only mode.
+
+## Phase 3 to 5
+
+- Audits walk post IDs in `batch_size` slices (default 25) and store the cursor in `cursor_id`. One batch re-queues the next. The integration suite sets `SEOSTUDIO_JOBS_SYNC` so the handlers run inside the request. That is a test seam, not the production cron path. A 12-post run with a batch of 10 proves the cursor. A 300-post browser audit and the 15-minute shared-host target were not run.
+- Divi 5 is a written no-go. See `docs/divi5-spike.md`. The commercial plugin is not in this environment, so no Visual Builder panel was executed.
+- V2 schema types are in this build because the owner asked for them: `LocalBusiness` when the local setting is enabled and named, `VideoObject` when a post has `_seostudio_video_url`, and `NewsArticle` instead of `Article` when `_seostudio_is_news` is set. The specification had listed further schema types as roadmap. These three are the ones that were requested.
+- Owner mode is refused, and an imported settings file is forced back to Analysis-only, while `Detector` reports an active plugin. Tests inject that report with `Detector::force()` so the suite never defines `WPSEO_VERSION` or the other plugin constants.
+- Importer key maps follow the specification. SEOPress `_seopress_robots_index` value `yes` is treated as noindex. Unknown title tokens are left literal.
+- Title templates are still the approximations recorded above. Owner mode output expands Zoop's own tokens only.
+- Uninstall with the flag off now deletes the options and the `seostudio` scheduled actions, and keeps tables and meta. The previous file returned immediately and left the option in place.
+- The migration source picker names Yoast SEO, Rank Math, and SEOPress. That is the exception to the rule that the scoring UI does not use those names. The picker cannot describe the source without them. The scoring panel still does not.

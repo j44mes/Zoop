@@ -258,13 +258,35 @@ test( 'editing the title updates the title assessment without a reload', async (
 	).toBeVisible();
 } );
 
-test( 're-analyse all reports that the queue is not available', async ( {
-	page,
-} ) => {
+test( 're-analyse all queues an audit', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
 	await page.getByRole( 'button', { name: 'Re-analyse all' } ).click();
 	await expect(
-		page.getByText( 'The site audit queue is not available in this phase.' )
+		page.getByText(
+			/Audit queued\.|An audit is already running\.|An audit was started recently/
+		)
 	).toBeVisible();
+} );
+
+test( 'owner mode prints the home description', async ( { page } ) => {
+	await login( page );
+	await page.goto( '/wp-admin/admin.php?page=seostudio' );
+	await page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
+	await page.getByLabel( 'Mode' ).selectOption( 'owner' );
+	await page
+		.getByLabel( 'Home description' )
+		.fill( 'Studio home description' );
+	await page.getByRole( 'button', { name: 'Save settings' } ).click();
+	await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
+	await page.goto( '/' );
+	await expect( page.locator( 'meta[name="description"]' ) ).toHaveAttribute(
+		'content',
+		'Studio home description'
+	);
+	await page.goto( '/wp-admin/admin.php?page=seostudio' );
+	await page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
+	await page.getByLabel( 'Mode' ).selectOption( 'analysis' );
+	await page.getByRole( 'button', { name: 'Save settings' } ).click();
+	await expect( page.getByText( 'Settings saved.' ) ).toBeVisible();
 } );

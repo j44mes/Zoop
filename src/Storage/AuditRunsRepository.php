@@ -50,4 +50,87 @@ final class AuditRunsRepository {
 		);
 		return is_array( $row ) ? $row : null;
 	}
+
+	/**
+	 * A queued or running run of this type, if one exists.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public function active( string $type ): ?array {
+		global $wpdb;
+
+		$table = Tables::auditRuns();
+		$row   = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE type = %s AND status IN ('queued', 'running') ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
+				$type
+			),
+			ARRAY_A
+		);
+		return is_array( $row ) ? $row : null;
+	}
+
+	public function markRunning( int $runId ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			Tables::auditRuns(),
+			array( 'status' => 'running' ),
+			array( 'id' => $runId )
+		);
+	}
+
+	/**
+	 * Persist progress after a batch.
+	 *
+	 * @param array<string, mixed> $report
+	 */
+	public function advance( int $runId, int $processed, int $failed, int $cursor, array $report ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			Tables::auditRuns(),
+			array(
+				'processed' => $processed,
+				'failed'    => $failed,
+				'cursor_id' => $cursor,
+				'report'    => wp_json_encode( $report ),
+			),
+			array( 'id' => $runId )
+		);
+	}
+
+	public function finish( int $runId, string $status ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			Tables::auditRuns(),
+			array(
+				'status'      => $status,
+				'finished_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $runId )
+		);
+	}
+
+	/**
+	 * Public shape returned by the audit routes.
+	 *
+	 * @param array<string, mixed> $row
+	 * @return array<string, mixed>
+	 */
+	public function present( array $row ): array {
+		$report = json_decode( (string) ( $row['report'] ?? '' ), true );
+
+		return array(
+			'run_id'    => (int) $row['id'],
+			'type'      => (string) $row['type'],
+			'status'    => (string) $row['status'],
+			'total'     => (int) $row['total'],
+			'processed' => (int) $row['processed'],
+			'failed'    => (int) $row['failed'],
+			'cursor'    => (int) $row['cursor_id'],
+			'report'    => is_array( $report ) ? $report : array(),
+		);
+	}
 }

@@ -1,6 +1,6 @@
 {
   "name": "j44mes/zoop",
-  "description": "Zoop is a WordPress SEO plugin. Phase 1 scores a rendered page with a deterministic on-page rubric.",
+  "description": "Zoop is a WordPress SEO plugin. It scores rendered pages, queues site audits, and can print Owner-mode metadata.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
   "require": {
