@@ -25,7 +25,7 @@ final class Extractor {
 	 */
 	public function extract( string $html, array $context = array() ): PageModel {
 		$render_mode = (string) ( $context['render_mode'] ?? 'content' );
-		$document    = $this->load( $html );
+		$document    = $this->load( $this->markHidden( $html ) );
 		$this->removeHidden( $document );
 
 		$selector = (string) ( $context['content_selector'] ?? '' );
@@ -96,19 +96,37 @@ final class Extractor {
 		return $document;
 	}
 
-	private function removeHidden( DOMDocument $document ): void {
-		$xpath = new DOMXPath( $document );
-		$nodes = $xpath->query( '//script|//style|//noscript|//template|//svg|//iframe|//*[@hidden]|//*[@aria-hidden="true"]' );
-		if ( false === $nodes ) {
-			return;
+	private function markHidden( string $html ): string {
+		if ( ! class_exists( '\WP_HTML_Tag_Processor' ) ) {
+			return $html;
 		}
 
+		$processor = new \WP_HTML_Tag_Processor( $html );
+		while ( $processor->next_tag() ) {
+			$aria  = $processor->get_attribute( 'aria-hidden' );
+			$style = $processor->get_attribute( 'style' );
+			$hide  = null !== $processor->get_attribute( 'hidden' )
+				|| ( is_string( $aria ) && 'true' === strtolower( $aria ) )
+				|| $this->styleHides( is_string( $style ) ? $style : '' );
+			if ( $hide ) {
+				$processor->set_attribute( 'data-seostudio-hidden', '1' );
+			}
+		}
+
+		return $processor->get_updated_html();
+	}
+
+	private function removeHidden( DOMDocument $document ): void {
+		$xpath  = new DOMXPath( $document );
+		$nodes  = $xpath->query( '//script|//style|//noscript|//template|//svg|//iframe' );
 		$remove = array();
-		foreach ( $nodes as $node ) {
-			$remove[] = $node;
+		if ( false !== $nodes ) {
+			foreach ( $nodes as $node ) {
+				$remove[] = $node;
+			}
 		}
 		foreach ( $document->getElementsByTagName( '*' ) as $element ) {
-			if ( $element instanceof DOMElement && str_contains( strtolower( $element->getAttribute( 'style' ) ), 'display:none' ) ) {
+			if ( $element instanceof DOMElement && $this->elementIsHidden( $element ) ) {
 				$remove[] = $element;
 			}
 		}
@@ -119,19 +137,45 @@ final class Extractor {
 		}
 	}
 
+	private function elementIsHidden( DOMElement $element ): bool {
+		if ( $element->hasAttribute( 'hidden' ) || $element->hasAttribute( 'data-seostudio-hidden' ) ) {
+			return true;
+		}
+
+		if ( 'true' === strtolower( $element->getAttribute( 'aria-hidden' ) ) ) {
+			return true;
+		}
+
+		return $this->styleHides( $element->getAttribute( 'style' ) );
+	}
+
+	private function styleHides( string $style ): bool {
+		$declarations = preg_split( '/;/', strtolower( $style ) );
+		if ( ! is_array( $declarations ) ) {
+			return false;
+		}
+
+		foreach ( $declarations as $declaration ) {
+			$parts = explode( ':', $declaration, 2 );
+			if ( 2 !== count( $parts ) ) {
+				continue;
+			}
+			$property = trim( $parts[0] );
+			$value    = trim( $parts[1] );
+			if ( ( 'display' === $property && 'none' === $value ) || ( 'visibility' === $property && 'hidden' === $value ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/**
 	 * Select root.
 	 *
 	 * @return array{node: DOMNode, selector: string}
 	 */
 	private function selectRoot( DOMDocument $document, string $renderMode, string $selector ): array {
-		if ( 'content' === $renderMode ) {
-			return array(
-				'node'     => $document->getElementsByTagName( 'body' )->item( 0 ) ?? $document,
-				'selector' => 'content',
-			);
-		}
-
 		if ( '' !== $selector ) {
 			$found = $this->findSelector( $document, $selector );
 			if ( $found instanceof DOMElement ) {
@@ -157,6 +201,13 @@ final class Extractor {
 			return array(
 				'node'     => $role->item( 0 ),
 				'selector' => '[role=main]',
+			);
+		}
+
+		if ( 'content' === $renderMode ) {
+			return array(
+				'node'     => $document->getElementsByTagName( 'body' )->item( 0 ) ?? $document,
+				'selector' => 'content',
 			);
 		}
 

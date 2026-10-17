@@ -92,17 +92,104 @@ final class PagesRepository {
 				'object_id'        => $postId,
 				'url'              => $model->url,
 				'input_hash'       => $inputHash,
-				'page_model'       => array(
-					'title_tag'        => $model->titleTag,
-					'meta_description' => $model->metaDescription,
-					'body_text'        => $model->bodyText,
-					'h1'               => $model->h1,
-					'headings'         => $model->headings,
-				),
+				'page_model'       => $model->toArray(),
 				'render_mode'      => $model->renderMode,
 				'content_selector' => $model->contentSelectorUsed,
 				'is_indexable'     => true,
 			)
 		);
+	}
+
+	/**
+	 * Restore the model saved for a post.
+	 */
+	public function loadModel( int $postId, string $type = 'post' ): ?PageModel {
+		$row = $this->findByObject( $type, $postId );
+		if ( null === $row ) {
+			return null;
+		}
+
+		$decoded = json_decode( (string) ( $row['page_model'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+		if ( ! is_array( $decoded ) ) {
+			return null;
+		}
+
+		return PageModel::fromArray( $decoded );
+	}
+
+	/**
+	 * Page rows joined to posts and the latest on-page score.
+	 *
+	 * @param array<string, mixed> $filters
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function search( array $filters ): array {
+		global $wpdb;
+
+		$pages  = Tables::pages();
+		$scores = Tables::scores();
+		$posts  = $wpdb->posts;
+		$where  = array( "pages.object_type = 'post'" );
+		$values = array();
+
+		if ( isset( $filters['post_type'] ) && is_string( $filters['post_type'] ) && '' !== $filters['post_type'] ) {
+			$where[]  = 'posts.post_type = %s';
+			$values[] = $filters['post_type'];
+		}
+
+		if ( isset( $filters['search'] ) && is_string( $filters['search'] ) && '' !== $filters['search'] ) {
+			$where[]  = 'posts.post_title LIKE %s';
+			$values[] = '%' . $wpdb->esc_like( $filters['search'] ) . '%';
+		}
+
+		if ( isset( $filters['rating'] ) && is_string( $filters['rating'] ) && '' !== $filters['rating'] ) {
+			$where[]  = 'scores.rating = %s';
+			$values[] = $filters['rating'];
+		}
+
+		if ( isset( $filters['score_min'] ) && is_numeric( $filters['score_min'] ) ) {
+			$where[]  = 'scores.score >= %d';
+			$values[] = (int) $filters['score_min'];
+		}
+
+		if ( isset( $filters['score_max'] ) && is_numeric( $filters['score_max'] ) ) {
+			$where[]  = 'scores.score <= %d';
+			$values[] = (int) $filters['score_max'];
+		}
+
+		if ( array_key_exists( 'has_keyphrase', $filters ) && null !== $filters['has_keyphrase'] ) {
+			$where[] = ! empty( $filters['has_keyphrase'] )
+				? "COALESCE(scores.keyphrase, '') <> ''"
+				: "COALESCE(scores.keyphrase, '') = ''";
+		}
+
+		$orderby = 'pages.last_rendered_at';
+		$allowed = array(
+			'title'            => 'posts.post_title',
+			'score'            => 'scores.score',
+			'last_rendered_at' => 'pages.last_rendered_at',
+		);
+		if ( isset( $filters['orderby'] ) && is_string( $filters['orderby'] ) && isset( $allowed[ $filters['orderby'] ] ) ) {
+			$orderby = $allowed[ $filters['orderby'] ];
+		}
+
+		$order = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
+		$sql   = "SELECT pages.*, posts.post_title, posts.post_type, posts.post_status,
+			scores.score AS onpage_score, scores.denominator AS onpage_denominator,
+			scores.rating AS onpage_rating, scores.details AS onpage_details, scores.keyphrase AS score_keyphrase
+			FROM {$pages} pages
+			INNER JOIN {$posts} posts ON pages.object_id = posts.ID
+			LEFT JOIN {$scores} scores ON scores.id = (
+				SELECT MAX(latest.id) FROM {$scores} latest WHERE latest.page_id = pages.id AND latest.engine = 'onpage'
+			)
+			WHERE " . implode( ' AND ', $where ) . " ORDER BY {$orderby} {$order}";
+
+		if ( array() !== $values ) {
+			$prepared = $wpdb->prepare( $sql, $values ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders are added with the values.
+			$sql      = is_string( $prepared ) ? $prepared : $sql;
+		}
+
+		$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared above when the query has values. The no-value query interpolates only internal table names.
+		return is_array( $rows ) ? $rows : array();
 	}
 }

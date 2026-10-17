@@ -42,6 +42,56 @@ final class KeyphrasesIndex {
 	}
 
 	/**
+	 * Remove every index row for a deleted post.
+	 */
+	public function deleteObject( int $postId, string $type = 'post' ): void {
+		global $wpdb;
+
+		$table = Tables::keyphrases();
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+		if ( $found !== $table ) {
+			return;
+		}
+
+		$wpdb->delete(
+			$table,
+			array(
+				'object_type' => $type,
+				'object_id'   => $postId,
+			)
+		);
+	}
+
+	/**
+	 * Rows for a keyphrase.
+	 *
+	 * @return array<int, array{post_id: int, is_primary: bool}>
+	 */
+	public function rowsFor( string $keyphrase ): array {
+		global $wpdb;
+
+		$table = Tables::keyphrases();
+		$rows  = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_id, is_primary FROM {$table} WHERE keyphrase_hash = %s AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
+				md5( mb_strtolower( $keyphrase, 'UTF-8' ) ),
+				'post'
+			),
+			ARRAY_A
+		);
+
+		$found = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$found[] = array(
+				'post_id'    => (int) $row['object_id'],
+				'is_primary' => ! empty( $row['is_primary'] ),
+			);
+		}
+
+		return $found;
+	}
+
+	/**
 	 * Post ids for.
 	 *
 	 * @return int[]

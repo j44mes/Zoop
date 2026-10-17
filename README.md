@@ -27,9 +27,18 @@ composer install --no-dev --optimize-autoloader
 ## Commands
 
 ```bash
-composer test      # PHPUnit unit suite
-composer lint      # PHPCS (WordPress-Extra and WordPress-Docs)
-composer analyse   # PHPStan level 6
+composer test             # PHPUnit unit suite
+composer test:coverage    # Line coverage for src/Scoring and src/Content
+composer lint             # PHPCS (WordPress-Extra and WordPress-Docs)
+composer analyse          # PHPStan level 6
+```
+
+Integration tests boot WordPress through wp-env:
+
+```bash
+npm install -g @wordpress/env
+wp-env start
+wp-env run tests-cli --env-cwd="wp-content/plugins/$(basename "$PWD")" phpunit -c phpunit.integration.xml.dist
 ```
 
 On a site with WP-CLI:

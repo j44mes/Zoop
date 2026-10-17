@@ -43,15 +43,16 @@ final class KeyphrasesController {
 	}
 
 	public function usage( WP_REST_Request $request ): WP_REST_Response {
-		$ids   = $this->index->postIdsFor( (string) $request['keyphrase'] );
+		$rows  = $this->index->rowsFor( (string) $request['keyphrase'] );
 		$posts = array();
-		foreach ( $ids as $post_id ) {
-			if ( ! Capabilities::canEditPost( $post_id ) ) {
+		foreach ( $rows as $row ) {
+			if ( ! Capabilities::canEditPost( $row['post_id'] ) ) {
 				continue;
 			}
 			$posts[] = array(
-				'post_id' => $post_id,
-				'title'   => get_the_title( $post_id ),
+				'post_id'    => $row['post_id'],
+				'title'      => get_the_title( $row['post_id'] ),
+				'is_primary' => $row['is_primary'],
 			);
 		}
 

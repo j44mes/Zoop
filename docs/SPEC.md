@@ -128,19 +128,27 @@ Every analysis starts from rendered HTML, so the plugin works on any theme or bu
 
 | Mode | How | Reaches | Used for |
 | --- | --- | --- | --- |
-| Content render (default) | Set up the post with `setup_postdata()`, run `apply_filters('the_content', $post->post_content)`, capture output, combine with the plugin's own computed title, description and canonical | Published, draft, pending, private and scheduled posts; unsaved builder changes are not reachable | Editor-side analysis, batch audits, drafts |
-| Full-page fetch | `wp_remote_get()` the post's permalink (or preview link with a logged-in nonce cookie for drafts) with a 20-second timeout and a 2 MB body cap | Everything a crawler sees: theme head, menus, footer, scripts | Code checks (external CSS, visible-text ratio), verifying Owner mode output, a Verify-live button |
+| Content render (default) | Set up the post with `setup_postdata()`, run `apply_filters('the_content', $post->post_content)`, capture output, then attach the resolved title, description and canonical | Published, draft, pending, private and scheduled posts; unsaved builder changes are not reachable | Editor-side analysis, batch audits, drafts |
+| Full-page fetch | `wp_remote_get()` the post's permalink (or preview link with a logged-in nonce cookie for drafts) with a 20-second timeout. The request asks for 2 MB + 1 byte and any body longer than 2 MB is rejected | Everything a crawler sees: theme head, menus, footer, scripts | Code checks (external CSS, visible-text ratio), verifying Owner mode output, a Verify-live button |
 
-Full-page fetch may only target `home_url()`'s scheme and host. Any other host, any IP literal, any redirect off-host, and any non-200 status is rejected before the body is read. Credentials for a password-protected staging site are read from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS` in `wp-config.php`, never from the database.
+Full-page fetch may only target `home_url()`'s scheme and host. Any other host, any IP literal, any redirect off-host, and any non-200 status is rejected before the body is read. Same-host redirects are followed manually, at most two; the third is rejected. A response of exactly 2 MB is accepted. A response of 2 MB + 1 byte, including one truncated by `limit_response_size`, is rejected with `seostudio_fetch_failed` and reason `oversized`. Credentials for a password-protected staging site are read from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS` in `wp-config.php`, never from the database.
 
-**Boilerplate stripping (main-content selection).** The extractor picks the first rule that matches and records which one it used, so the UI can show it.
+**Resolved metadata.** The scorer never reads the raw post title, excerpt, or permalink until the resolver has decided what a crawler would actually receive. Amended 17 October 2026.
 
-1. A per-site CSS selector from Settings, if set (filter `seostudio/content_selectors`).
+1. Owner mode, and no other SEO plugin active: expand `_seostudio_title`, `_seostudio_description` and `_seostudio_canonical`. Variables are `%%title%%`, `%%sitename%%`, `%%sep%%`, `%%excerpt%%`, `%%category%%` and `%%tagline%%`. An empty title falls back to the post title, an empty description to the excerpt, an empty canonical to the permalink.
+2. Analysis-only mode, or Owner mode while another SEO plugin is still active: use that plugin's rendered title, description and canonical, including its default template and fallbacks when the stored field is empty. SEO Studio fields are unpublished in this case and are ignored, even if they are saved.
+3. No SEO plugin and not publishing SEO Studio fields: post title, excerpt, and permalink.
+
+The first active plugin wins, in this order: Yoast SEO, Rank Math, SEOPress, All in One SEO, The SEO Framework. Detection uses the constants in section 4.
+
+**Boilerplate stripping (main-content selection).** The extractor picks the first rule that matches and records which one it used, so the UI can show it. Both render modes use this order. Amended 17 October 2026.
+
+1. The per-post `_seostudio_content_selector`, if set. Otherwise the per-site selector for that post type from Settings (filter `seostudio/content_selectors`).
 2. `main`, then `article`, then `[role=main]`.
 3. The element with the highest text density among `div` and `section` elements that is not inside `header`, `footer`, `nav`, `aside` and does not match a known cookie-banner, menu or widget class list.
-4. Elements with `hidden`, `aria-hidden=true`, `display:none` inline, `noscript`, `script`, `style`, `template`, `svg` and `iframe` are removed before any counting.
+4. Elements with a `hidden` attribute, `aria-hidden="true"`, a style of `display: none` or `visibility: hidden` with any whitespace, plus `noscript`, `script`, `style`, `template`, `svg` and `iframe`, are removed before any counting. When WordPress is loaded, those attributes are read with `WP_HTML_Tag_Processor`, not by searching the raw HTML string.
 
-In Content render mode step 3 is skipped because the captured string is already the body.
+In Content render mode step 3 is skipped because the captured string is already the body. Steps 1, 2 and 4 still apply.
 
 **PageModel fields.** `url`, `slug`, `title_tag`, `meta_description`, `canonical`, `robots`, `h1[]`, `headings[] {level, text, order}`, `body_text`, `word_count`, `paragraphs[]`, `sentences[]`, `links[] {href, anchor, internal, nofollow}`, `images[] {src, alt, in_body}`, `has_external_css`, `html_bytes`, `visible_text_bytes`, `is_https`, `lang`, `render_mode`, `content_selector_used`, `rendered_at`.
 
@@ -304,7 +312,7 @@ Per-post inputs live in post meta so they travel with WordPress exports; compute
 | `_seostudio_cornerstone` | bool | Switches Yoast-style cornerstone thresholds |
 | `_seostudio_content_selector` | string | Per-post override of the main-content selector |
 
-All meta is registered with `register_post_meta()` with `show_in_rest`, a sanitize callback and `auth_callback` requiring `edit_post`.
+All meta is registered with `register_post_meta()` with `show_in_rest` set to `false` and a sanitize callback. Amended 17 October 2026. `auth_callback` only guards meta writes, so it does not stop anonymous reads of a published post through `/wp/v2/posts`. These keys are read and written only through `seostudio/v1`, which checks `edit_post`. The core meta reader must not return them.
 
 **Tables.**
 
@@ -312,7 +320,7 @@ All meta is registered with `register_post_meta()` with `show_in_rest`, a saniti
 
 `seostudio_scores` (one row per page per keyphrase per engine run): `id` bigint PK, `page_id` bigint FK, `keyphrase` varchar(255), `keyphrase_hash` char(32), `engine` enum(onpage, seo, readability), `score` smallint, `denominator` smallint, `rating` enum(red, orange, green, grey), `details` longtext (JSON array of assessment results), `plugin_version` varchar(16), `created_at` datetime. Indexes: `page_keyphrase (page_id, keyphrase_hash, engine, created_at)`, `score`. The dashboard reads the latest row per `(page_id, keyphrase_hash, engine)`; history older than 90 days is pruned weekly, keeping the first and last row per month.
 
-`seostudio_keyphrases` (index for previously-used and cannibalisation checks): `keyphrase_hash` char(32), `object_type`, `object_id`, `is_primary` tinyint, PK `(keyphrase_hash, object_type, object_id)`.
+`seostudio_keyphrases` (index for previously-used and cannibalisation checks): `keyphrase_hash` char(32), `object_type`, `object_id`, `is_primary` tinyint, PK `(keyphrase_hash, object_type, object_id)`. The index is updated from `added_post_meta`, `updated_post_meta` and `deleted_post_meta` on `_seostudio_focus_keyphrase`, and the object's rows are removed on `before_delete_post`. The CLI is not the only writer. Amended 17 October 2026.
 
 `seostudio_audit_runs`: `id`, `type` enum(audit, import, fetch), `status` enum(queued, running, done, failed, cancelled), `total`, `processed`, `failed`, `cursor`, `started_at`, `finished_at`, `report` longtext JSON.
 
@@ -326,12 +334,13 @@ All endpoints live under `seostudio/v1`, require a logged-in user with the state
 
 | Method and route | Capability | Request | Response | Notes |
 | --- | --- | --- | --- | --- |
-| `GET /pages` | `edit_posts` | `page`, `per_page` (max 100), `search`, `post_type`, `rating`, `score_min`, `score_max`, `orderby`, `order`, `has_keyphrase` | `{items[], total, pages}`; item = `{page_id, object_type, object_id, title, url, edit_url, keyphrase, onpage {score, denominator}, seo_rating, readability_rating, top_issue, last_rendered_at, last_error}` | Dashboard list; single SQL query joining latest scores |
+| `GET /pages` | `edit_posts` | `page`, `per_page` (max 100), `search`, `post_type`, `rating`, `score_min`, `score_max`, `orderby`, `order`, `has_keyphrase` | `{items[], total, pages}`; item = `{page_id, object_type, object_id, title, url, edit_url, keyphrase, onpage {score, denominator}, seo_rating, readability_rating, top_issue, last_rendered_at, last_error}` | Dashboard list. Only objects the current user can `edit_post`. Other users' drafts and private posts are omitted. |
 | `GET /pages/{page_id}` | `edit_post` on the object |  | Full page record with `page_model` and latest `details` for every keyphrase and engine | Page panel load |
-| `POST /pages/{page_id}/analyse` | `edit_post` | `{mode: content or live, keyphrases?: string[]}` | Updated page record | Synchronous for `content`; `live` queues `seostudio_fetch_live` and returns `202` with `run_id` |
+| `POST /analyse/{object_type}/{object_id}` | `edit_post` on the object | `{mode?: content or live, keyphrase?: string, keyphrases?: string[]}` | Full page record | Upserts `seostudio_pages` for that object, renders, scores, and returns the record. A missing row is created; this is the first-analysis path. Amended 17 October 2026. Content mode is synchronous. Live mode performs one synchronous same-host fetch in Phase 1, because the job queue is Phase 3, and returns the record. |
+| `POST /pages/{page_id}/analyse` | `edit_post` | `{mode: content or live, keyphrase?: string, keyphrases?: string[]}` | Updated page record | Re-analyses an existing row. Unknown `page_id` is `seostudio_not_found`. |
 | `POST /posts/{post_id}/model` | `edit_post` | `{content_html, title, excerpt}` | `PageModel` without saving | Live analysis of unsaved block-editor content; output not stored |
 | `GET /posts/{post_id}/seo` | `edit_post` |  | All `_seostudio_*` meta for the post, resolved title and description previews | Panel load |
-| `PUT /posts/{post_id}/seo` | `edit_post` | Any subset of the meta fields | Saved meta plus resolved previews | Validation: title 1 to 300 chars, description 1 to 500, canonical same-host or empty, robots booleans |
+| `PUT /posts/{post_id}/seo` | `edit_post` | Any subset of the meta fields | Saved meta plus resolved previews | Route `args` declare type, enum, `maxLength` and `validate_callback`. Title 1 to 300 characters when not empty, description 1 to 500, focus keyphrase at most 255, at most 4 related keyphrases. Canonical is empty or the same scheme and host as `home_url()`; anything else is `seostudio_validation` with `data.field` `canonical`. Robots booleans, synonyms, Open Graph fields, cornerstone and content selector are the same contract. |
 | `GET /keyphrases/usage` | `edit_posts` | `keyphrase` | `{posts: [{post_id, title, is_primary}]}` | Previously-used check, cannibalisation |
 | `POST /audits` | `manage_options` | `{type: audit, post_types?: string[]}` | `{run_id}` and `202` | Starts a site-wide run; `409` if one is running |
 | `GET /audits/{run_id}` | `manage_options` |  | Run row with progress and report | Polled every 3 s by the dashboard |
@@ -426,8 +435,8 @@ The plugin is treated as production software that runs on sites it does not cont
 | Request forgery | Every state-changing admin request carries a nonce | REST uses `X-WP-Nonce`; classic meta box save uses `wp_nonce_field` and `check_admin_referer`; no GET changes state |
 | Input | All input sanitised then validated before use | `sanitize_text_field`, `esc_url_raw`, `absint`, `rest_sanitize_boolean`; schema validation in REST `args`; keyphrases capped at 255 chars, 5 per post |
 | Output | All output escaped at the point of output | `esc_html`, `esc_attr`, `esc_url`, `wp_kses_post` for assessment HTML; JSON-LD through `wp_json_encode` with `JSON_HEX_TAG`; React renders strings, never `dangerouslySetInnerHTML` except the sanitised Google preview |
-| Server-side request forgery | Full-page fetch can only reach the site's own host | Allow-list check on scheme and host against `home_url()` before `wp_remote_get`; `reject_unsafe_urls => true`; no redirects followed off-host (`redirection => 0` then manual same-host follow, max 2); IP literals, `localhost`, link-local and private ranges rejected even if the host resolves there; response capped at 2 MB with `limit_response_size` |
-| Draft privacy | Draft and private content never reaches a public URL or an unauthorised user | Content render mode reads the post in-process under the current user's capability; preview fetch uses a short-lived preview nonce; `GET /pages` filters rows by `read_post`; stored `page_model` for non-public posts is served only to users who can edit them |
+| Server-side request forgery | Full-page fetch can only reach the site's own host | Allow-list check on scheme and host against `home_url()` before `wp_remote_get`; `reject_unsafe_urls => true`; no redirects followed off-host (`redirection => 0` then manual same-host follow, at most 2, reject the third); IP literals, `localhost`, link-local and private ranges rejected even if the host resolves there; `limit_response_size` is 2 MB + 1 byte and any body longer than 2 MB is rejected |
+| Draft privacy | Draft and private content never reaches a public URL or an unauthorised user | Content render mode reads the post in-process under the current user's capability; preview fetch uses a short-lived preview nonce; `GET /pages` and `GET /pages/{id}` include a row only when the user can `edit_post` that object, so other users' drafts and private posts are absent; `_seostudio_*` meta is not exposed on `/wp/v2/posts` |
 | Database | No raw SQL with interpolated values | `$wpdb->prepare` everywhere; table names from a constant map; `dbDelta` for schema |
 | Secrets | No credentials in the database | Staging basic-auth credentials from `wp-config.php` constants only; future API keys stored with `wp_salt`-derived encryption and never returned by REST |
 | Rate limiting | Expensive actions cannot be spammed | Transient counters per user for live fetch and audit start; Action Scheduler concurrency of one for audits |

@@ -46,7 +46,7 @@ final class Commands {
 		Upgrader::maybeUpgrade();
 		$model   = ( new Renderer() )->renderPost( $post_id );
 		$score   = ( new Scorer() )->score( $model, $keyphrase );
-		$page_id = ( new PagesRepository() )->storeModel( $post_id, $model, md5( $model->bodyText ) );
+		$page_id = ( new PagesRepository() )->storeModel( $post_id, $model, $model->inputHash() );
 		( new ScoresRepository() )->insert( $page_id, $keyphrase, $score, SEOSTUDIO_VERSION );
 		( new KeyphrasesIndex() )->replacePrimary( $post_id, $keyphrase );
 		\WP_CLI::line( sprintf( 'On-page score: %d/%d', $score->earned, $score->denominator ) );
@@ -79,7 +79,9 @@ final class Commands {
 
 	public static function openapi(): void {
 		$routes = array(
+			'GET /seostudio/v1/pages',
 			'GET /seostudio/v1/pages/{page_id}',
+			'POST /seostudio/v1/analyse/{object_type}/{object_id}',
 			'POST /seostudio/v1/pages/{page_id}/analyse',
 			'GET /seostudio/v1/posts/{post_id}/seo',
 			'PUT /seostudio/v1/posts/{post_id}/seo',

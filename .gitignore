@@ -26,6 +26,9 @@ coverage/
 .cache/
 .pytest_cache/
 .phpunit.cache/
+.phpunit.result.cache
+.wp-env/
+.wp-env.override.json
 .phpcs.cache/
 .mypy_cache/
 .ruff_cache/

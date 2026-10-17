@@ -16,7 +16,7 @@ Specification enums (`object_type`, `engine`, `rating`, `status`) are `varchar` 
 
 ## HTML parser
 
-`Extractor` uses `DOMDocument`. `WP_HTML_Processor` does not yet expose the tree operations this extractor needs, and `masterminds/html5` is not a Phase 1 dependency.
+`Extractor` uses `DOMDocument` to build the tree. `WP_HTML_Tag_Processor` reads `hidden`, `aria-hidden`, and `style` when WordPress is loaded, then marks those elements so the DOM step can remove them. The processor does not expose the tree operations the extractor needs, and `masterminds/html5` is not a Phase 1 dependency. Without WordPress, the same attribute checks run on the DOM attributes, including `display: none` and `visibility: hidden` with arbitrary whitespace.
 
 ## Fetch policy
 
@@ -36,9 +36,43 @@ Filters keep the published slash names `seostudio/assessments` and `seostudio/fu
 
 `wp seostudio detect` reports AIOSEO and The SEO Framework. Phase 1 has no importer for them, and it does not switch the plugin into Owner mode.
 
+## Names stay split
+
+Zoop is the repository and the plugin header. SEO Studio is the product name in the specification. Internal prefixes stay `seostudio_` for tables, meta keys, the REST namespace, and the text domain. Renaming those prefixes would need a migration, so Phase 2 must not introduce a second prefix.
+
+## Resolved metadata
+
+Scoring uses the metadata a crawler would receive.
+
+- Owner mode with no other SEO plugin active expands `_seostudio_title`, `_seostudio_description` and `_seostudio_canonical`, then falls back to the post title, excerpt, and permalink.
+- Analysis-only mode, and Owner mode while another SEO plugin is still active, ignore saved SEO Studio fields. Those fields are not being printed. The active plugin's rendered title, description, and canonical are used instead, including its default template when the stored value is empty.
+- The first detected plugin wins: Yoast, Rank Math, SEOPress, All in One SEO, The SEO Framework.
+
+Template approximations, recorded because none of these plugins exposes a stable public function for "the title you printed":
+
+- Yoast: stored `_yoast_wpseo_*`, otherwise `wpseo_titles` `title-post` and `metadesc-post`, otherwise `%%title%% %%sep%% %%sitename%%` and the excerpt. Separator symbols follow Yoast's `sc-*` names.
+- Rank Math: stored `rank_math_*`, otherwise `rank-math-options-titles` `pt_{post_type}_title` and `pt_{post_type}_description`, otherwise `%title% %sep% %sitename%` and the excerpt.
+- SEOPress: stored `_seopress_titles_*` and `_seopress_robots_canonical`, otherwise `seopress_titles_option_name` keys `seopress_titles_single_post_title` and `seopress_titles_single_post_desc`, otherwise `%%post_title%% %%sep%% %%sitetitle%%` and the excerpt.
+- All in One SEO: the `aioseo_posts` row when that table exists, otherwise `#post_title #separator_sa #site_title` and the excerpt.
+- The SEO Framework: `_genesis_title`, `_genesis_description`, `_genesis_canonical_uri`. An empty title is the post title. When `autodescription-site-settings` `title_rem_additions` is off, the site name is appended. This is not TSF's full title generator.
+
+## Public meta
+
+`show_in_rest` is false for every `_seostudio_*` key. The specification previously asked for `show_in_rest` plus `auth_callback`. In WordPress that callback only guards writes, so a published post would have leaked keyphrases through `/wp/v2/posts`. Reads and writes go through `seostudio/v1`.
+
+## First analysis and live fetch
+
+`POST /analyse/{object_type}/{object_id}` creates the page row. Phase 1 accepts `object_type=post` only. `term` and `home` stay in the schema and return `seostudio_validation` until those objects are modelled.
+
+Live mode in this phase performs one synchronous same-host fetch and returns the page record. It does not queue Action Scheduler. That queue is Phase 3. A third same-host redirect is rejected. The HTTP API is asked for 2 MB + 1 byte so a body cut off at 2 MB is distinguishable from a complete 2 MB body.
+
+## Keyphrase index
+
+`added_post_meta`, `updated_post_meta`, and `deleted_post_meta` on `_seostudio_focus_keyphrase` update `seostudio_keyphrases`. `before_delete_post` removes every index row for that post. `wp seostudio analyse` still writes the index for a keyphrase that was passed on the command line and not saved as meta.
+
 ## Tests that need WordPress
 
-The unit suite does not boot WordPress. PHPUnit, PHPCS, and PHPStan level 6 are the checks that run in CI. `wp seostudio analyse` and the REST routes are not executed in CI in this phase. `@wordpress/env` is not configured because the unit suite does not need it.
+Unit tests still do not boot WordPress. Integration tests under `tests/php/Integration` boot the WordPress test suite through `@wordpress/env` and run in CI on PHP 8.1, 8.2, and 8.3. Coverage for `src/Scoring` and `src/Content` is printed from the unit job with pcov. The 95% line target applies to those two directories.
 
 ## Licence
 

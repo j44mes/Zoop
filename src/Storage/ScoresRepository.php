@@ -57,6 +57,30 @@ final class ScoresRepository {
 		return is_array( $row ) ? $row : null;
 	}
 
+	/**
+	 * Latest score row for every keyphrase and engine on a page.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function latestForPage( int $pageId ): array {
+		global $wpdb;
+
+		$table = Tables::scores();
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT scores.* FROM {$table} scores INNER JOIN (
+					SELECT MAX(id) AS id FROM {$table} WHERE page_id = %d GROUP BY keyphrase_hash, engine
+				) latest ON latest.id = scores.id",
+				$pageId
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
 	private function rating( Score $score ): string {
 		if ( 0 === $score->denominator ) {
 			return 'grey';

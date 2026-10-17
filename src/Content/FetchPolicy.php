@@ -36,7 +36,7 @@ final class FetchPolicy {
 	}
 
 	public function nextHop( string $currentUrl, string $location, string $homeUrl, int $hops ): string {
-		if ( $hops >= 2 ) {
+		if ( $hops > 2 ) {
 			throw new FetchBlockedException( 'Too many redirects.' );
 		}
 

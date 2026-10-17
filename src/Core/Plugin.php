@@ -13,6 +13,7 @@ use SEOStudio\Cli\Commands;
 use SEOStudio\Rest\KeyphrasesController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
+use SEOStudio\Storage\KeyphraseHooks;
 
 /**
  * Wires hooks that do not depend on the admin UI.
@@ -27,10 +28,19 @@ final class Plugin {
 	public static function init(): void {
 		load_plugin_textdomain( 'seo-studio', false, dirname( plugin_basename( SEOSTUDIO_FILE ) ) . '/languages' );
 		self::registerMeta();
+		KeyphraseHooks::register();
 		Commands::register();
 	}
 
 	public static function rest(): void {
+		static $registered = false;
+
+		PostSeoController::registerValidationFilter();
+		if ( $registered ) {
+			return;
+		}
+		$registered = true;
+
 		( new PagesController() )->register();
 		( new PostSeoController() )->register();
 		( new KeyphrasesController() )->register();
@@ -42,12 +52,18 @@ final class Plugin {
 
 	private static function registerMeta(): void {
 		$keys = array(
-			'_seostudio_focus_keyphrase'  => 'string',
-			'_seostudio_title'            => 'string',
-			'_seostudio_description'      => 'string',
-			'_seostudio_canonical'        => 'string',
-			'_seostudio_cornerstone'      => 'boolean',
-			'_seostudio_content_selector' => 'string',
+			'_seostudio_focus_keyphrase'    => 'string',
+			'_seostudio_related_keyphrases' => 'array',
+			'_seostudio_synonyms'           => 'array',
+			'_seostudio_title'              => 'string',
+			'_seostudio_description'        => 'string',
+			'_seostudio_canonical'          => 'string',
+			'_seostudio_robots'             => 'array',
+			'_seostudio_og_title'           => 'string',
+			'_seostudio_og_description'     => 'string',
+			'_seostudio_og_image'           => 'integer',
+			'_seostudio_cornerstone'        => 'boolean',
+			'_seostudio_content_selector'   => 'string',
 		);
 
 		foreach ( $keys as $key => $type ) {
@@ -55,14 +71,9 @@ final class Plugin {
 				'',
 				$key,
 				array(
-					'type'              => $type,
-					'single'            => true,
-					'show_in_rest'      => true,
-					'auth_callback'     => static function ( bool $allowed, string $meta_key, int $post_id ): bool {
-						unset( $allowed, $meta_key );
-						return current_user_can( 'edit_post', $post_id );
-					},
-					'sanitize_callback' => 'boolean' === $type ? 'rest_sanitize_boolean' : 'sanitize_text_field',
+					'type'         => $type,
+					'single'       => true,
+					'show_in_rest' => false,
 				)
 			);
 		}

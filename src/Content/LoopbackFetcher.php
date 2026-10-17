@@ -13,11 +13,17 @@ namespace SEOStudio\Content;
  * Full-page fetch used for code checks and Verify live.
  */
 final class LoopbackFetcher {
-	private const MAX_BYTES = 2097152;
+	public const MAX_BYTES = 2097152;
 
+	/**
+	 * Optional transport replaces wp_remote_get in tests.
+	 *
+	 * @param callable(string, array<string, mixed>): array{code: int, location: string, body: string}|null $transport
+	 */
 	public function __construct(
 		private readonly FetchPolicy $policy = new FetchPolicy(),
-		private readonly Extractor $extractor = new Extractor()
+		private readonly Extractor $extractor = new Extractor(),
+		private readonly mixed $transport = null
 	) {}
 
 	/**
@@ -39,12 +45,36 @@ final class LoopbackFetcher {
 
 	private function download( string $url, string $home, int $hops ): string {
 		$this->policy->assertAllowed( $url, $home );
+		$response = $this->perform( $url );
 
+		if ( $response['code'] >= 300 && $response['code'] < 400 ) {
+			$next = $this->policy->nextHop( $url, $response['location'], $home, $hops + 1 );
+			return $this->download( $next, $home, $hops + 1 );
+		}
+
+		if ( 200 !== $response['code'] ) {
+			throw new FetchBlockedException( 'Fetch returned a non-200 status.' );
+		}
+
+		if ( strlen( $response['body'] ) > self::MAX_BYTES ) {
+			throw new FetchBlockedException( 'Response exceeded 2 MB.', 'oversized' );
+		}
+
+		return $response['body'];
+	}
+
+	/**
+	 * Perform one HTTP request without following redirects.
+	 *
+	 * @return array{code: int, location: string, body: string}
+	 * @throws FetchBlockedException When the transport fails.
+	 */
+	private function perform( string $url ): array {
 		$args = array(
 			'timeout'             => 20,
 			'redirection'         => 0,
 			'reject_unsafe_urls'  => true,
-			'limit_response_size' => self::MAX_BYTES,
+			'limit_response_size' => self::MAX_BYTES + 1,
 			'user-agent'          => 'Zoop/0.1 (+https://example.test)',
 		);
 
@@ -55,27 +85,29 @@ final class LoopbackFetcher {
 			);
 		}
 
+		$transport = $this->transport;
+		if ( is_callable( $transport ) ) {
+			$result = $transport( $url, $args );
+			if ( ! is_array( $result ) ) {
+				throw new FetchBlockedException( 'Fetch failed.' );
+			}
+
+			return array(
+				'code'     => (int) ( $result['code'] ?? 0 ),
+				'location' => (string) ( $result['location'] ?? '' ),
+				'body'     => (string) ( $result['body'] ?? '' ),
+			);
+		}
+
 		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {
 			throw new FetchBlockedException( 'Fetch failed.' );
 		}
 
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $code >= 300 && $code < 400 ) {
-			$location = (string) wp_remote_retrieve_header( $response, 'location' );
-			$next     = $this->policy->nextHop( $url, $location, $home, $hops + 1 );
-			return $this->download( $next, $home, $hops + 1 );
-		}
-
-		if ( 200 !== $code ) {
-			throw new FetchBlockedException( 'Fetch returned a non-200 status.' );
-		}
-
-		$body = (string) wp_remote_retrieve_body( $response );
-		if ( strlen( $body ) > self::MAX_BYTES ) {
-			throw new FetchBlockedException( 'Response exceeded 2 MB.' );
-		}
-
-		return $body;
+		return array(
+			'code'     => (int) wp_remote_retrieve_response_code( $response ),
+			'location' => (string) wp_remote_retrieve_header( $response, 'location' ),
+			'body'     => (string) wp_remote_retrieve_body( $response ),
+		);
 	}
 }

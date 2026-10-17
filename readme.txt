@@ -36,6 +36,7 @@ The two code checks need a full-page fetch. A content render leaves them uncheck
 
 = 0.1.0 =
 * Add the 100-point on-page scorer, custom tables, REST routes, and `wp seostudio analyse`.
+* Score the metadata a crawler would receive, keep SEO fields off the public REST API, and accept a first analysis for a post that has no saved row yet.
 
 == Upgrade Notice ==
 

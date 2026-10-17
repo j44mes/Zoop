@@ -138,6 +138,55 @@ final class PageModel {
 		);
 	}
 
+	/**
+	 * Serialise every field. The keys match fromArray().
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toArray(): array {
+		return array(
+			'url'                   => $this->url,
+			'slug'                  => $this->slug,
+			'title_tag'             => $this->titleTag,
+			'meta_description'      => $this->metaDescription,
+			'canonical'             => $this->canonical,
+			'robots'                => $this->robots,
+			'h1'                    => $this->h1,
+			'headings'              => $this->headings,
+			'body_text'             => $this->bodyText,
+			'word_count'            => $this->wordCount,
+			'paragraphs'            => $this->paragraphs,
+			'sentences'             => $this->sentences,
+			'links'                 => $this->links,
+			'images'                => $this->images,
+			'has_external_css'      => $this->hasExternalCss,
+			'html_bytes'            => $this->htmlBytes,
+			'visible_text_bytes'    => $this->visibleTextBytes,
+			'is_https'              => $this->isHttps,
+			'lang'                  => $this->lang,
+			'render_mode'           => $this->renderMode,
+			'content_selector_used' => $this->contentSelectorUsed,
+			'rendered_at'           => $this->renderedAt,
+			'page_type'             => $this->pageType,
+		);
+	}
+
+	/**
+	 * Hash of the scored inputs. The timestamp is excluded so a repeat render can match.
+	 */
+	public function inputHash(): string {
+		$data = $this->toArray();
+		unset( $data['rendered_at'] );
+		if ( function_exists( 'wp_json_encode' ) ) {
+			$encoded = wp_json_encode( $data );
+		} else {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- The unit suite does not load WordPress.
+			$encoded = json_encode( $data );
+		}
+
+		return md5( is_string( $encoded ) ? $encoded : '' );
+	}
+
 	public function firstH1(): string {
 		return $this->h1[0] ?? '';
 	}

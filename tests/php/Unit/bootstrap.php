@@ -25,9 +25,15 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	 * @return mixed
 	 */
 	function apply_filters( $hook, $value ) {
+		if ( 'seostudio/function_words' === $hook && array_key_exists( 'seostudio_function_words_filter', $GLOBALS ) ) {
+			return $GLOBALS['seostudio_function_words_filter'];
+		}
 		unset( $hook );
 		return $value;
 	}
 }
+
+require_once __DIR__ . '/WpHtmlTagProcessorStub.php';
+require_once __DIR__ . '/WpStubs.php';
 
 require_once dirname( __DIR__, 3 ) . '/vendor/autoload.php';
