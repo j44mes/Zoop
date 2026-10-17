@@ -10,4 +10,4 @@ Do not tag a release from a coding session. Gate B (the second review) and Gate 
 6. `docs/openapi.json` matches the routes `wp seostudio openapi` prints.
 7. The plugin is in Analysis-only mode in the zip. Owner mode is a setting, not the default.
 8. No `.env`, credentials, or production content is in the tree.
-9. Tag `vX.Y.Z`. The release workflow builds `seo-studio-X.Y.Z.zip` and attaches it. Do not install that zip on a live site until the owner asks.
+9. After the Release workflow is on `main`, run **Actions → Release** and type `publish` in the confirm field. The workflow builds `zoop-<version>.zip` and attaches that file to a draft release. Review the draft, then publish it. The WordPress upload is that release asset (`zoop-<version>.zip`), not Code → Download ZIP and not the Package workflow's Actions artifact. Do not install that zip on a live site until the owner asks.

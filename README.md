@@ -14,15 +14,26 @@ The unit tests do not boot WordPress.
 
 ## Install
 
-The file from GitHub's **Code → Download ZIP** is the source tree. It does not contain `vendor/` or `assets/build/`. WordPress will list Zoop, then show an admin error, and the Zoop menu will not work.
+The file to upload in WordPress is `zoop-<version>.zip` attached to a GitHub Release. For 0.5.0, once that release is published, the address is:
 
-The installable package is `zoop-0.5.0.zip`, built with:
+`https://github.com/j44mes/Zoop/releases/download/v0.5.0/zoop-0.5.0.zip`
+
+That address is the plugin zip. It contains one folder, `zoop/`, with `seo-studio.php`, `vendor/`, and `assets/build/`. Upload it in **Plugins → Add New → Upload Plugin**, then activate Zoop. The left-hand menu is **Zoop**. The address stays `wp-admin/admin.php?page=seostudio`. No Composer or npm step is required on the WordPress server. Installing a newer zip over the same `zoop` folder keeps Zoop's tables and post meta.
+
+No release has been published. The Release workflow creates one only after this file is on `main`, and only when someone runs **Actions → Release** and types `publish` in the confirm field. That run attaches the zip to a **draft** release and creates the `v<version>` tag. Publishing the draft is a separate step. Pushing a version tag does not create a release.
+
+Two other downloads are not the file to upload:
+
+- **Code → Download ZIP** is the source tree. It does not contain `vendor/` or `assets/build/`. WordPress will list Zoop, then show an admin error, and the Zoop menu will not work.
+- **The Package workflow artifact** is a zip that contains `zoop-<version>.zip`. WordPress looks inside the outer zip, finds no plugin file, and reports that no valid plugins were found. GitHub always adds that wrapper to an Actions artifact. The release asset above is the inner file, without the wrapper.
+
+To build the same zip locally:
 
 ```bash
 bash scripts/package-plugin.sh
 ```
 
-That command installs production PHP dependencies, builds the dashboard, and writes `dist/zoop-0.5.0.zip`. Upload that zip in **Plugins → Add New → Upload Plugin**, then activate Zoop. The left-hand menu is **Zoop**. The address stays `wp-admin/admin.php?page=seostudio`. No Composer or npm step is required on the WordPress server.
+That command installs production PHP dependencies, builds the dashboard, and writes `dist/zoop-0.5.0.zip`.
 
 To work from this directory instead, install the dependencies and build the admin screens:
 
@@ -50,7 +61,7 @@ npm test                  # Jest
 npm run test:e2e          # Playwright against wp-env on http://localhost:8888
 ```
 
-`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed. `scripts/package-plugin.sh` is what puts it, and `vendor/`, into the upload zip. The Package workflow runs that script on demand and stores `zoop-0.5.0.zip` as a GitHub Actions artifact. The release workflow runs the same script when a `v*` tag is pushed. No tag has been published from this change.
+`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed. `scripts/package-plugin.sh` is what puts it, and `vendor/`, into `dist/zoop-<version>.zip`. The Package workflow runs that script for CI and stores the zip as an Actions artifact. That artifact is wrapped again by GitHub, so it is not the install link. The Release workflow is manual, requires the confirm field `publish`, and stops at a draft.
 
 Integration tests boot WordPress through wp-env:
 
