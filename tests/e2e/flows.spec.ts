@@ -184,8 +184,11 @@ test( 'dashboard is available after activation', async ( { page } ) => {
 	await expect(
 		page.getByRole( 'heading', { name: 'SEO Studio' } )
 	).toBeVisible();
+	// Browser projects share one WordPress database, so another project may already have analysed a page.
 	await expect(
-		page.getByText( 'No pages have been analysed yet' )
+		page
+			.getByText( 'No pages have been analysed yet' )
+			.or( page.getByRole( 'table' ) )
 	).toBeVisible();
 } );
 
