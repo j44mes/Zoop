@@ -5,11 +5,18 @@ test.describe.configure( { mode: 'serial' } );
 let editedPostUrl = '';
 
 async function login( page: Page ): Promise< void > {
-	await page.goto( '/wp-login.php' );
+	// Land on the plugin screen rather than the WordPress dashboard, whose widgets make outbound
+	// requests, and stop at DOMContentLoaded: each flow navigates again straight away.
+	await page.goto(
+		'/wp-login.php?redirect_to=' +
+			encodeURIComponent( '/wp-admin/admin.php?page=seostudio' )
+	);
 	await page.fill( '#user_login', 'admin' );
 	await page.fill( '#user_pass', 'password' );
-	await page.click( '#wp-submit' );
-	await page.waitForURL( '**/wp-admin/**' );
+	await Promise.all( [
+		page.waitForURL( '**/wp-admin/**', { waitUntil: 'domcontentloaded' } ),
+		page.click( '#wp-submit' ),
+	] );
 }
 
 async function editorDiagnostics( page: Page ): Promise< string > {
