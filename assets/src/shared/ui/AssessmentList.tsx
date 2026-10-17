@@ -21,7 +21,7 @@ const statusWord: Record< string, string > = {
 	pass: __( 'Good', 'seo-studio' ),
 	partial: __( 'Ok', 'seo-studio' ),
 	fail: __( 'Poor', 'seo-studio' ),
-	not_checked: __( 'Not analysed yet', 'seo-studio' ),
+	not_checked: __( 'Not checked in this mode', 'seo-studio' ),
 	red: __( 'Poor', 'seo-studio' ),
 	orange: __( 'Ok', 'seo-studio' ),
 	green: __( 'Good', 'seo-studio' ),

@@ -8,6 +8,7 @@ interface EditorConfig {
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
+	section?: string;
 	metadata: MetadataOwner;
 }
 
@@ -34,6 +35,7 @@ if ( config?.blockEditor ) {
 						workerUrl={ config.workerUrl }
 						permalink={ config.permalink }
 						metadata={ config.metadata }
+						section={ config.section || '' }
 					/>
 				</PluginSidebar>
 			);

@@ -47,6 +47,21 @@ final class Assets {
 		self::enqueue( 'seostudio-metabox', 'metabox', $post_id, false );
 	}
 
+	/**
+	 * Section named by an editor link. Unknown values are ignored.
+	 *
+	 * @return string One of the Zoop sidebar disclosures, or an empty string.
+	 */
+	private static function requestedSection(): string {
+		$raw = filter_input( INPUT_GET, 'seostudio_section', FILTER_UNSAFE_RAW );
+		if ( ! is_string( $raw ) ) {
+			return '';
+		}
+		$section = sanitize_key( $raw );
+		$allowed = array( 'phrases', 'checks', 'search', 'social', 'advanced' );
+		return in_array( $section, $allowed, true ) ? $section : '';
+	}
+
 	private static function enqueue( string $handle, string $name, int $post_id, bool $block_editor ): void {
 		$root       = plugin_dir_path( SEOSTUDIO_FILE );
 		$asset_path = $root . "assets/build/{$name}.asset.php";
@@ -90,6 +105,7 @@ final class Assets {
 				array(
 					'postId'       => $post_id,
 					'blockEditor'  => $block_editor,
+					'section'      => self::requestedSection(),
 					'workerUrl'    => plugins_url( 'assets/build/worker.js', SEOSTUDIO_FILE ),
 					'permalink'    => is_string( $permalink ) ? $permalink : '',
 					'metadata'     => array(

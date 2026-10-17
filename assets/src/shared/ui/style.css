@@ -3,7 +3,7 @@
 	--zoop-canvas: #f6f3ee;
 	--zoop-surface: #fffdf9;
 	--zoop-text: #1c1915;
-	--zoop-muted: #5c564e;
+	--zoop-muted: #3f3a34;
 	--zoop-border: #e4ddd4;
 	--zoop-accent: #1f4fd8;
 	--zoop-focus: #1f4fd8;
@@ -32,8 +32,14 @@
 }
 
 .seostudio-lede,
-.seostudio-muted {
+.seostudio-muted,
+.seostudio-dashboard .components-base-control__help,
+.seostudio-panel .components-base-control__help {
 	color: var(--zoop-muted);
+}
+
+.seostudio-lede,
+.seostudio-muted {
 	margin: 0 0 16px;
 }
 

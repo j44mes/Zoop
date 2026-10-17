@@ -20,7 +20,7 @@ final class MetaBox {
 
 		add_meta_box(
 			'seostudio',
-			__( 'SEO', 'seo-studio' ),
+			__( 'Zoop', 'seo-studio' ),
 			array( self::class, 'render' ),
 			$post_type,
 			'normal',

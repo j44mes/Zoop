@@ -17,7 +17,7 @@ export function SnippetPreview( {
 		<article
 			className="seostudio-preview"
 			data-viewport={ viewport }
-			aria-label={ __( 'Google preview', 'seo-studio' ) }
+			aria-label={ __( 'Search snippet preview', 'seo-studio' ) }
 		>
 			<p>{ url || __( 'Permalink unavailable', 'seo-studio' ) }</p>
 			<h3>{ title || __( 'Untitled', 'seo-studio' ) }</h3>

@@ -58,6 +58,23 @@ describe( 'shared UI', () => {
 		expect( html ).toContain( 'What Zoop found:' );
 	} );
 
+	it( 'does not call a skipped check “not analysed yet”', () => {
+		const html = renderToStaticMarkup(
+			<AssessmentList
+				items={ [
+					{
+						id: 'code.stylesheet',
+						status: 'not_checked',
+						explanation:
+							'A full-page fetch is required before the stylesheet check can run.',
+					},
+				] }
+			/>
+		);
+		expect( html ).toContain( 'Not checked in this mode' );
+		expect( html ).not.toContain( 'Not analysed yet' );
+	} );
+
 	it( 'shows category progress, previews, variables, and a run', () => {
 		expect(
 			renderToStaticMarkup(

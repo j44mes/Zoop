@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { metadataNote, type MetadataOwner } from './metadata-note';
+import { requestedSection } from './section';
 export type { MetadataOwner } from './metadata-note';
 import { scoreInWorker } from '../analysis/client';
 import { paperFromModel } from '../analysis/paper';
@@ -39,6 +40,7 @@ interface PanelProps {
 	workerUrl: string;
 	permalink: string;
 	metadata?: MetadataOwner;
+	section?: string;
 }
 
 /**
@@ -67,6 +69,7 @@ export function Panel( {
 	workerUrl,
 	permalink,
 	metadata,
+	section = '',
 }: PanelProps ) {
 	const editorContent = useSelect( ( select ): string => {
 		const editor = select( 'core/editor' ) as
@@ -116,6 +119,33 @@ export function Panel( {
 	const [ selector, setSelector ] = useState( '' );
 	const [ mode, setMode ] = useState( 'content' );
 	const [ model, setModel ] = useState< PageModelResponse | null >( null );
+
+	useEffect( () => {
+		const name = requestedSection( section, window.location.search );
+		if ( ! name ) {
+			return;
+		}
+		const sectionSelector = `.seostudio-panel details[data-section="${ name }"]`;
+		const openSection = () => {
+			const node = document.querySelector( sectionSelector );
+			if ( ! ( node instanceof HTMLDetailsElement ) ) {
+				return false;
+			}
+			node.open = true;
+			node.scrollIntoView( { block: 'start', inline: 'nearest' } );
+			return true;
+		};
+		if ( openSection() ) {
+			return;
+		}
+		const observer = new MutationObserver( () => {
+			if ( openSection() ) {
+				observer.disconnect();
+			}
+		} );
+		observer.observe( document.body, { childList: true, subtree: true } );
+		return () => observer.disconnect();
+	}, [ section ] );
 
 	useEffect( () => {
 		if ( ! id ) {
@@ -402,7 +432,7 @@ export function Panel( {
 					</ul>
 				</>
 			) : null }
-			<details>
+			<details data-section="phrases">
 				<summary>{ __( 'More phrases', 'seo-studio' ) }</summary>
 				<TextControl
 					label={ __( 'Related phrases', 'seo-studio' ) }
@@ -420,7 +450,7 @@ export function Panel( {
 					) }
 				/>
 			</details>
-			<details>
+			<details data-section="checks">
 				<summary>{ __( 'All on-page checks', 'seo-studio' ) }</summary>
 				{ onpage
 					? Object.entries( onpage.categories || {} ).map(
@@ -455,7 +485,7 @@ export function Panel( {
 						: __( 'Classic editor', 'seo-studio' ) }
 				</p>
 			</details>
-			<details>
+			<details data-section="search">
 				<summary>{ __( 'Search appearance', 'seo-studio' ) }</summary>
 				{ metadata?.publishesOwn && metadata.isHomepage ? (
 					<Notice status="info" isDismissible={ false }>
@@ -504,7 +534,7 @@ export function Panel( {
 					onChange={ setFollow }
 				/>
 			</details>
-			<details>
+			<details data-section="social">
 				<summary>{ __( 'Social appearance', 'seo-studio' ) }</summary>
 				<SocialPreview
 					title={ ogTitle || previewTitle }
@@ -521,7 +551,7 @@ export function Panel( {
 					onChange={ setOgDescription }
 				/>
 			</details>
-			<details>
+			<details data-section="advanced">
 				<summary>{ __( 'Advanced', 'seo-studio' ) }</summary>
 				<TextControl
 					label={ __( 'Video URL', 'seo-studio' ) }

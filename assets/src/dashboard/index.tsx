@@ -1,5 +1,6 @@
 import {
 	Button,
+	CheckboxControl,
 	Notice,
 	SelectControl,
 	TextControl,
@@ -36,6 +37,10 @@ export function Dashboard() {
 	const [ orderby, setOrderby ] = useState( 'last_rendered_at' );
 	const [ order, setOrder ] = useState( 'desc' );
 	const [ rating, setRating ] = useState( '' );
+	const [ postType, setPostType ] = useState( '' );
+	const [ scoreMin, setScoreMin ] = useState( '' );
+	const [ scoreMax, setScoreMax ] = useState( '' );
+	const [ hasKeyphrase, setHasKeyphrase ] = useState( false );
 	const [ page, setPage ] = useState( 1 );
 	const [ notice, setNotice ] = useState( '' );
 	const [ error, setError ] = useState( '' );
@@ -49,6 +54,7 @@ export function Dashboard() {
 	}, [] );
 
 	useEffect( () => {
+		let cancelled = false;
 		const query: Record< string, string > = {
 			page: String( page ),
 			per_page: '20',
@@ -61,17 +67,48 @@ export function Dashboard() {
 		if ( rating ) {
 			query.rating = rating;
 		}
+		if ( postType.trim() ) {
+			query.post_type = postType.trim();
+		}
+		if ( /^\d+$/.test( scoreMin ) ) {
+			query.score_min = scoreMin;
+		}
+		if ( /^\d+$/.test( scoreMax ) ) {
+			query.score_max = scoreMax;
+		}
+		if ( hasKeyphrase ) {
+			query.has_keyphrase = '1';
+		}
 		fetchPages( query )
 			.then( ( next ) => {
+				if ( cancelled ) {
+					return;
+				}
 				setList( next );
 				setError( '' );
 			} )
-			.catch( () =>
-				setError(
-					__( 'The page list could not be loaded.', 'seo-studio' )
-				)
-			);
-	}, [ search, rating, orderby, order, page, run?.status ] );
+			.catch( () => {
+				if ( ! cancelled ) {
+					setError(
+						__( 'The page list could not be loaded.', 'seo-studio' )
+					);
+				}
+			} );
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		search,
+		rating,
+		postType,
+		scoreMin,
+		scoreMax,
+		hasKeyphrase,
+		orderby,
+		order,
+		page,
+		run?.status,
+	] );
 
 	useEffect( () => {
 		fetchPages( {
@@ -359,6 +396,52 @@ export function Dashboard() {
 							} }
 						/>
 					</div>
+					<details className="seostudio-advanced-filters">
+						<summary>
+							{ __( 'Advanced filters', 'seo-studio' ) }
+						</summary>
+						<div className="seostudio-toolbar">
+							<TextControl
+								label={ __( 'Post type', 'seo-studio' ) }
+								value={ postType }
+								help={ __(
+									'For example, post or page.',
+									'seo-studio'
+								) }
+								onChange={ ( value ) => {
+									setPostType( value );
+									setPage( 1 );
+								} }
+							/>
+							<TextControl
+								label={ __( 'Minimum score', 'seo-studio' ) }
+								value={ scoreMin }
+								onChange={ ( value ) => {
+									setScoreMin( value );
+									setPage( 1 );
+								} }
+							/>
+							<TextControl
+								label={ __( 'Maximum score', 'seo-studio' ) }
+								value={ scoreMax }
+								onChange={ ( value ) => {
+									setScoreMax( value );
+									setPage( 1 );
+								} }
+							/>
+							<CheckboxControl
+								label={ __(
+									'Has a target phrase',
+									'seo-studio'
+								) }
+								checked={ hasKeyphrase }
+								onChange={ ( value ) => {
+									setHasKeyphrase( value );
+									setPage( 1 );
+								} }
+							/>
+						</div>
+					</details>
 					{ error ? (
 						<Notice status="error" isDismissible={ false }>
 							{ error }
@@ -366,10 +449,20 @@ export function Dashboard() {
 					) : null }
 					{ list && list.total === 0 ? (
 						<p>
-							{ __(
-								'No pages are stored yet. Open a page and choose Analyse page.',
-								'seo-studio'
-							) }
+							{ search ||
+							rating ||
+							postType.trim() ||
+							scoreMin ||
+							scoreMax ||
+							hasKeyphrase
+								? __(
+										'No stored pages match these filters.',
+										'seo-studio'
+								  )
+								: __(
+										'No pages are stored yet. Open a page and choose Analyse page.',
+										'seo-studio'
+								  ) }
 						</p>
 					) : (
 						<div className="seostudio-table-wrap">

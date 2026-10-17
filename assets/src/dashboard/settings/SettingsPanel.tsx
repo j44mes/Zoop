@@ -41,10 +41,15 @@ export function SettingsPanel() {
 		null
 	);
 	const [ confirmDelete, setConfirmDelete ] = useState( false );
+	const [ ready, setReady ] = useState( false );
 
 	useEffect( () => {
+		let cancelled = false;
 		fetchSettings()
 			.then( ( next ) => {
+				if ( cancelled ) {
+					return;
+				}
 				setSettings( {
 					...empty,
 					...next,
@@ -54,10 +59,18 @@ export function SettingsPanel() {
 					},
 				} );
 				setError( '' );
+				setReady( true );
 			} )
-			.catch( () =>
-				setError( __( 'Settings could not be loaded.', 'seo-studio' ) )
-			);
+			.catch( () => {
+				if ( ! cancelled ) {
+					setError(
+						__( 'Settings could not be loaded.', 'seo-studio' )
+					);
+				}
+			} );
+		return () => {
+			cancelled = true;
+		};
 	}, [] );
 
 	async function save() {
@@ -132,6 +145,22 @@ export function SettingsPanel() {
 		follow: true,
 	};
 	const selectors = settings.content_selectors || {};
+
+	if ( ! ready ) {
+		return (
+			<div className="seostudio-settings">
+				{ error ? (
+					<Notice status="error" isDismissible={ false }>
+						{ error }
+					</Notice>
+				) : (
+					<p className="seostudio-muted" role="status">
+						{ __( 'Loading settings.', 'seo-studio' ) }
+					</p>
+				) }
+			</div>
+		);
+	}
 
 	return (
 		<div className="seostudio-settings">

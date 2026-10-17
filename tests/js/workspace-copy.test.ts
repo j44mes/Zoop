@@ -1,0 +1,57 @@
+import { editHref, editTarget } from '../../assets/src/dashboard/edit-route';
+import { requestedSection } from '../../assets/src/editor/section';
+import {
+	snippetCaption,
+	socialCaption,
+	workspaceOwnership,
+} from '../../assets/src/dashboard/ownership-note';
+
+describe( 'page workspace copy', () => {
+	it( 'names the plugin that controls live tags', () => {
+		expect(
+			workspaceOwnership( {
+				publishing: false,
+				detected: { name: 'Yoast SEO' },
+			} )
+		).toContain( 'Yoast SEO controls the live tags' );
+		expect(
+			workspaceOwnership( { publishing: true, detected: null } )
+		).toContain( 'Zoop manages the supported search and social tags' );
+		expect( workspaceOwnership( null ) ).toContain( 'does not print them' );
+	} );
+
+	it( 'separates a live observation from a content analysis', () => {
+		expect( snippetCaption( 'live' ) ).toContain( 'published page' );
+		expect( snippetCaption( 'content' ) ).toContain(
+			'not the live metadata'
+		);
+		expect( socialCaption( false ) ).toContain( 'not the card published' );
+		expect( socialCaption( true ) ).toContain( 'Zoop can print these' );
+	} );
+
+	it( 'routes a finding to an existing editor control', () => {
+		expect( editTarget( 'title.entire_keyphrase' ).section ).toBe(
+			'search'
+		);
+		expect( editTarget( 'code.stylesheet' ).liveCheck ).toBe( true );
+		expect( editHref( 5, 'title.length' ) ).toBe(
+			'post.php?post=5&action=edit&seostudio_section=search'
+		);
+		expect( editHref( 5, 'body.word_count' ) ).toBe(
+			'post.php?post=5&action=edit'
+		);
+	} );
+
+	it( 'keeps a section after the editor strips the query argument', () => {
+		expect( requestedSection( 'search', '?post=5&action=edit' ) ).toBe(
+			'search'
+		);
+		expect(
+			requestedSection(
+				'',
+				'?post=5&action=edit&seostudio_section=phrases'
+			)
+		).toBe( 'phrases' );
+		expect( requestedSection( 'homepage', '' ) ).toBe( '' );
+	} );
+} );

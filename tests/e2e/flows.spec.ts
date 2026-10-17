@@ -279,11 +279,13 @@ test( 're-analyse all queues an audit', async ( { page } ) => {
  * @param page Playwright page.
  */
 async function saveSettings( page: Page ): Promise< void > {
-	const saved = page.waitForResponse(
-		( response ) =>
-			response.url().includes( 'seostudio/v1/settings' ) &&
+	const saved = page.waitForResponse( ( response ) => {
+		const url = decodeURIComponent( response.url() );
+		return (
+			url.includes( 'seostudio/v1/settings' ) &&
 			response.request().method() !== 'GET'
-	);
+		);
+	} );
 	await page.getByRole( 'button', { name: 'Save settings' } ).click();
 	expect( ( await saved ).ok() ).toBe( true );
 	await expect(
