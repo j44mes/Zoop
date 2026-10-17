@@ -96,9 +96,9 @@ async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
 		dispatch.enableComplementaryArea?.( 'core', 'seostudio/seostudio' );
 	} );
 	try {
-		await expect( page.getByLabel( 'Keyphrase' ) ).toBeVisible( {
-			timeout: 20000,
-		} );
+		await expect(
+			page.getByLabel( 'Keyphrase', { exact: true } )
+		).toBeVisible( { timeout: 20000 } );
 	} catch ( error ) {
 		throw new Error(
 			`SEO sidebar did not open. ${ await editorDiagnostics(
@@ -163,7 +163,9 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	await saveDraft( page );
 	editedPostUrl = page.url();
 	await openSeoSidebar( page, errors );
-	await page.getByLabel( 'Keyphrase' ).fill( 'rank tracker' );
+	await page
+		.getByLabel( 'Keyphrase', { exact: true } )
+		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse now' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
 	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
@@ -184,7 +186,9 @@ test( 'editing the SEO title updates the title assessment without a reload', asy
 	await expect(
 		titleCheck.getByText( 'Include the full keyphrase in the title.' )
 	).toBeVisible();
-	await page.getByLabel( 'SEO title' ).fill( 'rank tracker welcome' );
+	await page
+		.getByLabel( 'SEO title', { exact: true } )
+		.fill( 'rank tracker welcome' );
 	await expect(
 		page.getByText( 'The full keyphrase is in the title.' )
 	).toBeVisible();
