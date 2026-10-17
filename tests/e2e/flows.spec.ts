@@ -316,14 +316,36 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 			'name="description" content="Studio home description"'
 		);
 	} finally {
+		// Chromium and WebKit share one site. Restoring through the select can
+		// save the previous mode, and the next browser then scores as Owner mode.
 		await page.goto( settingsUrl );
-		await page
-			.getByRole( 'button', { name: 'Settings', exact: true } )
-			.click();
-		await page
-			.locator( '.seostudio-settings' )
-			.getByLabel( 'Mode' )
-			.selectOption( 'analysis' );
-		await saveSettings( page );
+		await page.waitForFunction( () =>
+			Boolean(
+				(
+					window as unknown as {
+						wp?: { apiFetch?: unknown };
+					}
+				 ).wp?.apiFetch
+			)
+		);
+		const restored = await page.evaluate( async () => {
+			const saved = await (
+				window as unknown as {
+					wp: {
+						apiFetch: ( options: {
+							path: string;
+							method: string;
+							data: { mode: string };
+						} ) => Promise< { mode?: string } >;
+					};
+				}
+			 ).wp.apiFetch( {
+				path: '/seostudio/v1/settings',
+				method: 'PUT',
+				data: { mode: 'analysis' },
+			} );
+			return saved.mode;
+		} );
+		expect( restored ).toBe( 'analysis' );
 	}
 } );
