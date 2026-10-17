@@ -1,35 +1,39 @@
 name: Release
 
 # This workflow is not started by a tag push. It appears in the Actions tab
-# only after this file is on the default branch. Running it with the confirm
-# field set to publish creates a draft release and the matching git tag.
-# Publishing that draft is a separate step, and it is the approval to offer
-# the zip as a direct download.
+# only after this file is on the default branch. A draft release is created
+# only when every safeguard below passes. Publishing that draft is a separate
+# step. This file does not publish the release.
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type publish to attach zoop-<version>.zip to a draft release. Anything else stops before a release is created."
+        description: "Type publish to build a draft release of the main commit. Anything else stops before a release is created."
         required: true
         type: string
 
 permissions:
   contents: write
+  checks: read
+  pull-requests: read
 
 jobs:
-  package:
+  guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Require approval
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Require an approved main commit
         env:
           CONFIRM: ${{ github.event.inputs.confirm }}
-        run: |
-          if [ "$CONFIRM" != "publish" ]; then
-            echo "Refusing to create a release. Type publish in the confirm field." >&2
-            exit 1
-          fi
+        run: bash scripts/release-guard.sh
 
+  verify:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -47,12 +51,50 @@ jobs:
       - name: Package the installable plugin
         run: bash scripts/package-plugin.sh
 
+      - name: Start a clean WordPress site
+        run: |
+          npm install -g @wordpress/env
+          printf '%s\n' '{' '  "core": "WordPress/WordPress#6.6",' '  "phpVersion": "8.2"' '}' > .wp-env.override.json
+          wp-env start
+
+      - name: Install the zip twice and check the dashboard
+        run: |
+          plugin="$(basename "$PWD")"
+          version="$(php -r 'preg_match("/^ \* Version:\s*(\S+)/m", file_get_contents("seo-studio.php"), $m) || exit(1); echo $m[1];')"
+          wp-env run cli --env-cwd="wp-content/plugins/${plugin}" bash scripts/verify-release-zip.sh "dist/zoop-${version}.zip" /var/www/html
+
+      - name: Upload the verified zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zip
+          path: dist/zoop-*.zip
+          if-no-files-found: error
+          retention-days: 5
+
+  draft:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the verified zip
+        uses: actions/download-artifact@v4
+        with:
+          name: release-zip
+          path: release-asset
+
       - name: Read the plugin version
         id: version
         run: |
-          version="$(php -r 'preg_match("/^ \* Version:\s*(\S+)/m", file_get_contents("seo-studio.php"), $m) || exit(1); echo $m[1];')"
+          zipfile="$(find release-asset -name 'zoop-*.zip' -print -quit)"
+          test -n "$zipfile"
+          version="$(php -r '
+          $zip = new ZipArchive();
+          $zip->open($argv[1]) === true || exit(1);
+          $php = $zip->getFromName("zoop/seo-studio.php");
+          is_string($php) && preg_match("/^ \\* Version:\\s*(\\S+)/m", $php, $match) || exit(1);
+          echo $match[1];
+          ' "$zipfile")"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          test -f "dist/zoop-${version}.zip"
+          echo "zipfile=${zipfile}" >> "$GITHUB_OUTPUT"
 
       - name: Attach the zip to a draft release
         uses: softprops/action-gh-release@v2
@@ -61,11 +103,11 @@ jobs:
           name: Zoop ${{ steps.version.outputs.version }}
           draft: true
           fail_on_unmatched_files: true
-          files: dist/zoop-${{ steps.version.outputs.version }}.zip
+          files: ${{ steps.version.outputs.zipfile }}
           body: |
             Upload `zoop-${{ steps.version.outputs.version }}.zip` in WordPress: Plugins → Add New → Upload Plugin.
 
-            That file is the plugin. It contains one folder, `zoop/`, with `seo-studio.php`, `vendor/`, and `assets/build/`.
+            That file is the plugin. It contains one folder, `zoop/`, with `seo-studio.php`, `vendor/`, and `assets/build/`. The Release workflow installed this same zip on a clean WordPress site, checked the Zoop menu and dashboard script, installed it a second time, and kept the stored score and settings before attaching it here.
 
             Do not upload a GitHub Actions artifact. Actions wraps this zip in a second zip, and WordPress then reports that no valid plugins were found. Code → Download ZIP is the source tree and is not installable either.
 

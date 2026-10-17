@@ -2,6 +2,8 @@
 
 This packet prepares the second review. It is not a passed review. The implementing agent does not grade Gate B.
 
+The Release workflow does not read this file. It reads `docs/reviews/gate-b.md`, which the independent reviewer files after the review. That file has to contain a `Reviewer:` line and either `Verdict: PASS` or `Verdict: PASS WITH CONDITIONS`. Until it does, Actions → Release refuses to create a draft.
+
 Phases 1 to 5 are on this branch. Phase 6 (staging acceptance with Yoast) and Phase 7 (tag `v1.0.0` and a live install) have not been started. No release tag was created.
 
 ## What a reviewer is asked to do
