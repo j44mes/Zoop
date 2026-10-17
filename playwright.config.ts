@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig( {
 	testDir: 'tests/e2e',
+	// Both browser projects log in as the same WordPress user against one database. Parallel logins
+	// race on that user's session_tokens meta and can invalidate each other's cookie (reauth=1).
+	workers: 1,
 	timeout: 120000,
 	expect: { timeout: 20000 },
 	use: {
