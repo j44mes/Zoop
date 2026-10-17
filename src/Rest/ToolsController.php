@@ -12,6 +12,7 @@ namespace SEOStudio\Rest;
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\Settings;
 use SEOStudio\Integrations\Detector;
+use SEOStudio\Storage\SeoMeta;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -109,7 +110,7 @@ final class ToolsController {
 				$value = $this->normalise( $field, $row['meta_value'] ?? null );
 				$error = $validator->validate( array( $field => $value ), $home );
 				if ( null === $error ) {
-					PostSeoController::store( (int) $row['post_id'], $key, $value );
+					SeoMeta::store( (int) $row['post_id'], $key, $value );
 					++$written;
 					continue;
 				}

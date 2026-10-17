@@ -21,6 +21,7 @@ use SEOStudio\Rest\MigrationsController;
 use SEOStudio\Rest\ModelController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
+use SEOStudio\Rest\Responses;
 use SEOStudio\Rest\SettingsController;
 use SEOStudio\Rest\ToolsController;
 use SEOStudio\Storage\KeyphraseHooks;
@@ -32,6 +33,7 @@ final class Plugin {
 	public static function boot(): void {
 		add_action( 'init', array( self::class, 'init' ) );
 		add_action( 'rest_api_init', array( self::class, 'rest' ) );
+		add_filter( 'rest_request_after_callbacks', array( Responses::class, 'documentForbidden' ), 10, 3 );
 		register_activation_hook( SEOSTUDIO_FILE, array( self::class, 'activate' ) );
 		register_deactivation_hook( SEOSTUDIO_FILE, array( self::class, 'deactivate' ) );
 	}

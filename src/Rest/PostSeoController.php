@@ -12,6 +12,7 @@ namespace SEOStudio\Rest;
 use SEOStudio\Content\TemplateValues;
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\Settings;
+use SEOStudio\Storage\SeoMeta;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -182,40 +183,10 @@ final class PostSeoController {
 			if ( ! array_key_exists( $name, $params ) ) {
 				continue;
 			}
-			self::store( $post_id, $meta_key, $params[ $name ] );
+			SeoMeta::store( $post_id, $meta_key, $params[ $name ] );
 		}
 
 		return $this->show( $request );
-	}
-
-	/**
-	 * Save one validated field. The settings import uses the same path as the editor.
-	 */
-	public static function store( int $postId, string $metaKey, mixed $value ): void {
-		$empty = ( is_string( $value ) && '' === trim( $value ) ) || ( is_int( $value ) && 0 === $value && '_seostudio_og_image' === $metaKey );
-		if ( $empty ) {
-			delete_post_meta( $postId, $metaKey );
-			return;
-		}
-
-		if ( '_seostudio_is_news' === $metaKey ) {
-			if ( empty( $value ) ) {
-				delete_post_meta( $postId, $metaKey );
-				return;
-			}
-			update_post_meta( $postId, $metaKey, '1' );
-			return;
-		}
-
-		if ( is_string( $value ) && '_seostudio_description' === $metaKey ) {
-			$value = sanitize_textarea_field( $value );
-		} elseif ( is_string( $value ) && in_array( $metaKey, array( '_seostudio_canonical', '_seostudio_video_url' ), true ) ) {
-			$value = esc_url_raw( $value );
-		} elseif ( is_string( $value ) ) {
-			$value = sanitize_text_field( $value );
-		}
-
-		update_post_meta( $postId, $metaKey, $value );
 	}
 
 	/**

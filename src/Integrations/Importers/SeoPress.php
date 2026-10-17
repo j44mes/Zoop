@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Storage\SeoMeta;
+
 /**
  * Reads SEOPress keys. A robots index value of yes means noindex.
  */
@@ -66,22 +68,22 @@ final class SeoPress {
 			$title = $this->text( $post_id, '_seopress_titles_title' );
 			if ( '' !== $title ) {
 				$converted = $expand->convert( $title );
-				update_post_meta( $post_id, '_seostudio_title', $converted );
+				SeoMeta::store( $post_id, '_seostudio_title', $converted );
 				if ( $expand->needsReview( $converted ) ) {
 					++$review;
 				}
 			}
 			$description = $expand->convert( $this->text( $post_id, '_seopress_titles_desc' ) );
 			if ( '' !== $description ) {
-				update_post_meta( $post_id, '_seostudio_description', $description );
+				SeoMeta::store( $post_id, '_seostudio_description', $description );
 			}
 			$phrase = $this->text( $post_id, '_seopress_analysis_target_kw' );
 			if ( '' !== $phrase ) {
-				update_post_meta( $post_id, '_seostudio_focus_keyphrase', $phrase );
+				SeoMeta::store( $post_id, '_seostudio_focus_keyphrase', $phrase );
 			}
 			$canonical = $this->text( $post_id, '_seopress_robots_canonical' );
 			if ( '' !== $canonical ) {
-				update_post_meta( $post_id, '_seostudio_canonical', $canonical );
+				SeoMeta::store( $post_id, '_seostudio_canonical', $canonical );
 			}
 			if ( 'yes' === $this->text( $post_id, '_seopress_robots_index' ) ) {
 				update_post_meta(

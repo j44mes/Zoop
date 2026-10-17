@@ -48,7 +48,10 @@ final class HeadOutput {
 			return $title;
 		}
 
-		return $this->titles->filter( $title );
+		// wp_get_document_title() returns a pre_get_document_title value without escaping it,
+		// and _wp_render_title_tag() prints it raw. Escape as core does on its default path.
+		$filtered = $this->titles->filter( $title );
+		return '' === $filtered ? $title : esc_html( $filtered );
 	}
 
 	/**

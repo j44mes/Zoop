@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Storage\SeoMeta;
+
 /**
  * Reads Yoast keys verified against the public plugin. Never writes them back.
  */
@@ -108,6 +110,6 @@ final class Yoast {
 		if ( '' === $value ) {
 			return;
 		}
-		update_post_meta( $postId, $key, $value );
+		SeoMeta::store( $postId, $key, $value );
 	}
 }

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Storage\SeoMeta;
+
 /**
  * Reads Rank Math keys. The focus keyword is a comma-separated list.
  */
@@ -66,25 +68,25 @@ final class RankMath {
 			$title = $this->text( $post_id, 'rank_math_title' );
 			if ( '' !== $title ) {
 				$converted = $expand->convert( $title );
-				update_post_meta( $post_id, '_seostudio_title', $converted );
+				SeoMeta::store( $post_id, '_seostudio_title', $converted );
 				if ( $expand->needsReview( $converted ) ) {
 					++$review;
 				}
 			}
 			$description = $expand->convert( $this->text( $post_id, 'rank_math_description' ) );
 			if ( '' !== $description ) {
-				update_post_meta( $post_id, '_seostudio_description', $description );
+				SeoMeta::store( $post_id, '_seostudio_description', $description );
 			}
 			$keywords = $this->text( $post_id, 'rank_math_focus_keyword' );
 			if ( '' !== $keywords ) {
 				$parts = array_values( array_filter( array_map( 'trim', explode( ',', $keywords ) ) ) );
 				if ( isset( $parts[0] ) ) {
-					update_post_meta( $post_id, '_seostudio_focus_keyphrase', $parts[0] );
+					SeoMeta::store( $post_id, '_seostudio_focus_keyphrase', $parts[0] );
 				}
 				$related = array();
 				foreach ( array_slice( $parts, 1, 4 ) as $part ) {
 					$related[] = array(
-						'keyphrase' => $part,
+						'keyphrase' => sanitize_text_field( $part ),
 						'synonyms'  => array(),
 					);
 				}
@@ -94,7 +96,7 @@ final class RankMath {
 			}
 			$canonical = $this->text( $post_id, 'rank_math_canonical_url' );
 			if ( '' !== $canonical ) {
-				update_post_meta( $post_id, '_seostudio_canonical', $canonical );
+				SeoMeta::store( $post_id, '_seostudio_canonical', $canonical );
 			}
 			$robots = get_post_meta( $post_id, 'rank_math_robots', true );
 			if ( is_array( $robots ) && array() !== $robots ) {
