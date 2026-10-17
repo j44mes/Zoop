@@ -23,8 +23,8 @@ final class Menu {
 
 	public static function menu(): void {
 		add_menu_page(
-			__( 'SEO Studio', 'seo-studio' ),
-			__( 'SEO Studio', 'seo-studio' ),
+			__( 'Zoop', 'seo-studio' ),
+			__( 'Zoop', 'seo-studio' ),
 			'edit_posts',
 			'seostudio',
 			array( self::class, 'render' ),

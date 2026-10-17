@@ -38,14 +38,14 @@ final class Notices {
 			echo '<div class="notice notice-warning"><p>' . esc_html(
 				sprintf(
 					/* translators: %s: the other SEO plugin's name */
-					__( 'SEO Studio has suspended its head output because %s is active. Nothing was deleted.', 'seo-studio' ),
+					__( 'Zoop has suspended its head output because %s is active. Nothing was deleted.', 'seo-studio' ),
 					$active['name']
 				)
 			) . '</p></div>';
 		}
 
 		if ( 'owner' === (string) ( $settings['mode'] ?? '' ) && ! current_theme_supports( 'title-tag' ) ) {
-			echo '<div class="notice notice-warning"><p>' . esc_html__( 'The active theme does not support the title-tag feature, so SEO Studio will not print a second title.', 'seo-studio' ) . '</p></div>';
+			echo '<div class="notice notice-warning"><p>' . esc_html__( 'The active theme does not support the title-tag feature, so Zoop will not print a second title.', 'seo-studio' ) . '</p></div>';
 		}
 
 		if ( Scheduler::cronDisabled() ) {

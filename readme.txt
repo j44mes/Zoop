@@ -36,6 +36,7 @@ The two code checks need a full-page fetch. A content render leaves them uncheck
 == Changelog ==
 
 = 0.5.0 =
+* Name the admin menu and the dashboard Zoop. The screen address remains page=seostudio.
 * Queue site audits, single-post analysis, and a nightly live fetch through Action Scheduler. The fetch walks every public post type in batches and scores the fetched page.
 * Print the homepage graph on a static front page, inherit robots fields one at a time, and publish saved social titles and descriptions.
 * Add Owner mode head output, including LocalBusiness, VideoObject, and NewsArticle schema.

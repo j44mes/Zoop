@@ -14,8 +14,22 @@ The unit tests do not boot WordPress.
 
 ## Install
 
+The file from GitHub's **Code → Download ZIP** is the source tree. It does not contain `vendor/` or `assets/build/`. WordPress will list Zoop, then show an admin error, and the Zoop menu will not work.
+
+The installable package is `zoop-0.5.0.zip`, built with:
+
+```bash
+bash scripts/package-plugin.sh
+```
+
+That command installs production PHP dependencies, builds the dashboard, and writes `dist/zoop-0.5.0.zip`. Upload that zip in **Plugins → Add New → Upload Plugin**, then activate Zoop. The left-hand menu is **Zoop**. The address stays `wp-admin/admin.php?page=seostudio`. No Composer or npm step is required on the WordPress server.
+
+To work from this directory instead, install the dependencies and build the admin screens:
+
 ```bash
 composer install
+npm ci
+npm run build
 ```
 
 Copy this directory to `wp-content/plugins/` and activate Zoop. For a production tree, install without dev dependencies:
@@ -36,7 +50,7 @@ npm test                  # Jest
 npm run test:e2e          # Playwright against wp-env on http://localhost:8888
 ```
 
-`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed.
+`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed. `scripts/package-plugin.sh` is what puts it, and `vendor/`, into the upload zip. The release workflow runs that script when a `v*` tag is pushed. No tag has been published from this change.
 
 Integration tests boot WordPress through wp-env:
 

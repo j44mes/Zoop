@@ -91,7 +91,7 @@ export function Dashboard() {
 
 	return (
 		<div className="seostudio-dashboard">
-			<h1>{ __( 'SEO Studio', 'seo-studio' ) }</h1>
+			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
 			<p>
 				<Button
 					variant={ view === 'overview' ? 'primary' : 'secondary' }

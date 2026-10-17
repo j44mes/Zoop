@@ -32,6 +32,16 @@ if ( is_readable( $seostudio_scheduler ) ) {
 }
 
 if ( ! class_exists( \SEOStudio\Core\Plugin::class ) ) {
+	add_action(
+		'admin_notices',
+		static function (): void {
+			if ( ! current_user_can( 'activate_plugins' ) ) {
+				return;
+			}
+
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Zoop cannot start because its PHP dependencies are missing. Upload the release ZIP, which includes the vendor directory. A download of the source code does not run.', 'seo-studio' ) . '</p></div>';
+		}
+	);
 	return;
 }
 

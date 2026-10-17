@@ -13,7 +13,7 @@ msgstr ""
 "X-Domain: seo-studio\n"
 
 #: assets/src/dashboard/index.tsx
-msgid "SEO Studio"
+msgid "Zoop"
 msgstr ""
 
 #: assets/src/dashboard/index.tsx
@@ -53,7 +53,7 @@ msgid "News article"
 msgstr ""
 
 #: src/Admin/Notices.php
-msgid "The active theme does not support the title-tag feature, so SEO Studio will not print a second title."
+msgid "The active theme does not support the title-tag feature, so Zoop will not print a second title."
 msgstr ""
 
 #: src/Rest/AuditsController.php
@@ -66,4 +66,16 @@ msgstr ""
 
 #: src/Rest/SettingsController.php
 msgid "Owner mode stays off while another SEO plugin is active."
+msgstr ""
+
+#: seo-studio.php
+msgid "Zoop cannot start because its PHP dependencies are missing. Upload the release ZIP, which includes the vendor directory. A download of the source code does not run."
+msgstr ""
+
+#: src/Admin/Assets.php
+msgid "Zoop cannot show its dashboard because the admin files in assets/build are missing. Upload the release ZIP. A download of the source code does not include them."
+msgstr ""
+
+#: src/Admin/Notices.php
+msgid "Zoop has suspended its head output because %s is active. Nothing was deleted."
 msgstr ""
