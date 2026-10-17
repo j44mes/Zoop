@@ -7,6 +7,10 @@ export default defineConfig( {
 	workers: 1,
 	timeout: 120000,
 	expect: { timeout: 20000 },
+	// Chromium and WebKit share one wp-env site. Simultaneous logins for the same
+	// user drop a session token, and WordPress answers with reauth=1.
+	workers: 1,
+	fullyParallel: false,
 	use: {
 		baseURL: process.env.WP_BASE_URL || 'http://localhost:8888',
 		screenshot: 'only-on-failure',

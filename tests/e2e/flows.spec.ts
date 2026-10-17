@@ -6,17 +6,30 @@ let editedPostUrl = '';
 
 async function login( page: Page ): Promise< void > {
 	// Land on the plugin screen rather than the WordPress dashboard, whose widgets make outbound
-	// requests, and stop at DOMContentLoaded: each flow navigates again straight away.
-	await page.goto(
+	// requests. A lost session comes back as wp-login.php?reauth=1, so try once more.
+	const target =
 		'/wp-login.php?redirect_to=' +
-			encodeURIComponent( '/wp-admin/admin.php?page=seostudio' )
-	);
-	await page.fill( '#user_login', 'admin' );
-	await page.fill( '#user_pass', 'password' );
-	await Promise.all( [
-		page.waitForURL( '**/wp-admin/**', { waitUntil: 'domcontentloaded' } ),
-		page.click( '#wp-submit' ),
-	] );
+		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
+		await page.goto( target, { waitUntil: 'domcontentloaded' } );
+		if ( page.url().includes( '/wp-admin/' ) ) {
+			return;
+		}
+		await page.locator( '#user_login' ).fill( 'admin' );
+		await page.locator( '#user_pass' ).fill( 'password' );
+		await page.locator( '#wp-submit' ).click();
+		try {
+			await page.waitForURL( '**/wp-admin/**', {
+				timeout: 20000,
+				waitUntil: 'commit',
+			} );
+			return;
+		} catch ( error ) {
+			if ( attempt === 1 ) {
+				throw error;
+			}
+		}
+	}
 }
 
 async function editorDiagnostics( page: Page ): Promise< string > {
