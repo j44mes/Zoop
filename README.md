@@ -50,7 +50,7 @@ npm test                  # Jest
 npm run test:e2e          # Playwright against wp-env on http://localhost:8888
 ```
 
-`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed. `scripts/package-plugin.sh` is what puts it, and `vendor/`, into the upload zip. The release workflow runs that script when a `v*` tag is pushed. No tag has been published from this change.
+`npm run build` writes `assets/build/`, which the admin screens enqueue. That directory is not committed. `scripts/package-plugin.sh` is what puts it, and `vendor/`, into the upload zip. The Package workflow runs that script on demand and stores `zoop-0.5.0.zip` as a GitHub Actions artifact. The release workflow runs the same script when a `v*` tag is pushed. No tag has been published from this change.
 
 Integration tests boot WordPress through wp-env:
 

@@ -1,0 +1,39 @@
+name: Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/installable-zip-48fa
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Package the installable plugin
+        run: bash scripts/package-plugin.sh
+
+      - name: Upload the installable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoop-0.5.0
+          path: dist/zoop-*.zip
+          if-no-files-found: error
+          retention-days: 14
