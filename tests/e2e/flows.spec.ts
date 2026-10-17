@@ -201,9 +201,7 @@ async function openEditor( page: Page, url: string ): Promise< void > {
 test( 'dashboard is available after activation', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await expect(
-		page.getByRole( 'heading', { name: 'SEO Studio' } )
-	).toBeVisible();
+	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
 	// Browser projects share one WordPress database, so another project may already have analysed a page.
 	await expect(
 		page
@@ -298,26 +296,56 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 			.getByRole( 'button', { name: 'Settings', exact: true } )
 			.click();
 		const settings = page.locator( '.seostudio-settings' );
-		await settings.locator( 'select' ).first().selectOption( 'owner' );
-		await settings
-			.getByLabel( 'Home description' )
-			.fill( 'Studio home description' );
+		const mode = settings.getByLabel( 'Mode' );
+		await mode.selectOption( 'owner' );
+		await expect( mode ).toHaveValue( 'owner' );
+		const homeDescription = settings.getByLabel( 'Home description' );
+		await homeDescription.fill( 'Studio home description' );
+		await homeDescription.blur();
 		await saveSettings( page );
-		await page.goto( '/' );
-		await expect(
-			page.locator(
-				'meta[name="description"][content="Studio home description"]'
-			)
-		).toHaveCount( 1 );
-	} finally {
-		await page.goto( settingsUrl );
+		await page.reload();
 		await page
 			.getByRole( 'button', { name: 'Settings', exact: true } )
 			.click();
-		await page
-			.locator( '.seostudio-settings select' )
-			.first()
-			.selectOption( 'analysis' );
-		await saveSettings( page );
+		await expect(
+			page.locator( '.seostudio-settings' ).getByLabel( 'Mode' )
+		).toHaveValue( 'owner' );
+		const home = await page.request.get( '/' );
+		expect( home.ok() ).toBe( true );
+		expect( await home.text() ).toContain(
+			'name="description" content="Studio home description"'
+		);
+	} finally {
+		// Chromium and WebKit share one site. Restoring through the select can
+		// save the previous mode, and the next browser then scores as Owner mode.
+		await page.goto( settingsUrl );
+		await page.waitForFunction( () =>
+			Boolean(
+				(
+					window as unknown as {
+						wp?: { apiFetch?: unknown };
+					}
+				 ).wp?.apiFetch
+			)
+		);
+		const restored = await page.evaluate( async () => {
+			const saved = await (
+				window as unknown as {
+					wp: {
+						apiFetch: ( options: {
+							path: string;
+							method: string;
+							data: { mode: string };
+						} ) => Promise< { mode?: string } >;
+					};
+				}
+			 ).wp.apiFetch( {
+				path: '/seostudio/v1/settings',
+				method: 'PUT',
+				data: { mode: 'analysis' },
+			} );
+			return saved.mode;
+		} );
+		expect( restored ).toBe( 'analysis' );
 	}
 } );

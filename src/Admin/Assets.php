@@ -54,7 +54,7 @@ final class Assets {
 			add_action(
 				'admin_notices',
 				static function (): void {
-					echo '<div class="notice notice-warning"><p>' . esc_html__( 'Zoop admin assets are not built. Run npm run build in the plugin directory.', 'seo-studio' ) . '</p></div>';
+					echo '<div class="notice notice-error"><p>' . esc_html__( 'Zoop cannot show its dashboard because the admin files in assets/build are missing. Upload the release ZIP. A download of the source code does not include them.', 'seo-studio' ) . '</p></div>';
 				}
 			);
 			return;
