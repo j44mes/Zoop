@@ -42,17 +42,17 @@ Zoop is the repository and the plugin header. SEO Studio is the product name in 
 
 ## Resolved metadata
 
-Scoring uses the metadata a crawler would receive.
+Content-mode scoring uses estimated metadata. Only a live fetch observes the public HTML; plugin filters, dynamic variables and theme output can differ from stored templates.
 
 - Owner mode with no other SEO plugin active expands `_seostudio_title`, `_seostudio_description` and `_seostudio_canonical`, then falls back to the post title, excerpt, and permalink.
-- Analysis-only mode, and Owner mode while another SEO plugin is still active, ignore saved SEO Studio fields. Those fields are not being printed. The active plugin's rendered title, description, and canonical are used instead, including its default template when the stored value is empty.
+- Analysis-only mode, and Owner mode while another SEO plugin is still active, ignore saved SEO Studio fields. Those fields are not being printed. An estimate from the active plugin's stored title, description, and canonical is used instead, including its default template when the stored value is empty.
 - The first detected plugin wins: Yoast, Rank Math, SEOPress, All in One SEO, The SEO Framework.
 
 Template approximations, recorded because none of these plugins exposes a stable public function for "the title you printed":
 
-- Yoast: stored `_yoast_wpseo_*`, otherwise `wpseo_titles` `title-post` and `metadesc-post`, otherwise `%%title%% %%sep%% %%sitename%%` and the excerpt. Separator symbols follow Yoast's `sc-*` names.
+- Yoast: stored `_yoast_wpseo_*`, otherwise `wpseo_titles` `title-{post_type}` and `metadesc-{post_type}`, otherwise `%%title%% %%sep%% %%sitename%%` and the excerpt. Separator symbols follow Yoast's `sc-*` names.
 - Rank Math: stored `rank_math_*`, otherwise `rank-math-options-titles` `pt_{post_type}_title` and `pt_{post_type}_description`, otherwise `%title% %sep% %sitename%` and the excerpt.
-- SEOPress: stored `_seopress_titles_*` and `_seopress_robots_canonical`, otherwise `seopress_titles_option_name` keys `seopress_titles_single_post_title` and `seopress_titles_single_post_desc`, otherwise `%%post_title%% %%sep%% %%sitetitle%%` and the excerpt.
+- SEOPress: stored `_seopress_titles_*` and `_seopress_robots_canonical`, otherwise `seopress_titles_option_name` nested `seopress_titles_single_titles[post_type][title|description]`, otherwise `%%post_title%% %%sep%% %%sitetitle%%` and the excerpt.
 - All in One SEO: the `aioseo_posts` row when that table exists, otherwise `#post_title #separator_sa #site_title` and the excerpt.
 - The SEO Framework: `_genesis_title`, `_genesis_description`, `_genesis_canonical_uri`. An empty title is the post title. When `autodescription-site-settings` `title_rem_additions` is off, the site name is appended. This is not TSF's full title generator.
 
@@ -79,3 +79,14 @@ Unit tests still do not boot WordPress. Integration tests under `tests/php/Integ
 Phase 1 is GPL-2.0-or-later. Phase 2 bundles `yoastseo` 3.6.0, which is GPL-3.0. Shipping that package means the combined plugin is distributed under GPL-3.0. Its licence file is kept at `vendor-js/yoastseo/LICENSE`, it is listed under third-party code in `readme.txt`, and the admin UI does not use the Yoast name, logo, or yoast.com links. Assessment text from the package is shown with HTML stripped.
 
 Action Scheduler 3.9.3 is GPL-3.0-or-later, which the specification requires in Composer now. Zoop's own code can be distributed under GPL-3 because it is GPL-2.0-or-later. The library is not loaded: its package has no Composer autoload, and Phase 1 does not include `action-scheduler.php`. Its plugin header requires WordPress 6.5. Zoop still declares 6.4, because this phase does not boot the library. Phase 3 has to reconcile that before jobs run.
+
+## Phase 1 review corrections
+
+- Content models carry `metadata_status: estimated`; live HTML extraction carries `observed_html`. Resolving stored templates over a live model is still estimated. This is provenance, not a guarantee of search-engine indexing or exact compatibility with every SEO plugin. Option-shape regression tests cover Yoast and SEOPress; installed-plugin end-to-end parity remains unverified.
+- The SEOPress option shape follows its own [wpml-config.xml](https://github.com/wp-seopress/wp-seopress-public/blob/master/wpml-config.xml). Yoast templates use the actual post type. Unsupported dynamic variables and filters remain a reason to use Verify live.
+- A single selector resolver applies post overrides, then the filtered site post-type map in both render modes.
+- `is_indexable` is nullable. False means a detected blocker (non-public post, password, site visibility or robots noindex/none). Null means unverified; true means the checks passed against fetched HTML and HTTP robots headers, not that Google has indexed the page. Robots.txt, canonical consolidation and search-engine decisions are outside this flag. Schema version 2 clears the previous unconditional true values; re-analysis repopulates them. Upgrades run on init as well as activation.
+- Dashboard scores match the saved focus phrase. A changed, cleared or unanalysed focus phrase never inherits a score from a different phrase. Explicit ad-hoc analyses remain in the full record, without silently becoming the saved focus phrase.
+- Related phrases and the primary phrase are rebuilt from current meta on either key's save/delete hooks. Case-insensitive duplicates share one index row, with primary taking precedence. Hook registration is idempotent even when WordPress restores hooks between tests.
+- Lists scan only page/post IDs in batches of 200 to honour custom `edit_post` capability filters and produce exact authorised totals. Only the requested page loads score details; no collection query loads PageModel JSON. Ties sort by page ID. Counting still requires O(n) permission checks; this is not a constant-time pagination claim or a 10,000-page benchmark. Background audit/large-site optimisation remains a later phase.
+- SEO validation is scoped to `/seostudio/v1/posts/{id}/seo`, including its trailing-slash form. Other plugins' routes are untouched.

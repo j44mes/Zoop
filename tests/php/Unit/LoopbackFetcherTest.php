@@ -94,11 +94,13 @@ final class LoopbackFetcherTest extends TestCase {
 
 		$GLOBALS['seostudio_remote_response'] = array(
 			'code'    => 200,
-			'headers' => array( 'location' => '' ),
+			'headers' => array( 'location' => '', 'x-robots-tag' => 'noindex' ),
 			'body'    => '<html><body><main><p>Remote body.</p></main></body></html>',
 		);
 		$model = ( new LoopbackFetcher( $policy ) )->fetch( 'https://example.test/start', array( 'home_url' => 'https://example.test/' ) );
 		$this->assertStringContainsString( 'Remote body.', $model->bodyText );
+		$this->assertSame( 'noindex', $model->robots );
+		$this->assertSame( 'observed_html', $model->metadataStatus );
 	}
 
 	public function testSendsBasicAuthWhenConfigured(): void {

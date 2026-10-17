@@ -287,7 +287,8 @@ final class PagesController {
 		return $this->fetcher->fetch(
 			$url,
 			array(
-				'page_type' => get_post_type( $postId ),
+				'page_type'        => get_post_type( $postId ),
+				'content_selector' => $this->renderer->selectorFor( get_post( $postId ) ),
 			)
 		);
 	}

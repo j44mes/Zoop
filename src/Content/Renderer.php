@@ -41,6 +41,7 @@ final class Renderer {
 	 */
 	public function renderResolved( string $html, AnalysisContext $analysis, array $context = array() ): PageModel {
 		$resolved                    = $this->resolver->resolve( $analysis );
+		$context['metadata_status']  = 'estimated';
 		$context['render_mode']      = (string) ( $context['render_mode'] ?? 'content' );
 		$context['title_tag']        = $resolved['title_tag'];
 		$context['meta_description'] = $resolved['meta_description'];
@@ -125,14 +126,14 @@ final class Renderer {
 		);
 	}
 
-	private function selectorFor( \WP_Post $post ): string {
+	public function selectorFor( \WP_Post $post ): string {
 		$per_post = $this->metaString( $post->ID, '_seostudio_content_selector' );
 		if ( '' !== $per_post ) {
 			return $per_post;
 		}
 
 		$settings  = Settings::all();
-		$selectors = $settings['content_selectors'] ?? array();
+		$selectors = apply_filters( 'seostudio/content_selectors', $settings['content_selectors'] ?? array() ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores -- Published extension point.
 		if ( ! is_array( $selectors ) ) {
 			return '';
 		}

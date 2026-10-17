@@ -58,7 +58,7 @@ final class Tables {
 				last_rendered_at datetime NULL,
 				last_fetched_at datetime NULL,
 				last_error text NULL,
-				is_indexable tinyint(1) NOT NULL DEFAULT 1,
+				is_indexable tinyint(1) NULL DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY url_hash (url_hash),
 				KEY object_lookup (object_type, object_id),

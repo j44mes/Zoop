@@ -33,7 +33,9 @@ final class LoopbackFetcher {
 	 */
 	public function fetch( string $url, array $context = array() ): PageModel {
 		$home                   = function_exists( 'home_url' ) ? (string) home_url( '/' ) : (string) ( $context['home_url'] ?? '' );
-		$html                   = $this->download( $url, $home, 0 );
+		$response               = $this->download( $url, $home, 0 );
+		$html                   = $response['body'];
+		$context['http_robots'] = $response['robots'];
 		$context['render_mode'] = 'live';
 		$context['url']         = $url;
 		if ( ! array_key_exists( 'is_https', $context ) ) {
@@ -43,7 +45,13 @@ final class LoopbackFetcher {
 		return $this->extractor->extract( $html, $context );
 	}
 
-	private function download( string $url, string $home, int $hops ): string {
+	/**
+	 * Follow allowed redirects and retain response directives.
+	 *
+	 * @return array{body: string, robots: string}
+	 * @throws FetchBlockedException When the status or response size is invalid.
+	 */
+	private function download( string $url, string $home, int $hops ): array {
 		$this->policy->assertAllowed( $url, $home );
 		$response = $this->perform( $url );
 
@@ -60,13 +68,16 @@ final class LoopbackFetcher {
 			throw new FetchBlockedException( 'Response exceeded 2 MB.', 'oversized' );
 		}
 
-		return $response['body'];
+		return array(
+			'body'   => $response['body'],
+			'robots' => $response['robots'],
+		);
 	}
 
 	/**
 	 * Perform one HTTP request without following redirects.
 	 *
-	 * @return array{code: int, location: string, body: string}
+	 * @return array{code: int, location: string, body: string, robots: string}
 	 * @throws FetchBlockedException When the transport fails.
 	 */
 	private function perform( string $url ): array {
@@ -96,6 +107,7 @@ final class LoopbackFetcher {
 				'code'     => (int) ( $result['code'] ?? 0 ),
 				'location' => (string) ( $result['location'] ?? '' ),
 				'body'     => (string) ( $result['body'] ?? '' ),
+				'robots'   => (string) ( $result['robots'] ?? '' ),
 			);
 		}
 
@@ -108,6 +120,7 @@ final class LoopbackFetcher {
 			'code'     => (int) wp_remote_retrieve_response_code( $response ),
 			'location' => (string) wp_remote_retrieve_header( $response, 'location' ),
 			'body'     => (string) wp_remote_retrieve_body( $response ),
+			'robots'   => implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ),
 		);
 	}
 }

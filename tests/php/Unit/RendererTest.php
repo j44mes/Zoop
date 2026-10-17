@@ -70,6 +70,7 @@ final class RendererTest extends TestCase {
 
 		$this->assertSame( 'live', $model->renderMode );
 		$this->assertSame( 'Post title', $model->titleTag );
+		$this->assertSame( 'estimated', $model->metadataStatus );
 		$this->assertSame( 'Excerpt', $model->metaDescription );
 	}
 
