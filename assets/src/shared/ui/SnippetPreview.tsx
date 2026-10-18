@@ -13,13 +13,24 @@ export function SnippetPreview( {
 	description,
 	viewport = 'desktop',
 }: SnippetPreviewProps ) {
+	let host = url || __( 'Permalink unavailable', 'seo-studio' );
+	try {
+		if ( url ) {
+			host = new URL( url ).host;
+		}
+	} catch ( _error ) {
+		host = url;
+	}
 	return (
 		<article
-			className="seostudio-preview"
+			className="seostudio-preview seostudio-serp"
 			data-viewport={ viewport }
 			aria-label={ __( 'Search snippet preview', 'seo-studio' ) }
 		>
-			<p>{ url || __( 'Permalink unavailable', 'seo-studio' ) }</p>
+			<p className="seostudio-serp-url">
+				<span className="seostudio-serp-mark" aria-hidden="true" />
+				{ host }
+			</p>
 			<h3>{ title || __( 'Untitled', 'seo-studio' ) }</h3>
 			<p>{ description || __( 'No description yet.', 'seo-studio' ) }</p>
 		</article>

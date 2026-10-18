@@ -1,6 +1,6 @@
 # Design research
 
-These notes record the decisions used for the Zoop admin redesign. They are not a claim that a usability study was run.
+These notes record the decisions used for the Zoop admin redesign. They are not a claim that a usability study was run. The second pass compared three page-analysis compositions in `prototypes.md` and built the summary deck.
 
 ## WordPress DataViews
 

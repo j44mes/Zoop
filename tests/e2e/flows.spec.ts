@@ -241,11 +241,13 @@ test( 'editing the title updates the title assessment without a reload', async (
 	await login( page );
 	await openEditor( page, editedPostUrl );
 	await openSeoSidebar( page, errors );
-	await page
-		.locator( 'summary' )
-		.filter( { hasText: 'All on-page checks' } )
+	const checks = page.locator( 'details[data-section="checks"]' );
+	await checks.locator( '> summary' ).click();
+	await checks
+		.locator( '.seostudio-check-group > summary' )
+		.filter( { hasText: 'SEO title' } )
 		.click();
-	const titleCheck = page.locator(
+	const titleCheck = checks.locator(
 		'details[data-assessment="title.entire_keyphrase"]'
 	);
 	await titleCheck.locator( 'summary' ).click();

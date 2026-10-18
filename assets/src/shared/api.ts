@@ -208,6 +208,27 @@ export interface StudioSettings {
 	};
 }
 
+export async function fetchPostIdentity(
+	postId: number
+): Promise< { title: string; link: string } > {
+	const types = [ 'posts', 'pages' ];
+	for ( const type of types ) {
+		try {
+			const post = await apiFetch< {
+				title?: { raw?: string; rendered?: string };
+				link?: string;
+			} >( { path: `/wp/v2/${ type }/${ postId }?context=edit` } );
+			return {
+				title: post.title?.raw || post.title?.rendered || '',
+				link: post.link || '',
+			};
+		} catch ( _error ) {
+			// The id belongs to one public type. Try the other.
+		}
+	}
+	return { title: '', link: '' };
+}
+
 export function fetchPage( pageId: number ): Promise< PageRecord > {
 	return apiFetch( { path: `/seostudio/v1/pages/${ pageId }` } );
 }

@@ -40,8 +40,11 @@ export function AssessmentList( { items }: AssessmentListProps ) {
 	return (
 		<div className="seostudio-assessments">
 			{ Array.from( groups.entries() ).map( ( [ category, rows ] ) => (
-				<section key={ category }>
-					<h3>{ category }</h3>
+				<details key={ category } className="seostudio-check-group">
+					<summary>
+						<span>{ categoryLabel( category ) }</span>
+						<span>{ groupNote( rows ) }</span>
+					</summary>
 					{ rows.map( ( row ) => {
 						const word =
 							statusWord[ row.status || row.rating || 'grey' ] ||
@@ -96,8 +99,41 @@ export function AssessmentList( { items }: AssessmentListProps ) {
 							</details>
 						);
 					} ) }
-				</section>
+				</details>
 			) ) }
 		</div>
 	);
+}
+
+function categoryLabel( category: string ): string {
+	const labels: Record< string, string > = {
+		title: __( 'SEO title', 'seo-studio' ),
+		meta: __( 'Description', 'seo-studio' ),
+		headings: __( 'Headings', 'seo-studio' ),
+		body: __( 'Content', 'seo-studio' ),
+		media: __( 'Images', 'seo-studio' ),
+		url: __( 'Address', 'seo-studio' ),
+		code: __( 'Technical', 'seo-studio' ),
+	};
+	return labels[ category ] || category;
+}
+
+function groupNote( rows: ListedAssessment[] ): string {
+	const attention = rows.filter(
+		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+	).length;
+	if ( attention > 0 ) {
+		return sprintf(
+			/* translators: %d: number of checks that are not a clear pass. */
+			__( '%d to review', 'seo-studio' ),
+			attention
+		);
+	}
+	if (
+		rows.length > 0 &&
+		rows.every( ( row ) => row.status === 'not_checked' )
+	) {
+		return __( 'Not checked in this mode', 'seo-studio' );
+	}
+	return __( 'Good', 'seo-studio' );
 }

@@ -2,7 +2,7 @@
 
 Tokens live on `.seostudio-dashboard` and `.seostudio-panel` in `assets/src/shared/ui/style.css`.
 
-- Canvas, surface, text, muted text, border, accent, focus.
+- Canvas `#F7F8FA`, white cards, charcoal text, slate secondary text, a blue accent, and muted success, warning, and error colours. Secondary text is darker than the first sketch so help text meets contrast on the canvas.
 - Success, warning, and error, each with a background tint.
 - Cards, status chips, the page table, disclosures, and the audit bar.
 

@@ -44,7 +44,9 @@ export function Dashboard() {
 	const [ page, setPage ] = useState( 1 );
 	const [ notice, setNotice ] = useState( '' );
 	const [ error, setError ] = useState( '' );
-	const [ view, setView ] = useState< 'overview' | 'settings' >( 'overview' );
+	const [ view, setView ] = useState< 'overview' | 'pages' | 'settings' >(
+		sectionView
+	);
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 
 	useEffect( () => {
@@ -171,7 +173,11 @@ export function Dashboard() {
 	if ( isPageWorkspace() ) {
 		return (
 			<div className="seostudio-dashboard">
-				<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
+				<AppBar
+					current="pages"
+					mode={ shortMode( settings ) }
+					onNavigate={ () => undefined }
+				/>
 				<PageWorkspace />
 			</div>
 		);
@@ -183,26 +189,11 @@ export function Dashboard() {
 
 	return (
 		<div className="seostudio-dashboard">
-			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
-			<p className="seostudio-lede">{ modeLine }</p>
-			<p className="seostudio-actions">
-				<Button
-					variant={ view === 'overview' ? 'primary' : 'secondary' }
-					onClick={ () => setView( 'overview' ) }
-				>
-					{ __( 'Overview', 'seo-studio' ) }
-				</Button>
-				<Button
-					variant={ view === 'settings' ? 'primary' : 'secondary' }
-					onClick={ () => setView( 'settings' ) }
-				>
-					{ __( 'Settings', 'seo-studio' ) }
-				</Button>
-			</p>
+			<AppBar current={ view } mode={ modeLine } onNavigate={ setView } />
 			{ view === 'settings' ? <SettingsPanel /> : null }
-			{ view === 'overview' ? (
+			{ view !== 'settings' ? (
 				<>
-					{ summary ? (
+					{ view === 'overview' && summary ? (
 						<div className="seostudio-summary">
 							<article>
 								<h2>{ __( 'Stored', 'seo-studio' ) }</h2>
@@ -224,72 +215,88 @@ export function Dashboard() {
 							</article>
 						</div>
 					) : null }
-					<p className="seostudio-muted">
-						{ summary?.average === null ||
-						summary?.average === undefined
-							? __( 'No on-page average yet.', 'seo-studio' )
-							: sprintf(
-									/* translators: %d: average on-page score as a percentage of the available points. */
+					{ view === 'overview' ? (
+						<>
+							<p className="seostudio-muted">
+								{ summary?.average === null ||
+								summary?.average === undefined
+									? __(
+											'No on-page average yet.',
+											'seo-studio'
+									  )
+									: sprintf(
+											/* translators: %d: average on-page score as a percentage of the available points. */
+											__(
+												'Average on-page, as a percentage of the available points: %d%%.',
+												'seo-studio'
+											),
+											summary.average
+									  ) }{ ' ' }
+								{ sprintf(
+									/* translators: 1: poor pages, 2: ok pages, 3: good pages. */
 									__(
-										'Average on-page, as a percentage of the available points: %d%%.',
+										'Poor %1$d, Ok %2$d, Good %3$d.',
 										'seo-studio'
 									),
-									summary.average
-							  ) }{ ' ' }
-						{ sprintf(
-							/* translators: 1: poor pages, 2: ok pages, 3: good pages. */
-							__(
-								'Poor %1$d, Ok %2$d, Good %3$d.',
-								'seo-studio'
-							),
-							summary?.red ?? 0,
-							summary?.orange ?? 0,
-							summary?.green ?? 0
-						) }
-					</p>
-					<h2>{ __( 'Suggested next steps', 'seo-studio' ) }</h2>
-					<p className="seostudio-muted">
-						{ __(
-							'These are the lowest saved on-page results. They are not a ranking forecast.',
-							'seo-studio'
-						) }
-					</p>
-					<div className="seostudio-suggestions">
-						{ suggestions.length === 0 ? (
-							<p>
+									summary?.red ?? 0,
+									summary?.orange ?? 0,
+									summary?.green ?? 0
+								) }
+							</p>
+							<h2>
+								{ __( 'Suggested next steps', 'seo-studio' ) }
+							</h2>
+							<p className="seostudio-muted">
 								{ __(
-									'No stored pages yet. Open a page and choose Analyse page.',
+									'These are the lowest saved on-page results. They are not a ranking forecast.',
 									'seo-studio'
 								) }
 							</p>
-						) : (
-							suggestions.map( ( item ) => (
-								<article
-									className="seostudio-suggestion"
-									key={ item.page_id }
-								>
-									<h3>
-										{ item.title ||
-											__( 'Untitled', 'seo-studio' ) }
-									</h3>
-									<p>{ suggestionText( item ) }</p>
+							<div className="seostudio-suggestions">
+								{ suggestions.length === 0 ? (
 									<p>
-										<a
-											href={ pageWorkspaceUrl(
-												item.object_id
-											) }
-										>
-											{ __(
-												'Open analysis',
-												'seo-studio'
-											) }
-										</a>
+										{ __(
+											'No stored pages yet. Open a page and choose Analyse page.',
+											'seo-studio'
+										) }
 									</p>
-								</article>
-							) )
-						) }
-					</div>
-					<h2>{ __( 'All pages', 'seo-studio' ) }</h2>
+								) : (
+									suggestions.map( ( item ) => (
+										<article
+											className="seostudio-suggestion"
+											key={ item.page_id }
+										>
+											<h3>
+												{ item.title ||
+													__(
+														'Untitled',
+														'seo-studio'
+													) }
+											</h3>
+											<p>{ suggestionText( item ) }</p>
+											<p>
+												<a
+													href={ pageWorkspaceUrl(
+														item.object_id
+													) }
+												>
+													{ __(
+														'Open analysis',
+														'seo-studio'
+													) }
+												</a>
+											</p>
+										</article>
+									) )
+								) }
+							</div>
+						</>
+					) : null }
+					<h2>
+						{ view === 'pages'
+							? __( 'Pages', 'seo-studio' )
+							: __( 'All pages', 'seo-studio' ) }
+					</h2>
 					<p className="seostudio-actions">
 						<Button variant="primary" onClick={ reanalyse }>
 							{ __( 'Run website audit', 'seo-studio' ) }
@@ -525,6 +532,75 @@ export function Dashboard() {
 			) : null }
 		</div>
 	);
+}
+
+function sectionView(): 'overview' | 'pages' | 'settings' {
+	const section = new URLSearchParams( window.location.search ).get(
+		'section'
+	);
+	if ( section === 'pages' || section === 'settings' ) {
+		return section;
+	}
+	return 'overview';
+}
+
+function AppBar( {
+	current,
+	mode,
+	onNavigate,
+}: {
+	current: 'overview' | 'pages' | 'settings';
+	mode: string;
+	onNavigate: ( next: 'overview' | 'pages' | 'settings' ) => void;
+} ) {
+	const items: Array< {
+		id: 'overview' | 'pages' | 'settings';
+		label: string;
+	} > = [
+		{ id: 'overview', label: __( 'Overview', 'seo-studio' ) },
+		{ id: 'pages', label: __( 'Pages', 'seo-studio' ) },
+		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
+	];
+	return (
+		<div className="seostudio-appbar">
+			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
+			<nav aria-label={ __( 'Zoop sections', 'seo-studio' ) }>
+				{ items.map( ( item ) => (
+					<button
+						key={ item.id }
+						type="button"
+						aria-current={
+							current === item.id ? 'page' : undefined
+						}
+						onClick={ () => {
+							if ( isPageWorkspace() ) {
+								const target =
+									item.id === 'overview'
+										? 'admin.php?page=seostudio'
+										: `admin.php?page=seostudio&section=${ item.id }`;
+								window.location.href = target;
+								return;
+							}
+							onNavigate( item.id );
+						} }
+					>
+						{ item.label }
+					</button>
+				) ) }
+			</nav>
+			<p>{ mode }</p>
+		</div>
+	);
+}
+
+function shortMode( settings: StudioSettings | null ): string {
+	if ( settings?.publishing ) {
+		return __( 'Zoop manages metadata', 'seo-studio' );
+	}
+	if ( settings?.detected?.name ) {
+		return settings.detected.name;
+	}
+	return __( 'Analysis only', 'seo-studio' );
 }
 
 function metadataModeLine( settings: StudioSettings | null ): string {

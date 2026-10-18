@@ -1,4 +1,8 @@
 import { editHref, editTarget } from '../../assets/src/dashboard/edit-route';
+import {
+	recommendationHeading,
+	whyItMatters,
+} from '../../assets/src/dashboard/recommendation-copy';
 import { requestedSection } from '../../assets/src/editor/section';
 import {
 	snippetCaption,
@@ -39,6 +43,18 @@ describe( 'page workspace copy', () => {
 		);
 		expect( editHref( 5, 'body.word_count' ) ).toBe(
 			'post.php?post=5&action=edit'
+		);
+	} );
+
+	it( 'names a finding as an action without promising a ranking', () => {
+		expect( recommendationHeading( 'title.length' ) ).toBe(
+			'Review the SEO title'
+		);
+		expect( whyItMatters( 'title.entire_keyphrase' ) ).toContain(
+			'not predicting a ranking'
+		);
+		expect( whyItMatters( 'body.word_count' ) ).toContain(
+			'not an instruction to repeat it'
 		);
 	} );
 
