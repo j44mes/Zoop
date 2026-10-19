@@ -94,6 +94,36 @@ final class SearchRepository {
 	}
 
 	/**
+	 * Every stored query row, highest impressions first.
+	 *
+	 * @return list<array{query: string, page: string, clicks: int, impressions: int, position: float|null}>
+	 */
+	public function allRows(): array {
+		global $wpdb;
+
+		$table = Tables::searchRows();
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+		if ( $found !== $table ) {
+			return array();
+		}
+		$stored = $wpdb->get_results( "SELECT query_text, page_url, clicks, impressions, position FROM {$table} ORDER BY impressions DESC, clicks DESC, id ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+		$rows   = array();
+		foreach ( is_array( $stored ) ? $stored : array() as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$rows[] = array(
+				'query'       => (string) $row['query_text'],
+				'page'        => (string) $row['page_url'],
+				'clicks'      => (int) $row['clicks'],
+				'impressions' => (int) $row['impressions'],
+				'position'    => null === $row['position'] ? null : (float) $row['position'],
+			);
+		}
+		return $rows;
+	}
+
+	/**
 	 * Summary before any file has been imported.
 	 *
 	 * @return array<string, mixed>

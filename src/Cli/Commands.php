@@ -115,6 +115,7 @@ final class Commands {
 			'GET /seostudio/v1/overlap',
 			'GET /seostudio/v1/search-console',
 			'POST /seostudio/v1/search-console',
+			'GET /seostudio/v1/recommendations',
 		);
 		\WP_CLI::line( (string) wp_json_encode( $routes, JSON_PRETTY_PRINT ) );
 	}

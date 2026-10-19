@@ -29,6 +29,7 @@ import {
 } from './PageWorkspace';
 import { ArchitecturePanel } from './ArchitecturePanel';
 import { OverlapPanel } from './OverlapPanel';
+import { PrioritiesPanel } from './PrioritiesPanel';
 import { SearchConsolePanel } from './SearchConsolePanel';
 import { SettingsPanel } from './settings/SettingsPanel';
 
@@ -54,6 +55,7 @@ export function Dashboard() {
 		| 'architecture'
 		| 'overlap'
 		| 'search-console'
+		| 'priorities'
 	>( sectionView );
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 
@@ -202,10 +204,12 @@ export function Dashboard() {
 			{ view === 'architecture' ? <ArchitecturePanel /> : null }
 			{ view === 'overlap' ? <OverlapPanel /> : null }
 			{ view === 'search-console' ? <SearchConsolePanel /> : null }
+			{ view === 'priorities' ? <PrioritiesPanel /> : null }
 			{ view !== 'settings' &&
 			view !== 'architecture' &&
 			view !== 'overlap' &&
-			view !== 'search-console' ? (
+			view !== 'search-console' &&
+			view !== 'priorities' ? (
 				<>
 					{ view === 'overview' && summary ? (
 						<div className="seostudio-summary">
@@ -554,7 +558,8 @@ function sectionView():
 	| 'settings'
 	| 'architecture'
 	| 'overlap'
-	| 'search-console' {
+	| 'search-console'
+	| 'priorities' {
 	const section = new URLSearchParams( window.location.search ).get(
 		'section'
 	);
@@ -563,7 +568,8 @@ function sectionView():
 		section === 'settings' ||
 		section === 'architecture' ||
 		section === 'overlap' ||
-		section === 'search-console'
+		section === 'search-console' ||
+		section === 'priorities'
 	) {
 		return section;
 	}
@@ -581,7 +587,8 @@ function AppBar( {
 		| 'settings'
 		| 'architecture'
 		| 'overlap'
-		| 'search-console';
+		| 'search-console'
+		| 'priorities';
 	mode: string;
 	onNavigate: (
 		next:
@@ -591,6 +598,7 @@ function AppBar( {
 			| 'architecture'
 			| 'overlap'
 			| 'search-console'
+			| 'priorities'
 	) => void;
 } ) {
 	const items: Array< {
@@ -600,7 +608,8 @@ function AppBar( {
 			| 'settings'
 			| 'architecture'
 			| 'overlap'
-			| 'search-console';
+			| 'search-console'
+			| 'priorities';
 		label: string;
 	} > = [
 		{ id: 'overview', label: __( 'Overview', 'seo-studio' ) },
@@ -611,6 +620,7 @@ function AppBar( {
 			id: 'search-console',
 			label: __( 'Search Console', 'seo-studio' ),
 		},
+		{ id: 'priorities', label: __( 'Priorities', 'seo-studio' ) },
 		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
 	];
 	return (

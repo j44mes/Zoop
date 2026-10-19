@@ -421,6 +421,31 @@ export function importSearchConsole( csv: string ): Promise< SearchSummary > {
 	} );
 }
 
+export interface RecommendationPage {
+	post_id: number;
+	title: string;
+	url: string;
+}
+
+export interface RecommendationItem {
+	priority: number;
+	kind: string;
+	title: string;
+	action: string;
+	reason: string;
+	pages: RecommendationPage[];
+}
+
+export interface RecommendationReport {
+	items: RecommendationItem[];
+	notes: string[];
+	limited: boolean;
+}
+
+export function fetchRecommendations(): Promise< RecommendationReport > {
+	return apiFetch( { path: '/seostudio/v1/recommendations' } );
+}
+
 export function saveTopic(
 	postId: number,
 	body: {
