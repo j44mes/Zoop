@@ -71,3 +71,7 @@ Orphan pages are listed only when an administrator can see every published page 
 ## Topics
 
 `GET` and `PUT /seostudio/v1/posts/{post_id}/topic` suggest a primary topic, page role, search intent, parent topic, and up to five supporting phrases. The primary topic uses the saved target phrase, then the first heading, then the title. Intent is a word list, not Search Console data. Role uses the link graph: a page close to the front that links to three or more pages from its content is a hub, a page three or more clicks away is supporting, and contact-style wording is utility. The parent topic is the closest contextual referring page's saved topic, or that page's own suggestion. A saved field replaces the suggestion. Clearing it uses the suggestion again. Nothing is rewritten in the post content.
+
+## Overlap
+
+`GET /seostudio/v1/overlap` compares published pages. The same target phrase is High confidence. The same primary topic is High when the suggested intent also matches, and Medium when it does not. Three or more shared title words, after English function words are removed, is Low. Fewer than two phrases, or no shared phrase, is Insufficient evidence. Every reason says a shared phrase is not proof of harm. The report does not edit pages.

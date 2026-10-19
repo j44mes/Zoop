@@ -375,6 +375,23 @@ export function fetchTopic( postId: number ): Promise< TopicRecord > {
 	return apiFetch( { path: `/seostudio/v1/posts/${ postId }/topic` } );
 }
 
+export interface OverlapGroup {
+	level: string;
+	confidence: string;
+	phrase: string;
+	reason: string;
+	pages: Array< { post_id: number; title: string } >;
+}
+
+export interface OverlapReport {
+	groups: OverlapGroup[];
+	notes: string[];
+}
+
+export function fetchOverlap(): Promise< OverlapReport > {
+	return apiFetch( { path: '/seostudio/v1/overlap' } );
+}
+
 export function saveTopic(
 	postId: number,
 	body: {
