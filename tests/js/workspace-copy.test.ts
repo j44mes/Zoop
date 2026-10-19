@@ -4,6 +4,7 @@ import {
 } from '../../assets/src/dashboard/architecture-copy';
 import {
 	evidenceEstablishes,
+	evidenceSource,
 	overlapConclusion,
 	overlapConfidence,
 	overlapObservation,
@@ -59,6 +60,11 @@ describe( 'overlap copy', () => {
 		expect( evidenceEstablishes( 'not_established' ) ).toBe(
 			'Not established'
 		);
+		expect( evidenceSource( 'saved' ) ).toBe( 'Saved by the editor' );
+		expect( evidenceSource( 'heading' ) ).toBe(
+			'Suggested from the heading'
+		);
+		expect( evidenceSource( 'title' ) ).toBe( 'Suggested from the title' );
 	} );
 } );
 

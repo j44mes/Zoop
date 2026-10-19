@@ -78,6 +78,85 @@ final class OverlapTest extends TestCase {
 		$this->assertStringNotContainsString( 'Priority', $result['groups'][0]['reason'] );
 	}
 
+	public function testMatchingSavedIntentDoesNotProveCompetition(): void {
+		$result = ( new Overlap() )->assess(
+			array(
+				$this->page( 1, 'Schools cover', 'school insurance', 'staff absence insurance', 'commercial', 'saved', 'saved' ),
+				$this->page( 2, 'Trusts cover', 'trust insurance', 'staff absence insurance', 'commercial', 'saved', 'saved' ),
+			)
+		);
+
+		$group = $result['groups'][0];
+		$this->assertSame( 'topic', $group['observation'] );
+		$this->assertSame( 'high', $group['observation_confidence'] );
+		$this->assertSame( 'investigation', $group['conclusion'] );
+		$this->assertSame( 'insufficient', $group['conclusion_confidence'] );
+		$this->assertTrue( $this->signal( $group, 'primary_topic' )['independent'] );
+		$intent = $this->signal( $group, 'search_intent' );
+		$this->assertSame( 'saved', $intent['source'] );
+		$this->assertTrue( $intent['independent'] );
+		$this->assertSame( 'supports_investigation', $intent['establishes'] );
+		$this->assertSame( 'not_established', $this->signal( $group, 'cannibalisation' )['establishes'] );
+		$this->assertStringContainsString( 'not prove', $group['reason'] );
+		$this->assertStringNotContainsString( 'Both pages', $group['reason'] . ' ' . $intent['detail'] );
+	}
+
+	public function testMixedTopicSourcesStayWithThePageThatSuppliedThem(): void {
+		$result = ( new Overlap() )->assess(
+			array(
+				$this->page( 1, 'Schools cover', 'school insurance', 'staff absence insurance', 'commercial', 'saved', 'saved' ),
+				$this->page( 2, 'Trusts cover', 'trust cover', 'staff absence insurance', 'informational', 'heading', 'suggested' ),
+				$this->page( 3, 'College cover', 'college cover', 'staff absence insurance', 'unassigned', 'title', 'unassigned' ),
+			)
+		);
+
+		$this->assertCount( 1, $result['groups'] );
+		$group = $result['groups'][0];
+		$this->assertSame( 'topic', $group['observation'] );
+		$this->assertSame( 'medium', $group['observation_confidence'] );
+		$this->assertSame( 'insufficient', $group['conclusion_confidence'] );
+		$this->assertStringContainsString( 'sources differ', $group['reason'] );
+		$this->assertStringNotContainsString( 'Both pages', $group['reason'] );
+
+		$topics = $this->signals( $group, 'primary_topic' );
+		$this->assertSame( array( 'heading', 'saved', 'title' ), array_column( $topics, 'source' ) );
+		$this->assertFalse( $topics[0]['independent'] );
+		$this->assertSame( array( 2 ), array_column( $topics[0]['pages'], 'post_id' ) );
+		$this->assertSame( 'heading', $topics[0]['pages'][0]['source'] );
+		$this->assertTrue( $topics[1]['independent'] );
+		$this->assertSame( array( 1 ), array_column( $topics[1]['pages'], 'post_id' ) );
+		$this->assertSame( 'saved', $topics[1]['pages'][0]['source'] );
+		$this->assertFalse( $topics[2]['independent'] );
+		$this->assertSame( array( 3 ), array_column( $topics[2]['pages'], 'post_id' ) );
+		$this->assertSame( 'title', $topics[2]['pages'][0]['source'] );
+		$this->assertSame( 'not_established', $this->signal( $group, 'cannibalisation' )['establishes'] );
+		$this->assertSame( array( 1, 2, 3 ), array_column( $group['pages'], 'post_id' ) );
+	}
+
+	public function testAPhraseGroupOfThreePagesDoesNotAssumeTwo(): void {
+		$result = ( new Overlap() )->assess(
+			array(
+				$this->page( 1, 'Schools', 'staff absence insurance', 'staff absence insurance', 'commercial', 'keyphrase', 'suggested' ),
+				$this->page( 2, 'Trusts', 'staff absence insurance', 'staff absence insurance', 'commercial', 'keyphrase', 'suggested' ),
+				$this->page( 3, 'Colleges', 'staff absence insurance', 'staff absence insurance', 'commercial', 'keyphrase', 'suggested' ),
+			)
+		);
+
+		$this->assertCount( 1, $result['groups'] );
+		$group = $result['groups'][0];
+		$this->assertSame( 'phrase', $group['observation'] );
+		$this->assertSame( 'high', $group['observation_confidence'] );
+		$this->assertSame( 'insufficient', $group['conclusion_confidence'] );
+		$this->assertSame( array( 1, 2, 3 ), array_column( $group['pages'], 'post_id' ) );
+		$text = $group['reason'];
+		foreach ( (array) $group['evidence'] as $row ) {
+			$text .= ' ' . ( is_array( $row ) ? (string) ( $row['detail'] ?? '' ) : '' );
+		}
+		$this->assertStringNotContainsString( 'Both pages', $text );
+		$this->assertStringContainsString( 'These pages', $text );
+		$this->assertSame( 'not_established', $this->signal( $group, 'cannibalisation' )['establishes'] );
+	}
+
 	public function testASavedTopicIsIndependentAndStillNotAConflict(): void {
 		$result = ( new Overlap() )->assess(
 			array(
@@ -124,12 +203,27 @@ final class OverlapTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	private function signal( array $group, string $signal ): array {
+		$rows = $this->signals( $group, $signal );
+		if ( array() === $rows ) {
+			$this->fail( 'Missing evidence signal ' . $signal );
+		}
+		return $rows[0];
+	}
+
+	/**
+	 * Every evidence row with one signal name.
+	 *
+	 * @param array<string, mixed> $group Overlap group.
+	 * @return list<array<string, mixed>>
+	 */
+	private function signals( array $group, string $signal ): array {
+		$rows = array();
 		foreach ( (array) ( $group['evidence'] ?? array() ) as $row ) {
 			if ( is_array( $row ) && (string) ( $row['signal'] ?? '' ) === $signal ) {
-				return $row;
+				$rows[] = $row;
 			}
 		}
-		$this->fail( 'Missing evidence signal ' . $signal );
+		return $rows;
 	}
 
 	/**

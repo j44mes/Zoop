@@ -210,6 +210,53 @@ final class PrioritiesTest extends TestCase {
 		$this->assertStringNotContainsString( '700', $result['items'][0]['reason'] );
 		$this->assertSame( 'The Search Console file has no page addresses', $result['items'][1]['title'] );
 		$this->assertStringContainsString( 'not verified commercial value', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows imported: 1.', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows with a usable page address: 0.', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows without a usable page address: 1.', implode( ' ', $result['notes'] ) );
+	}
+
+	public function testAPartialImportCountsRowsThatCannotBeAttached(): void {
+		$result = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 32,
+						'title'   => 'Fire door fixture',
+						'url'     => 'https://example.test/?p=32',
+					),
+					array(
+						'post_id' => 8,
+						'title'   => 'Other page',
+						'url'     => 'https://example.test/other/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(
+				array(
+					'query'       => 'fire door installation',
+					'page'        => 'https://example.test/?p=32',
+					'clicks'      => 4,
+					'impressions' => 80,
+				),
+				array(
+					'query'       => 'staff absence insurance',
+					'page'        => '',
+					'clicks'      => 1,
+					'impressions' => 900,
+				),
+			)
+		);
+
+		$notes = implode( ' ', $result['notes'] );
+		$this->assertStringContainsString( 'Rows imported: 2.', $notes );
+		$this->assertStringContainsString( 'Rows with a usable page address: 1.', $notes );
+		$this->assertStringContainsString( 'Rows without a usable page address: 1.', $notes );
+		$this->assertSame( 'Fire door fixture', $result['items'][0]['title'] );
+		$this->assertStringContainsString( '80', $result['items'][0]['reason'] );
+		$this->assertStringNotContainsString( '900', $result['items'][0]['reason'] );
+		$this->assertStringContainsString( 'No imported row names this address', $result['items'][1]['reason'] );
+		$this->assertStringNotContainsString( '900', $result['items'][1]['reason'] );
 	}
 
 	/**

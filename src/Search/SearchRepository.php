@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Search;
 
+use SEOStudio\Architecture\UrlKey;
 use SEOStudio\Storage\Tables;
 
 /**
@@ -83,13 +84,43 @@ final class SearchRepository {
 			);
 		}
 
+		$coverage = $this->pageCoverage();
+
 		return array(
-			'connected'   => false,
-			'rows'        => $count,
-			'skipped'     => (int) ( $meta['skipped'] ?? 0 ),
-			'imported_at' => (string) ( $meta['imported_at'] ?? '' ),
-			'top'         => $rows,
-			'note'        => __( 'This is a file you imported. Zoop is not connected to Search Console.', 'seo-studio' ),
+			'connected'         => false,
+			'rows'              => $count,
+			'rows_with_page'    => $coverage['with_page'],
+			'rows_without_page' => $coverage['without_page'],
+			'skipped'           => (int) ( $meta['skipped'] ?? 0 ),
+			'imported_at'       => (string) ( $meta['imported_at'] ?? '' ),
+			'top'               => $rows,
+			'note'              => __( 'This is a file you imported. Zoop is not connected to Search Console.', 'seo-studio' ),
+		);
+	}
+
+	/**
+	 * How many stored rows name a usable page address.
+	 *
+	 * @return array{with_page: int, without_page: int}
+	 */
+	private function pageCoverage(): array {
+		global $wpdb;
+
+		$table = Tables::searchRows();
+		$urls  = $wpdb->get_col( "SELECT page_url FROM {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+		$with  = 0;
+		$total = 0;
+		foreach ( is_array( $urls ) ? $urls : array() as $url ) {
+			++$total;
+			$page = (string) $url;
+			if ( '' !== UrlKey::identity( UrlKey::absolute( $page, $page ) ) ) {
+				++$with;
+			}
+		}
+
+		return array(
+			'with_page'    => $with,
+			'without_page' => $total - $with,
 		);
 	}
 
@@ -130,12 +161,14 @@ final class SearchRepository {
 	 */
 	private function emptySummary(): array {
 		return array(
-			'connected'   => false,
-			'rows'        => 0,
-			'skipped'     => 0,
-			'imported_at' => '',
-			'top'         => array(),
-			'note'        => __( 'No Search Console file has been imported. Zoop is not connected to Search Console.', 'seo-studio' ),
+			'connected'         => false,
+			'rows'              => 0,
+			'rows_with_page'    => 0,
+			'rows_without_page' => 0,
+			'skipped'           => 0,
+			'imported_at'       => '',
+			'top'               => array(),
+			'note'              => __( 'No Search Console file has been imported. Zoop is not connected to Search Console.', 'seo-studio' ),
 		);
 	}
 }

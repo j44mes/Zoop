@@ -69,6 +69,30 @@ export function evidenceEstablishes( establishes: string ): string {
 }
 
 /**
+ * Where one page's observation came from.
+ *
+ * @param source Source id stored with that page.
+ */
+export function evidenceSource( source: string ): string {
+	switch ( source ) {
+		case 'saved':
+			return __( 'Saved by the editor', 'seo-studio' );
+		case 'keyphrase':
+			return __( 'Suggested from the target phrase', 'seo-studio' );
+		case 'heading':
+			return __( 'Suggested from the heading', 'seo-studio' );
+		case 'title':
+			return __( 'Suggested from the title', 'seo-studio' );
+		case 'suggested':
+			return __( 'Suggested from the wording', 'seo-studio' );
+		case 'unassigned':
+			return __( 'Not assigned', 'seo-studio' );
+		default:
+			return __( 'No recorded source', 'seo-studio' );
+	}
+}
+
+/**
  * Short name for an evidence signal.
  *
  * @param signal Signal id.

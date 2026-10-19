@@ -148,14 +148,15 @@ final class Overlap {
 				'high',
 				'confirmed_overlap',
 				true,
-				__( 'Both pages use the target phrase saved by the editor. This confirms that the phrases match.', 'seo-studio' )
+				__( 'These pages use the target phrase saved by the editor. This confirms that the phrases match.', 'seo-studio' )
 			),
 		);
-		$topic    = $this->repeatedTopicEvidence( $bucket );
-		if ( array() !== $topic ) {
+		foreach ( $this->repeatedTopicRows( $bucket ) as $topic ) {
 			$evidence[] = $topic;
 		}
-		$evidence[] = $this->intentEvidence( $bucket );
+		foreach ( $this->intentEvidenceRows( $bucket ) as $intent ) {
+			$evidence[] = $intent;
+		}
 		$evidence[] = $this->competitionEvidence();
 
 		return $this->finding(
@@ -176,20 +177,20 @@ final class Overlap {
 	 */
 	private function topicGroup( string $phrase, array $bucket ): array {
 		$independent = $this->topicIsIndependent( $bucket );
-		$evidence    = array(
-			$this->evidence(
-				'primary_topic',
-				$independent ? 'saved' : $this->dominantTopicSource( $bucket ),
-				$independent ? 'high' : 'medium',
-				$independent ? 'confirmed_overlap' : 'same_observation',
-				$independent,
-				$independent
-					? __( 'The editors saved the same primary topic, separately from the target phrases. This confirms a shared topic. It does not prove the pages compete.', 'seo-studio' )
-					: __( 'The shared topic was taken from a heading, title, or target phrase. It is not an independent observation, and it does not prove the pages compete.', 'seo-studio' )
-			),
-			$this->intentEvidence( $bucket ),
-			$this->competitionEvidence(),
-		);
+		$sources     = $this->topicSources( $bucket );
+		$evidence    = $this->topicSourceRows( $bucket );
+		foreach ( $this->intentEvidenceRows( $bucket ) as $intent ) {
+			$evidence[] = $intent;
+		}
+		$evidence[] = $this->competitionEvidence();
+
+		if ( $independent ) {
+			$reason = __( 'These pages share a saved primary topic. That is a separate observation from their target phrases. It does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+		} elseif ( count( $sources ) > 1 ) {
+			$reason = __( 'These pages share a primary topic, and the sources differ. Each page keeps its own source. A saved topic is a separate observation for that page. A suggested topic is not independent evidence. This does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+		} else {
+			$reason = __( 'These pages share a primary topic taken from another field. That is not independent evidence, and it does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+		}
 
 		return $this->finding(
 			'topic',
@@ -197,85 +198,138 @@ final class Overlap {
 			$phrase,
 			$bucket,
 			$evidence,
-			$independent
-				? __( 'These pages share a saved primary topic. That is a separate observation from their target phrases. It does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' )
-				: __( 'These pages share a primary topic taken from another field. That is not independent evidence, and it does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' )
+			$reason
 		);
 	}
 
 	/**
-	 * Topic evidence attached to a phrase match when the topic only repeats that phrase.
+	 * Topic rows for a phrase match, split by the source on each page.
 	 *
 	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $bucket
-	 * @return array<string, mixed>
+	 * @return list<array<string, mixed>>
 	 */
-	private function repeatedTopicEvidence( array $bucket ): array {
+	private function repeatedTopicRows( array $bucket ): array {
 		if ( ! $this->topicRepeatsPhrase( $bucket ) ) {
 			return array();
 		}
-		$saved = true;
-		foreach ( $bucket as $page ) {
-			if ( 'saved' !== $page['topic_source'] ) {
-				$saved = false;
-				break;
-			}
+		$rows = array();
+		foreach ( $this->pagesBy( $bucket, 'topic_source' ) as $source => $pages ) {
+			$saved  = 'saved' === $source;
+			$rows[] = $this->evidence(
+				'primary_topic',
+				(string) $source,
+				'high',
+				'same_observation',
+				false,
+				$saved
+					? __( 'A saved topic uses the same words as the target phrase. Confirming those words does not create a second observation.', 'seo-studio' )
+					: __( 'The primary topic was suggested from that target phrase. It is the same observation, not a second one.', 'seo-studio' ),
+				$pages,
+				'topic_source'
+			);
 		}
-
-		return $this->evidence(
-			'primary_topic',
-			$saved ? 'saved' : 'keyphrase',
-			'high',
-			'same_observation',
-			false,
-			$saved
-				? __( 'A saved topic uses the same words as the target phrase. Confirming those words does not create a second observation.', 'seo-studio' )
-				: __( 'The primary topic was suggested from that target phrase. It is the same observation, not a second one.', 'seo-studio' )
-		);
+		return $rows;
 	}
 
 	/**
-	 * Intent can support a review. It cannot prove a conflict, and unknown intent is not agreement.
+	 * One topic row for each source in the group.
 	 *
 	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $bucket
-	 * @return array<string, mixed>
+	 * @return list<array<string, mixed>>
 	 */
-	private function intentEvidence( array $bucket ): array {
-		$explicit = array();
-		$unknown  = false;
-		$saved    = true;
+	private function topicSourceRows( array $bucket ): array {
+		$rows = array();
+		foreach ( $this->pagesBy( $bucket, 'topic_source' ) as $source => $pages ) {
+			$saved       = 'saved' === $source;
+			$independent = $saved && ! $this->topicRepeatsPhrase( $pages );
+			$rows[]      = $this->evidence(
+				'primary_topic',
+				(string) $source,
+				$saved ? 'high' : 'medium',
+				$independent ? 'confirmed_overlap' : 'same_observation',
+				$independent,
+				$this->topicSourceDetail( (string) $source, $independent ),
+				$pages,
+				'topic_source'
+			);
+		}
+		return $rows;
+	}
+
+	/**
+	 * Sentence for one topic source. It describes only the pages that use that source.
+	 */
+	private function topicSourceDetail( string $source, bool $independent ): string {
+		if ( 'saved' === $source && $independent ) {
+			return __( 'These pages have a primary topic saved by the editor, separately from the target phrase. That confirms a shared topic for these pages only. It does not prove the pages compete.', 'seo-studio' );
+		}
+		if ( 'saved' === $source ) {
+			return __( 'A saved topic uses the same words as the target phrase. Confirming those words does not create a second observation.', 'seo-studio' );
+		}
+		if ( 'heading' === $source ) {
+			return __( 'The primary topic was suggested from the first heading. It is not an independent observation.', 'seo-studio' );
+		}
+		if ( 'title' === $source ) {
+			return __( 'The primary topic was suggested from the page title. It is not an independent observation.', 'seo-studio' );
+		}
+		if ( 'keyphrase' === $source ) {
+			return __( 'The primary topic was suggested from the target phrase. It is the same observation, not a second one.', 'seo-studio' );
+		}
+		return __( 'The primary topic has no recorded source. It is not an independent observation.', 'seo-studio' );
+	}
+
+	/**
+	 * Intent rows split by source. Unknown intent is not agreement, and a match is not proof.
+	 *
+	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $bucket
+	 * @return list<array<string, mixed>>
+	 */
+	private function intentEvidenceRows( array $bucket ): array {
+		$unknown   = array();
+		$by_intent = array();
 		foreach ( $bucket as $page ) {
 			if ( 'unassigned' === $page['intent'] || 'unassigned' === $page['intent_source'] ) {
-				$unknown = true;
+				$unknown[] = $page;
 				continue;
 			}
-			$explicit[ $page['intent'] ] = true;
-			if ( 'saved' !== $page['intent_source'] ) {
-				$saved = false;
-			}
+			$by_intent[ $page['intent'] ][ $page['intent_source'] ][] = $page;
 		}
-		if ( $unknown || 1 !== count( $explicit ) ) {
-			return $this->evidence(
-				'search_intent',
-				'unassigned',
-				'insufficient',
-				'not_established',
-				false,
-				$unknown
-					? __( 'At least one page has no assigned intent. Unknown intent is not agreement.', 'seo-studio' )
-					: __( 'The intent labels differ or are missing. That does not establish a conflict.', 'seo-studio' )
+		if ( array() !== $unknown || 1 !== count( $by_intent ) ) {
+			return array(
+				$this->evidence(
+					'search_intent',
+					'unassigned',
+					'insufficient',
+					'not_established',
+					false,
+					array() !== $unknown
+						? __( 'At least one page has no assigned intent. Unknown intent is not agreement.', 'seo-studio' )
+						: __( 'The intent labels differ or are missing. That does not establish a conflict.', 'seo-studio' ),
+					$bucket,
+					'intent_source'
+				),
 			);
 		}
 
-		return $this->evidence(
-			'search_intent',
-			$saved ? 'saved' : 'suggested',
-			$saved ? 'high' : 'medium',
-			'supports_investigation',
-			$saved,
-			$saved
-				? __( 'Both pages have the same confirmed intent. That supports a closer look. It is not proof that the pages compete.', 'seo-studio' )
-				: __( 'Both pages have the same suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete.', 'seo-studio' )
-		);
+		$rows = array();
+		foreach ( $by_intent as $sources ) {
+			foreach ( $sources as $source => $pages ) {
+				$saved  = 'saved' === $source;
+				$rows[] = $this->evidence(
+					'search_intent',
+					(string) $source,
+					$saved ? 'high' : 'medium',
+					'supports_investigation',
+					$saved,
+					$saved
+						? __( 'These pages have the same confirmed intent. That supports a closer look. It is not proof that the pages compete.', 'seo-studio' )
+						: __( 'These pages have the same suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete.', 'seo-studio' ),
+					$pages,
+					'intent_source'
+				);
+			}
+		}
+		return $rows;
 	}
 
 	/**
@@ -309,27 +363,52 @@ final class Overlap {
 	}
 
 	/**
-	 * Most common recorded topic origin in a bucket.
+	 * Distinct topic sources in a group.
 	 *
 	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $bucket
+	 * @return string[]
 	 */
-	private function dominantTopicSource( array $bucket ): string {
-		$counts = array();
-		foreach ( $bucket as $page ) {
-			$source            = '' !== $page['topic_source'] ? $page['topic_source'] : 'none';
-			$counts[ $source ] = ( $counts[ $source ] ?? 0 ) + 1;
-		}
-		arsort( $counts );
-		$first = array_key_first( $counts );
-		return is_string( $first ) ? $first : 'none';
+	private function topicSources( array $bucket ): array {
+		return array_keys( $this->pagesBy( $bucket, 'topic_source' ) );
 	}
 
 	/**
-	 * One evidence row.
+	 * Pages grouped by one recorded source field.
 	 *
-	 * @return array{signal: string, source: string, observation_confidence: string, establishes: string, independent: bool, detail: string}
+	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $bucket
+	 * @return array<string, list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}>>
 	 */
-	private function evidence( string $signal, string $source, string $confidence, string $establishes, bool $independent, string $detail ): array {
+	private function pagesBy( array $bucket, string $field ): array {
+		$grouped = array();
+		foreach ( $bucket as $page ) {
+			$source               = '' !== $page[ $field ] ? $page[ $field ] : 'none';
+			$grouped[ $source ][] = $page;
+		}
+		ksort( $grouped );
+		return $grouped;
+	}
+
+	/**
+	 * One evidence row, with the pages that supplied it.
+	 *
+	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $pages
+	 * @param string                                                                                                                                 $page_field Field that records each page's own source.
+	 * @return array{signal: string, source: string, observation_confidence: string, establishes: string, independent: bool, detail: string, pages: list<array{post_id: int, title: string, source: string}>}
+	 */
+	private function evidence( string $signal, string $source, string $confidence, string $establishes, bool $independent, string $detail, array $pages = array(), string $page_field = '' ): array {
+		$listed = array();
+		foreach ( $pages as $page ) {
+			$page_source = $source;
+			if ( '' !== $page_field && isset( $page[ $page_field ] ) && is_string( $page[ $page_field ] ) && '' !== $page[ $page_field ] ) {
+				$page_source = $page[ $page_field ];
+			}
+			$listed[] = array(
+				'post_id' => $page['post_id'],
+				'title'   => $page['title'],
+				'source'  => $page_source,
+			);
+		}
+
 		return array(
 			'signal'                 => $signal,
 			'source'                 => $source,
@@ -337,6 +416,7 @@ final class Overlap {
 			'establishes'            => $establishes,
 			'independent'            => $independent,
 			'detail'                 => $detail,
+			'pages'                  => $listed,
 		);
 	}
 

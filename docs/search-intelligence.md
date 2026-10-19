@@ -4,9 +4,9 @@ This note describes the evidence and search-ownership design. Phase 1, the relia
 
 ## What Phase 1 does
 
-Zoop records a shared target phrase as an observation. Observation confidence can be high for that match. Conclusion confidence stays insufficient for cannibalisation. A topic copied from the same phrase is marked as the same observation, not as corroboration. Unknown intent is not agreement. A matching intent, including one an editor saved, supports investigation and does not prove the pages compete.
+Zoop records a shared target phrase as an observation. Observation confidence can be high for that match. Conclusion confidence stays insufficient for cannibalisation. A topic copied from the same phrase is marked as the same observation, not as corroboration. When one topic group mixes saved and suggested topics, each page keeps the source that supplied its topic. Unknown intent is not agreement. A matching intent, including one an editor saved, supports investigation and does not prove the pages compete. Explanations refer to these pages, including when a group has more than two.
 
-Priorities lists unresolved addresses and weak or orphan pages before those investigations. Imported impressions can change that order. The copy says the file has no dates or segmentation, so the count is not verified commercial value and not lost traffic. A file without page addresses is not attached to URLs.
+Priorities lists unresolved addresses and weak or orphan pages before those investigations. Imported impressions can change that order. The copy says the file has no dates or segmentation, so the count is not verified commercial value and not lost traffic. A file without page addresses is not attached to URLs. The import summary and the priority notes count rows imported, rows with a usable page address, and rows without one.
 
 The 100-point on-page scorer is unchanged. Zoop does not merge, redirect, or edit pages.
 

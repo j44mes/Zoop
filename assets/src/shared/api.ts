@@ -375,6 +375,12 @@ export function fetchTopic( postId: number ): Promise< TopicRecord > {
 	return apiFetch( { path: `/seostudio/v1/posts/${ postId }/topic` } );
 }
 
+export interface OverlapEvidencePage {
+	post_id: number;
+	title: string;
+	source: string;
+}
+
 export interface OverlapEvidence {
 	signal: string;
 	source: string;
@@ -382,6 +388,7 @@ export interface OverlapEvidence {
 	establishes: string;
 	independent: boolean;
 	detail: string;
+	pages?: OverlapEvidencePage[];
 }
 
 export interface OverlapGroup {
@@ -417,6 +424,8 @@ export interface SearchRow {
 export interface SearchSummary {
 	connected: boolean;
 	rows: number;
+	rows_with_page: number;
+	rows_without_page: number;
 	skipped: number;
 	imported_at: string;
 	top: SearchRow[];

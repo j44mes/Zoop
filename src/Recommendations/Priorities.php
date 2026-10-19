@@ -27,7 +27,8 @@ final class Priorities {
 	 */
 	public function rank( array $architecture, array $overlap, array $search_rows ): array {
 		$demand       = $this->demand( $search_rows );
-		$search_mode  = $this->searchMode( $search_rows );
+		$coverage     = $this->searchCoverage( $search_rows );
+		$search_mode  = $coverage['mode'];
 		$items        = array();
 		$demand_pages = array();
 		$quiet_pages  = array();
@@ -107,7 +108,7 @@ final class Priorities {
 		return array(
 			'items'   => $public,
 			'limited' => $limited,
-			'notes'   => $this->notes( $architecture, $search_mode, $limited ),
+			'notes'   => $this->notes( $architecture, $coverage, $limited ),
 		);
 	}
 
@@ -329,27 +330,36 @@ final class Priorities {
 	}
 
 	/**
-	 * Whether the import can be attached to URLs.
+	 * Whether the import can be attached to URLs, and how many rows can.
 	 *
 	 * @param list<array<string, mixed>> $search_rows Imported query rows.
+	 * @return array{mode: string, rows: int, with_page: int, without_page: int}
 	 */
-	private function searchMode( array $search_rows ): string {
-		$seen  = false;
-		$paged = false;
+	private function searchCoverage( array $search_rows ): array {
+		$rows = 0;
+		$with = 0;
 		foreach ( $search_rows as $row ) {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			$seen = true;
+			++$rows;
 			$page = (string) ( $row['page'] ?? '' );
 			if ( '' !== UrlKey::identity( UrlKey::absolute( $page, $page ) ) ) {
-				$paged = true;
+				++$with;
 			}
 		}
-		if ( ! $seen ) {
-			return 'absent';
+		if ( 0 === $rows ) {
+			$mode = 'absent';
+		} else {
+			$mode = $with > 0 ? 'paged' : 'query_only';
 		}
-		return $paged ? 'paged' : 'query_only';
+
+		return array(
+			'mode'         => $mode,
+			'rows'         => $rows,
+			'with_page'    => $with,
+			'without_page' => $rows - $with,
+		);
 	}
 
 	/**
@@ -395,15 +405,21 @@ final class Priorities {
 	/**
 	 * Sentences that keep the order honest.
 	 *
-	 * @param array<string, mixed> $architecture Architecture report.
+	 * @param array<string, mixed>                                   $architecture Architecture report.
+	 * @param array{mode: string, rows: int, with_page: int, without_page: int} $coverage Search-file coverage.
 	 * @return string[]
 	 */
-	private function notes( array $architecture, string $search_mode, bool $limited ): array {
-		$search = __( 'No Search Console file has been imported, so demand is not used as evidence.', 'seo-studio' );
-		if ( 'query_only' === $search_mode ) {
-			$search = __( 'The imported file has no page addresses, so impressions cannot be attached to a URL. They are not verified commercial value or lost traffic.', 'seo-studio' );
-		} elseif ( 'paged' === $search_mode ) {
-			$search = __( 'Search figures come from a file you imported. They have no dates or segmentation, so they are not verified commercial value or evidence of lost traffic. Zoop is not connected to Search Console.', 'seo-studio' );
+	private function notes( array $architecture, array $coverage, bool $limited ): array {
+		$search_mode = $coverage['mode'];
+		$search      = __( 'No Search Console file has been imported, so demand is not used as evidence.', 'seo-studio' );
+		if ( 'absent' !== $search_mode ) {
+			$search = sprintf(
+				/* translators: 1: imported row count, 2: rows with a usable page address, 3: rows without one. */
+				__( 'Rows imported: %1$d. Rows with a usable page address: %2$d. Rows without a usable page address: %3$d. Rows without a page address are not attached to a URL. The counts have no dates or segmentation, so they are not verified commercial value or evidence of lost traffic. Zoop is not connected to Search Console.', 'seo-studio' ),
+				$coverage['rows'],
+				$coverage['with_page'],
+				$coverage['without_page']
+			);
 		}
 		$notes = array(
 			__( 'Zoop orders stored evidence for review. It does not edit pages, insert links, or change metadata.', 'seo-studio' ),

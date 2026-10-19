@@ -5,6 +5,7 @@ import { pageWorkspaceUrl } from './PageWorkspace';
 import {
 	evidenceEstablishes,
 	evidenceSignal,
+	evidenceSource,
 	overlapConclusion,
 	overlapConfidence,
 	overlapObservation,
@@ -93,7 +94,9 @@ export function OverlapPanel() {
 					{ group.evidence.length > 0 ? (
 						<ul>
 							{ group.evidence.map( ( row ) => (
-								<li key={ `${ row.signal }-${ row.detail }` }>
+								<li
+									key={ `${ row.signal }-${ row.source }-${ row.detail }` }
+								>
 									<strong>
 										{ evidenceSignal( row.signal ) }
 									</strong>
@@ -107,6 +110,23 @@ export function OverlapPanel() {
 												'seo-studio'
 										  ) }
 									)
+									{ row.pages && row.pages.length > 0 ? (
+										<ul className="seostudio-provenance">
+											{ row.pages.map( ( page ) => (
+												<li key={ page.post_id }>
+													{ page.title ||
+														__(
+															'Untitled',
+															'seo-studio'
+														) }
+													{ ': ' }
+													{ evidenceSource(
+														page.source
+													) }
+												</li>
+											) ) }
+										</ul>
+									) : null }
 								</li>
 							) ) }
 						</ul>
