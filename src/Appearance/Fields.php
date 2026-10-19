@@ -24,4 +24,6 @@ final class Fields {
 	public const PREVIOUS_DESCRIPTION = '_seostudio_description_previous';
 
 	public const PREVIOUS_SAVED = '_seostudio_appearance_previous_saved';
+
+	public const PREVIOUS_TARGET = '_seostudio_appearance_previous_target';
 }

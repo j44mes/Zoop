@@ -68,6 +68,7 @@ final class Uninstaller {
 			'_seostudio_title_previous',
 			'_seostudio_description_previous',
 			'_seostudio_appearance_previous_saved',
+			'_seostudio_appearance_previous_target',
 			'_seostudio_canonical',
 			'_seostudio_robots',
 			'_seostudio_og_title',

@@ -135,9 +135,15 @@ export interface AppearanceText {
 export interface AppearanceVerification {
 	status: string;
 	html_matches: boolean;
+	basis: string;
 	note: string;
 	observed_title: string;
+	observed_description: string;
 	checked_at: string;
+}
+
+export interface AppearanceBaseline extends AppearanceText {
+	target: string;
 }
 
 export interface AppearanceRecord {
@@ -147,7 +153,9 @@ export interface AppearanceRecord {
 	controller: string;
 	edit_url: string;
 	url: string;
+	resolved: AppearanceText & { basis: string };
 	published: AppearanceText;
+	baseline: AppearanceBaseline;
 	proposal_saved: boolean;
 	proposal: AppearanceText;
 	previous: AppearanceText;
@@ -173,7 +181,11 @@ export function saveAppearance(
 
 export function applyAppearance(
 	postId: number,
-	body: AppearanceText & { confirm: boolean }
+	body: AppearanceText & {
+		confirm: boolean;
+		baseline_title: string;
+		baseline_description: string;
+	}
 ): Promise< AppearanceRecord > {
 	return apiFetch( {
 		path: `/seostudio/v1/posts/${ postId }/appearance/apply`,
@@ -183,12 +195,17 @@ export function applyAppearance(
 }
 
 export function restoreAppearance(
-	postId: number
+	postId: number,
+	baseline: AppearanceText
 ): Promise< AppearanceRecord > {
 	return apiFetch( {
 		path: `/seostudio/v1/posts/${ postId }/appearance/restore`,
 		method: 'POST',
-		data: { confirm: true },
+		data: {
+			confirm: true,
+			baseline_title: baseline.title,
+			baseline_description: baseline.description,
+		},
 	} );
 }
 

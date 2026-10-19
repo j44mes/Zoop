@@ -63,12 +63,12 @@ export function SearchAppearance( {
 				setTitle(
 					next.proposal_saved
 						? next.proposal.title
-						: next.published.title
+						: next.resolved.title
 				);
 				setDescription(
 					next.proposal_saved
 						? next.proposal.description
-						: next.published.description
+						: next.resolved.description
 				);
 			} )
 			.catch( ( caught ) => {
@@ -121,6 +121,8 @@ export function SearchAppearance( {
 					confirm: true,
 					title,
 					description,
+					baseline_title: report?.baseline.title || '',
+					baseline_description: report?.baseline.description || '',
 				} )
 			);
 		} catch ( caught ) {
@@ -139,9 +141,12 @@ export function SearchAppearance( {
 		setBusy( 'restore' );
 		setError( '' );
 		try {
-			const next = await restoreAppearance( postId );
-			setTitle( next.published.title );
-			setDescription( next.published.description );
+			const next = await restoreAppearance( postId, {
+				title: report?.baseline.title || '',
+				description: report?.baseline.description || '',
+			} );
+			setTitle( next.resolved.title );
+			setDescription( next.resolved.description );
 			remember( next );
 		} catch ( caught ) {
 			setError(
@@ -161,6 +166,29 @@ export function SearchAppearance( {
 
 	const checks = assessments.filter( isSearchCheck );
 	const previewUrl = report?.url || '';
+	let unavailable = '';
+	if ( report && ! report.can_apply ) {
+		if ( report.publishing && report.baseline.target === 'homepage' ) {
+			unavailable = __(
+				'The homepage title is a site setting. An administrator can apply a change.',
+				'seo-studio'
+			);
+		} else if ( report.controller ) {
+			unavailable = sprintf(
+				/* translators: %s: name of the plugin that prints the live tags. */
+				__(
+					'%s controls the live tags. Zoop can keep a proposal, and it does not change that plugin.',
+					'seo-studio'
+				),
+				report.controller
+			);
+		} else {
+			unavailable = __(
+				'Zoop is not printing the tags. A saved proposal stays in Zoop.',
+				'seo-studio'
+			);
+		}
+	}
 
 	return (
 		<div className="seostudio-appearance">
@@ -174,13 +202,21 @@ export function SearchAppearance( {
 					) }
 				</p>
 				<section className="seostudio-published">
-					<h4>{ __( 'Currently published', 'seo-studio' ) }</h4>
-					<p>{ report?.published.title || '–' }</p>
+					<h4>
+						{ __( 'Resolved from saved settings', 'seo-studio' ) }
+					</h4>
+					<p className="seostudio-muted">
+						{ __(
+							'Calculated from saved settings. This is not a check of the live HTML.',
+							'seo-studio'
+						) }
+					</p>
+					<p>{ report?.resolved.title || '–' }</p>
 					<p className="seostudio-muted">
 						{ previewUrl ||
 							__( 'Permalink unavailable', 'seo-studio' ) }
 					</p>
-					<p>{ report?.published.description || '–' }</p>
+					<p>{ report?.resolved.description || '–' }</p>
 				</section>
 				<TextControl
 					label={ __( 'Proposed SEO title', 'seo-studio' ) }
@@ -192,24 +228,17 @@ export function SearchAppearance( {
 					value={ description }
 					onChange={ setDescription }
 				/>
-				{ report && ! report.can_apply ? (
+				{ report && unavailable ? (
 					<p className="seostudio-muted">
-						{ report.controller
-							? sprintf(
-									/* translators: %s: name of the plugin that prints the live tags. */
-									__(
-										'%s controls the live tags. Zoop can keep a proposal, and it does not change that plugin.',
-										'seo-studio'
-									),
-									report.controller
-							  )
-							: __(
-									'Zoop is not printing the tags. A saved proposal stays in Zoop.',
-									'seo-studio'
-							  ) }{ ' ' }
-						<a href={ report.edit_url }>
-							{ __( 'Open the editor', 'seo-studio' ) }
-						</a>
+						{ unavailable }
+						{ report.publishing ? null : (
+							<>
+								{ ' ' }
+								<a href={ report.edit_url }>
+									{ __( 'Open the editor', 'seo-studio' ) }
+								</a>
+							</>
+						) }
 					</p>
 				) : null }
 				<p className="seostudio-actions">
@@ -249,9 +278,12 @@ export function SearchAppearance( {
 						</h4>
 						<p>
 							<strong>
-								{ __( 'Previous title:', 'seo-studio' ) }
+								{ __(
+									'Stored title that will be replaced:',
+									'seo-studio'
+								) }
 							</strong>{ ' ' }
-							{ report.published.title || '–' }
+							{ report.baseline.title || '–' }
 						</p>
 						<p>
 							<strong>
@@ -261,9 +293,12 @@ export function SearchAppearance( {
 						</p>
 						<p>
 							<strong>
-								{ __( 'Previous description:', 'seo-studio' ) }
+								{ __(
+									'Stored description that will be replaced:',
+									'seo-studio'
+								) }
 							</strong>{ ' ' }
-							{ report.published.description || '–' }
+							{ report.baseline.description || '–' }
 						</p>
 						<p>
 							<strong>
@@ -324,7 +359,8 @@ export function SearchAppearance( {
 				{ verification ? (
 					<section>
 						<h4>
-							{ verification.html_matches
+							{ verification.basis === 'live_html' &&
+							verification.html_matches
 								? __(
 										'Change applied successfully',
 										'seo-studio'
@@ -335,11 +371,23 @@ export function SearchAppearance( {
 								  ) }
 						</h4>
 						<p>{ verification.note }</p>
-						{ verification.observed_title ? (
-							<p>
-								{ __( 'Published HTML title:', 'seo-studio' ) }{ ' ' }
-								{ verification.observed_title }
-							</p>
+						{ verification.basis === 'live_html' ? (
+							<>
+								<p>
+									{ __(
+										'Observed HTML title:',
+										'seo-studio'
+									) }{ ' ' }
+									{ verification.observed_title || '–' }
+								</p>
+								<p>
+									{ __(
+										'Observed HTML description:',
+										'seo-studio'
+									) }{ ' ' }
+									{ verification.observed_description || '–' }
+								</p>
+							</>
 						) : null }
 						<p className="seostudio-muted">
 							{ __( 'Checked at', 'seo-studio' ) }{ ' ' }
