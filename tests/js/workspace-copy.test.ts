@@ -2,6 +2,10 @@ import {
 	architectureStatus,
 	depthLabel,
 } from '../../assets/src/dashboard/architecture-copy';
+import {
+	topicIntentLabel,
+	topicRoleLabel,
+} from '../../assets/src/dashboard/topic-copy';
 import { editHref, editTarget } from '../../assets/src/dashboard/edit-route';
 import {
 	imageKind,
@@ -27,6 +31,15 @@ describe( 'architecture copy', () => {
 		expect( architectureStatus( 'unknown' ) ).toBe( 'Not enough data' );
 		expect( depthLabel( null ) ).toBe( 'Not reached' );
 		expect( depthLabel( 2 ) ).toBe( '2' );
+	} );
+} );
+
+describe( 'topic copy', () => {
+	it( 'labels a suggestion without calling it search data', () => {
+		expect( topicRoleLabel( 'hub' ) ).toBe( 'Hub' );
+		expect( topicRoleLabel( 'utility' ) ).toBe( 'Utility' );
+		expect( topicIntentLabel( 'commercial' ) ).toBe( 'Commercial' );
+		expect( topicIntentLabel( 'unknown' ) ).toBe( 'Unassigned' );
 	} );
 } );
 

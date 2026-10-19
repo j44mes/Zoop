@@ -16,6 +16,10 @@
     "/seostudio/v1/posts/{post_id}/model": { "post": { "summary": "Preview unsaved content", "responses": { "200": { "description": "Page model" } } } },
     "/seostudio/v1/keyphrases/usage": { "get": { "summary": "Keyphrase usage", "responses": { "200": { "description": "Posts" } } } },
     "/seostudio/v1/architecture": { "get": { "summary": "Internal-link architecture report", "responses": { "200": { "description": "Inventory, link graph, and incomplete-crawl state" } } } },
+    "/seostudio/v1/posts/{post_id}/topic": {
+      "get": { "summary": "Topic suggestions and corrections", "responses": { "200": { "description": "Suggestions, saved values, and effective values" } } },
+      "put": { "summary": "Save topic corrections", "responses": { "200": { "description": "Updated topic" } } }
+    },
     "/seostudio/v1/audits": { "post": { "summary": "Queue a site audit", "responses": { "202": { "description": "Run" }, "409": { "description": "Already running" }, "429": { "description": "Rate limited" } } } },
     "/seostudio/v1/audits/{run_id}": {
       "get": { "summary": "Audit progress", "responses": { "200": { "description": "Run" } } },

@@ -35,6 +35,7 @@ import {
 	type ReportedImage,
 } from './image-report';
 import { recommendationHeading, whyItMatters } from './recommendation-copy';
+import { TopicPanel } from './TopicPanel';
 
 function queryValue( name: string ): string {
 	return new URLSearchParams( window.location.search ).get( name ) || '';
@@ -53,6 +54,7 @@ type WorkspaceTab =
 	| 'recommendations'
 	| 'checks'
 	| 'images'
+	| 'topic'
 	| 'search'
 	| 'advanced';
 
@@ -234,6 +236,7 @@ const tabs: Array< { id: WorkspaceTab; label: string } > = [
 	{ id: 'recommendations', label: __( 'Recommendations', 'seo-studio' ) },
 	{ id: 'checks', label: __( 'All checks', 'seo-studio' ) },
 	{ id: 'images', label: __( 'Images', 'seo-studio' ) },
+	{ id: 'topic', label: __( 'Topic', 'seo-studio' ) },
 	{ id: 'search', label: __( 'Search appearance', 'seo-studio' ) },
 	{ id: 'advanced', label: __( 'Advanced', 'seo-studio' ) },
 ];
@@ -642,6 +645,9 @@ export function PageWorkspace() {
 										images={ model?.images || [] }
 										renderMode={ record.render_mode || '' }
 									/>
+								) : null }
+								{ tab === 'topic' ? (
+									<TopicPanel postId={ postId } />
 								) : null }
 								{ tab === 'search' ? (
 									<>

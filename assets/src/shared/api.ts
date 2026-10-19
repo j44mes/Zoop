@@ -346,3 +346,48 @@ export interface ArchitectureReport {
 export function fetchArchitecture(): Promise< ArchitectureReport > {
 	return apiFetch( { path: '/seostudio/v1/architecture' } );
 }
+
+export interface TopicField {
+	value: string | string[];
+	reason: string;
+}
+
+export interface TopicRecord {
+	post_id: number;
+	note: string;
+	suggestions: {
+		primary_topic: TopicField;
+		page_role: TopicField;
+		search_intent: TopicField;
+		parent_topic: TopicField;
+		supporting_entities: TopicField;
+	};
+	effective: {
+		primary_topic: string;
+		page_role: string;
+		search_intent: string;
+		parent_topic: string;
+		supporting_entities: string[];
+	};
+}
+
+export function fetchTopic( postId: number ): Promise< TopicRecord > {
+	return apiFetch( { path: `/seostudio/v1/posts/${ postId }/topic` } );
+}
+
+export function saveTopic(
+	postId: number,
+	body: {
+		primary_topic: string;
+		page_role: string;
+		search_intent: string;
+		parent_topic: string;
+		supporting_entities: string[];
+	}
+): Promise< TopicRecord > {
+	return apiFetch( {
+		path: `/seostudio/v1/posts/${ postId }/topic`,
+		method: 'PUT',
+		data: body,
+	} );
+}
