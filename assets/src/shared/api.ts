@@ -375,11 +375,25 @@ export function fetchTopic( postId: number ): Promise< TopicRecord > {
 	return apiFetch( { path: `/seostudio/v1/posts/${ postId }/topic` } );
 }
 
+export interface OverlapEvidence {
+	signal: string;
+	source: string;
+	observation_confidence: string;
+	establishes: string;
+	independent: boolean;
+	detail: string;
+}
+
 export interface OverlapGroup {
 	level: string;
 	confidence: string;
+	observation: string;
+	observation_confidence: string;
+	conclusion: string;
+	conclusion_confidence: string;
 	phrase: string;
 	reason: string;
+	evidence: OverlapEvidence[];
 	pages: Array< { post_id: number; title: string } >;
 }
 
@@ -433,6 +447,10 @@ export interface RecommendationItem {
 	title: string;
 	action: string;
 	reason: string;
+	observation?: string;
+	observation_confidence?: string;
+	conclusion?: string;
+	conclusion_confidence?: string;
 	pages: RecommendationPage[];
 }
 

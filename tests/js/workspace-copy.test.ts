@@ -2,7 +2,12 @@ import {
 	architectureStatus,
 	depthLabel,
 } from '../../assets/src/dashboard/architecture-copy';
-import { overlapLevel } from '../../assets/src/dashboard/overlap-copy';
+import {
+	evidenceEstablishes,
+	overlapConclusion,
+	overlapConfidence,
+	overlapObservation,
+} from '../../assets/src/dashboard/overlap-copy';
 import { priorityKind } from '../../assets/src/dashboard/priorities-copy';
 import {
 	topicIntentLabel,
@@ -37,12 +42,22 @@ describe( 'architecture copy', () => {
 } );
 
 describe( 'overlap copy', () => {
-	it( 'keeps insufficient evidence distinct from a high overlap', () => {
-		expect( overlapLevel( 'high' ) ).toBe( 'High' );
-		expect( overlapLevel( 'medium' ) ).toBe( 'Medium' );
-		expect( overlapLevel( 'low' ) ).toBe( 'Low' );
-		expect( overlapLevel( 'insufficient' ) ).toBe(
+	it( 'keeps an observed phrase match apart from a competition conclusion', () => {
+		expect( overlapObservation( 'phrase' ) ).toBe(
+			'Confirmed phrase overlap'
+		);
+		expect( overlapConfidence( 'high' ) ).toBe( 'High' );
+		expect( overlapConclusion( 'investigation' ) ).toBe(
+			'Needs investigation'
+		);
+		expect( overlapConfidence( 'insufficient' ) ).toBe(
 			'Insufficient evidence'
+		);
+		expect( evidenceEstablishes( 'same_observation' ) ).toBe(
+			'Same observation'
+		);
+		expect( evidenceEstablishes( 'not_established' ) ).toBe(
+			'Not established'
 		);
 	} );
 } );

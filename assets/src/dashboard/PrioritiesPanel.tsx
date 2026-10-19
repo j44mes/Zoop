@@ -1,6 +1,11 @@
 import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { fetchRecommendations, type RecommendationItem } from '../shared/api';
+import {
+	overlapConclusion,
+	overlapConfidence,
+	overlapObservation,
+} from './overlap-copy';
 import { pageWorkspaceUrl } from './PageWorkspace';
 import { priorityKind } from './priorities-copy';
 
@@ -47,7 +52,7 @@ export function PrioritiesPanel() {
 			<h2>{ __( 'Priorities', 'seo-studio' ) }</h2>
 			<p className="seostudio-lede">
 				{ __(
-					'Zoop orders stored architecture, overlap, and imported search rows. Nothing on the site is edited.',
+					'Zoop orders structural issues ahead of phrase overlap. A shared phrase is an observation, not an urgent problem. Imported impressions are not commercial value or lost traffic. Nothing on the site is edited.',
 					'seo-studio'
 				) }
 			</p>
@@ -80,6 +85,34 @@ export function PrioritiesPanel() {
 					<p className="seostudio-muted">
 						{ priorityKind( item.kind ) }
 					</p>
+					{ item.observation ? (
+						<dl className="seostudio-evidence">
+							<div>
+								<dt>{ __( 'Observation', 'seo-studio' ) }</dt>
+								<dd>
+									{ overlapObservation( item.observation ) }
+									{ ' — ' }
+									{ overlapConfidence(
+										item.observation_confidence ||
+											'insufficient'
+									) }
+								</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Conclusion', 'seo-studio' ) }</dt>
+								<dd>
+									{ overlapConclusion(
+										item.conclusion || 'investigation'
+									) }
+									{ ' — ' }
+									{ overlapConfidence(
+										item.conclusion_confidence ||
+											'insufficient'
+									) }
+								</dd>
+							</div>
+						</dl>
+					) : null }
 					<p>{ item.action }</p>
 					<p>{ item.reason }</p>
 					{ item.pages.length > 0 ? (

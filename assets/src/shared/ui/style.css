@@ -75,6 +75,30 @@
 	color: var(--zoop-muted);
 }
 
+.seostudio-evidence {
+	display: grid;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.seostudio-evidence div {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.seostudio-evidence dt {
+	font-size: 12px;
+	font-weight: 650;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: var(--zoop-muted);
+}
+
+.seostudio-evidence dd {
+	margin: 0;
+}
+
 .seostudio-card,
 .seostudio-summary article,
 .seostudio-suggestion {

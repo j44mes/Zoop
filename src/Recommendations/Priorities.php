@@ -27,15 +27,16 @@ final class Priorities {
 	 */
 	public function rank( array $architecture, array $overlap, array $search_rows ): array {
 		$demand       = $this->demand( $search_rows );
-		$known        = $this->hasRows( $search_rows );
+		$search_mode  = $this->searchMode( $search_rows );
 		$items        = array();
 		$demand_pages = array();
 		$quiet_pages  = array();
+		$reviews      = array();
 
 		foreach ( $this->groups( $overlap ) as $group ) {
-			$level = (string) ( $group['level'] ?? '' );
-			if ( 'high' === $level ) {
-				$items[] = $this->overlapItem( 1, $group );
+			$observation = (string) ( $group['observation'] ?? '' );
+			if ( 'phrase' === $observation || 'topic' === $observation ) {
+				$reviews[] = $this->overlapItem( 4, $group );
 			}
 		}
 
@@ -53,9 +54,9 @@ final class Priorities {
 
 		$complete = (bool) ( $architecture['coverage']['complete'] ?? false );
 		if ( $complete ) {
-			$this->splitPages( $this->rows( $architecture, 'orphans' ), 'orphan', $demand, $known, $demand_pages, $quiet_pages );
+			$this->splitPages( $this->rows( $architecture, 'orphans' ), 'orphan', $demand, $search_mode, $demand_pages, $quiet_pages );
 		}
-		$this->splitPages( $this->rows( $architecture, 'weak' ), 'weak', $demand, $known, $demand_pages, $quiet_pages );
+		$this->splitPages( $this->rows( $architecture, 'weak' ), 'weak', $demand, $search_mode, $demand_pages, $quiet_pages );
 
 		usort(
 			$demand_pages,
@@ -70,18 +71,26 @@ final class Priorities {
 		foreach ( $quiet_pages as $item ) {
 			$items[] = $item;
 		}
-		foreach ( $this->groups( $overlap ) as $group ) {
-			if ( 'medium' === (string) ( $group['level'] ?? '' ) ) {
-				$items[] = $this->overlapItem( 3, $group );
-			}
+		foreach ( $reviews as $item ) {
+			$items[] = $item;
 		}
-		if ( ! $known ) {
+		if ( 'absent' === $search_mode ) {
 			$items[] = array(
-				'priority'    => 3,
+				'priority'    => 4,
 				'kind'        => 'search',
 				'title'       => __( 'Import a Search Console file', 'seo-studio' ),
 				'action'      => __( 'Import a performance export before treating demand as evidence.', 'seo-studio' ),
-				'reason'      => __( 'Zoop is not connected to Search Console. Without an imported file, impressions cannot raise or lower a page. Zoop does not edit the page.', 'seo-studio' ),
+				'reason'      => __( 'Zoop is not connected to Search Console. Without an imported file, impressions cannot raise or lower a page. Even a future file would need dates and a page address before it could describe demand. Zoop does not edit the page.', 'seo-studio' ),
+				'pages'       => array(),
+				'impressions' => 0,
+			);
+		} elseif ( 'query_only' === $search_mode ) {
+			$items[] = array(
+				'priority'    => 4,
+				'kind'        => 'search',
+				'title'       => __( 'The Search Console file has no page addresses', 'seo-studio' ),
+				'action'      => __( 'Import a file that includes the page column before comparing URLs.', 'seo-studio' ),
+				'reason'      => __( 'This file has queries, clicks, and impressions, and no page addresses. Zoop cannot tell which URL received them. The counts are not verified commercial value and not evidence of lost traffic. Zoop does not edit the page.', 'seo-studio' ),
 				'pages'       => array(),
 				'impressions' => 0,
 			);
@@ -98,7 +107,7 @@ final class Priorities {
 		return array(
 			'items'   => $public,
 			'limited' => $limited,
-			'notes'   => $this->notes( $architecture, $known, $limited ),
+			'notes'   => $this->notes( $architecture, $search_mode, $limited ),
 		);
 	}
 
@@ -108,13 +117,13 @@ final class Priorities {
 	 * @param list<array<string, mixed>>                                        $rows         Architecture rows.
 	 * @param string                                                            $status       Orphan or weak.
 	 * @param array<string, array{impressions: int, clicks: int, queries: list<string>}> $demand Demand by address.
-	 * @param bool                                                              $known        Whether a file was imported.
+	 * @param string                                                            $search_mode  Absent, query-only, or page-level file.
 	 * @param list<array<string, mixed>>                                        $with_demand  Pages with impressions.
 	 * @param list<array<string, mixed>>                                        $without      Pages without impressions.
 	 */
-	private function splitPages( array $rows, string $status, array $demand, bool $known, array &$with_demand, array &$without ): void {
+	private function splitPages( array $rows, string $status, array $demand, string $search_mode, array &$with_demand, array &$without ): void {
 		foreach ( $rows as $row ) {
-			$item = $this->pageItem( $row, $status, $demand, $known );
+			$item = $this->pageItem( $row, $status, $demand, $search_mode );
 			if ( 2 === (int) $item['priority'] ) {
 				$with_demand[] = $item;
 			} else {
@@ -144,18 +153,22 @@ final class Priorities {
 			);
 		}
 		$reason = trim( (string) ( $group['reason'] ?? '' ) );
-		$reason = trim( $reason . ' ' . __( 'Zoop does not edit the pages.', 'seo-studio' ) );
+		if ( ! str_contains( $reason, 'does not edit' ) ) {
+			$reason = trim( $reason . ' ' . __( 'Zoop does not edit the pages.', 'seo-studio' ) );
+		}
 
 		return array(
-			'priority'    => $priority,
-			'kind'        => 'overlap',
-			'title'       => '' !== $phrase ? $phrase : __( 'Shared wording', 'seo-studio' ),
-			'action'      => 1 === $priority
-				? __( 'Review these pages before treating them as competitors.', 'seo-studio' )
-				: __( 'Review this shared topic. It is weaker evidence than a shared target phrase.', 'seo-studio' ),
-			'reason'      => $reason,
-			'pages'       => $pages,
-			'impressions' => 0,
+			'priority'               => $priority,
+			'kind'                   => 'overlap',
+			'title'                  => '' !== $phrase ? $phrase : __( 'Shared wording', 'seo-studio' ),
+			'action'                 => __( 'Compare what these pages are for. A shared phrase or topic is not proof that they compete.', 'seo-studio' ),
+			'reason'                 => $reason,
+			'observation'            => (string) ( $group['observation'] ?? '' ),
+			'observation_confidence' => (string) ( $group['observation_confidence'] ?? 'insufficient' ),
+			'conclusion'             => (string) ( $group['conclusion'] ?? 'investigation' ),
+			'conclusion_confidence'  => (string) ( $group['conclusion_confidence'] ?? 'insufficient' ),
+			'pages'                  => $pages,
+			'impressions'            => 0,
 		);
 	}
 
@@ -199,10 +212,10 @@ final class Priorities {
 	 * @param array<string, mixed>                                               $row    Architecture page.
 	 * @param string                                                             $status Orphan or weak.
 	 * @param array<string, array{impressions: int, clicks: int, queries: list<string>}> $demand Demand by address.
-	 * @param bool                                                               $known  Whether a file was imported.
+	 * @param string                                                             $search_mode Absent, query-only, or page-level file.
 	 * @return array<string, mixed>
 	 */
-	private function pageItem( array $row, string $status, array $demand, bool $known ): array {
+	private function pageItem( array $row, string $status, array $demand, string $search_mode ): array {
 		$url      = (string) ( $row['url'] ?? '' );
 		$identity = UrlKey::identity( UrlKey::absolute( $url, $url ) );
 		$hit      = '' !== $identity && isset( $demand[ $identity ] ) ? $demand[ $identity ] : null;
@@ -219,19 +232,23 @@ final class Priorities {
 			$queries = array() !== $hit['queries'] ? implode( ', ', $hit['queries'] ) : __( 'this address', 'seo-studio' );
 			$reason  = sprintf(
 				/* translators: 1: link-graph sentence, 2: impression count, 3: query list. */
-				__( '%1$s The imported file records %2$d impressions for %3$s. These numbers came from a file. Zoop is not connected to Search Console. Zoop does not edit the page.', 'seo-studio' ),
+				__( '%1$s The imported file records %2$d impressions for %3$s. The file has no reporting dates or country and device split, so this count is not verified commercial value and not evidence of lost traffic. Zoop is not connected to Search Console. Zoop does not edit the page.', 'seo-studio' ),
 				$graph,
 				$count,
 				$queries
 			);
-			$action   = __( 'Review this page. Imported impressions and the link graph both point here.', 'seo-studio' );
+			$action   = __( 'Review this page. An imported impression count can help choose what to examine. It does not measure commercial value.', 'seo-studio' );
 			$priority = 2;
-		} elseif ( ! $known ) {
+		} elseif ( 'absent' === $search_mode ) {
 			$reason   = $graph . ' ' . __( 'Demand is not known until a Search Console file is imported. Zoop does not edit the page.', 'seo-studio' );
 			$action   = __( 'Review the link graph. Do not treat missing impressions as evidence.', 'seo-studio' );
 			$priority = 3;
+		} elseif ( 'query_only' === $search_mode ) {
+			$reason   = $graph . ' ' . __( 'The imported file has queries and no page addresses, so Zoop cannot attach impressions to this URL. That is not zero demand and not lost traffic. Zoop does not edit the page.', 'seo-studio' );
+			$action   = __( 'Review the link graph. A query-only file cannot rank this page by demand.', 'seo-studio' );
+			$priority = 3;
 		} else {
-			$reason   = $graph . ' ' . __( 'No imported query names this address. Zoop does not edit the page.', 'seo-studio' );
+			$reason   = $graph . ' ' . __( 'No imported row names this address. A missing row is not zero demand, and the file has no dates or segmentation. Zoop does not edit the page.', 'seo-studio' );
 			$action   = __( 'Review the link graph before looking for more referring pages.', 'seo-studio' );
 			$priority = 3;
 		}
@@ -312,17 +329,27 @@ final class Priorities {
 	}
 
 	/**
-	 * True when the caller passed at least one imported row.
+	 * Whether the import can be attached to URLs.
 	 *
 	 * @param list<array<string, mixed>> $search_rows Imported query rows.
 	 */
-	private function hasRows( array $search_rows ): bool {
+	private function searchMode( array $search_rows ): string {
+		$seen  = false;
+		$paged = false;
 		foreach ( $search_rows as $row ) {
-			if ( is_array( $row ) ) {
-				return true;
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$seen = true;
+			$page = (string) ( $row['page'] ?? '' );
+			if ( '' !== UrlKey::identity( UrlKey::absolute( $page, $page ) ) ) {
+				$paged = true;
 			}
 		}
-		return false;
+		if ( ! $seen ) {
+			return 'absent';
+		}
+		return $paged ? 'paged' : 'query_only';
 	}
 
 	/**
@@ -371,14 +398,18 @@ final class Priorities {
 	 * @param array<string, mixed> $architecture Architecture report.
 	 * @return string[]
 	 */
-	private function notes( array $architecture, bool $known, bool $limited ): array {
+	private function notes( array $architecture, string $search_mode, bool $limited ): array {
+		$search = __( 'No Search Console file has been imported, so demand is not used as evidence.', 'seo-studio' );
+		if ( 'query_only' === $search_mode ) {
+			$search = __( 'The imported file has no page addresses, so impressions cannot be attached to a URL. They are not verified commercial value or lost traffic.', 'seo-studio' );
+		} elseif ( 'paged' === $search_mode ) {
+			$search = __( 'Search figures come from a file you imported. They have no dates or segmentation, so they are not verified commercial value or evidence of lost traffic. Zoop is not connected to Search Console.', 'seo-studio' );
+		}
 		$notes = array(
 			__( 'Zoop orders stored evidence for review. It does not edit pages, insert links, or change metadata.', 'seo-studio' ),
-			__( 'A shared phrase is not proof of harm.', 'seo-studio' ),
-			__( 'Low title overlap stays on the Overlap screen. It is not repeated here.', 'seo-studio' ),
-			$known
-				? __( 'Search figures come from a file you imported. Zoop is not connected to Search Console.', 'seo-studio' )
-				: __( 'No Search Console file has been imported, so demand is not used as evidence.', 'seo-studio' ),
+			__( 'A shared phrase is an observation. It is not an urgent cannibalisation problem.', 'seo-studio' ),
+			__( 'Shared title words stay on the Overlap screen. They are not repeated here.', 'seo-studio' ),
+			$search,
 		);
 		if ( ! (bool) ( $architecture['coverage']['complete'] ?? false ) ) {
 			$notes[] = __( 'Orphan pages stay out of this list until every published page has a stored analysis.', 'seo-studio' );
