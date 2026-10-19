@@ -71,10 +71,24 @@ export function evidenceEstablishes( establishes: string ): string {
 /**
  * Where one page's observation came from.
  *
- * @param source Source id stored with that page.
+ * Confirmation means the editor kept the words. It does not change their origin.
+ *
+ * @param source    Source id stored with that page.
+ * @param confirmed Whether the editor saved this value.
  */
-export function evidenceSource( source: string ): string {
+export function evidenceSource( source: string, confirmed = false ): string {
+	if ( confirmed && source === 'heading' ) {
+		return __( 'Accepted from the heading', 'seo-studio' );
+	}
+	if ( confirmed && source === 'title' ) {
+		return __( 'Accepted from the title', 'seo-studio' );
+	}
+	if ( confirmed && source === 'keyphrase' ) {
+		return __( 'Accepted from the target phrase', 'seo-studio' );
+	}
 	switch ( source ) {
+		case 'editorial':
+			return __( 'Specified by the editor', 'seo-studio' );
 		case 'saved':
 			return __( 'Saved by the editor', 'seo-studio' );
 		case 'keyphrase':

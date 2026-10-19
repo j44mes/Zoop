@@ -119,13 +119,17 @@ final class OverlapTest extends TestCase {
 		$this->assertStringNotContainsString( 'Both pages', $group['reason'] );
 
 		$topics = $this->signals( $group, 'primary_topic' );
-		$this->assertSame( array( 'heading', 'saved', 'title' ), array_column( $topics, 'source' ) );
-		$this->assertFalse( $topics[0]['independent'] );
-		$this->assertSame( array( 2 ), array_column( $topics[0]['pages'], 'post_id' ) );
-		$this->assertSame( 'heading', $topics[0]['pages'][0]['source'] );
-		$this->assertTrue( $topics[1]['independent'] );
-		$this->assertSame( array( 1 ), array_column( $topics[1]['pages'], 'post_id' ) );
-		$this->assertSame( 'saved', $topics[1]['pages'][0]['source'] );
+		$this->assertSame( array( 'editorial', 'heading', 'title' ), array_column( $topics, 'source' ) );
+		$this->assertTrue( $topics[0]['independent'] );
+		$this->assertSame( array( 1 ), array_column( $topics[0]['pages'], 'post_id' ) );
+		$this->assertSame( 'editorial', $topics[0]['pages'][0]['source'] );
+		$this->assertTrue( $topics[0]['pages'][0]['confirmed'] );
+		$this->assertStringContainsString( 'This page', $topics[0]['detail'] );
+		$this->assertStringNotContainsString( 'These pages', $topics[0]['detail'] );
+		$this->assertFalse( $topics[1]['independent'] );
+		$this->assertSame( array( 2 ), array_column( $topics[1]['pages'], 'post_id' ) );
+		$this->assertSame( 'heading', $topics[1]['pages'][0]['source'] );
+		$this->assertStringContainsString( 'This page', $topics[1]['detail'] );
 		$this->assertFalse( $topics[2]['independent'] );
 		$this->assertSame( array( 3 ), array_column( $topics[2]['pages'], 'post_id' ) );
 		$this->assertSame( 'title', $topics[2]['pages'][0]['source'] );
@@ -157,6 +161,36 @@ final class OverlapTest extends TestCase {
 		$this->assertSame( 'not_established', $this->signal( $group, 'cannibalisation' )['establishes'] );
 	}
 
+	public function testAcceptingAHeadingSuggestionIsNotIndependent(): void {
+		$result = ( new Overlap() )->assess(
+			array(
+				$this->page( 1, 'Fire door services', '', 'fire door installation', 'commercial', 'saved', 'saved', 'Fire door installation' ),
+				$this->page( 2, 'Fire door cost', 'installation prices', 'fire door installation', 'informational', 'heading', 'suggested', 'Fire door installation' ),
+			)
+		);
+
+		$this->assertCount( 1, $result['groups'] );
+		$group = $result['groups'][0];
+		$this->assertSame( 'topic', $group['observation'] );
+		$this->assertSame( 'medium', $group['observation_confidence'] );
+		$this->assertSame( 'insufficient', $group['conclusion_confidence'] );
+		$topic = $this->signal( $group, 'primary_topic' );
+		$this->assertSame( 'heading', $topic['source'] );
+		$this->assertFalse( $topic['independent'] );
+		$this->assertSame( 'same_observation', $topic['establishes'] );
+		$this->assertSame( 'not_established', $this->signal( $group, 'cannibalisation' )['establishes'] );
+		$by_id = array();
+		foreach ( (array) $topic['pages'] as $listed ) {
+			if ( is_array( $listed ) ) {
+				$by_id[ (int) $listed['post_id'] ] = $listed;
+			}
+		}
+		$this->assertTrue( $by_id[1]['confirmed'] );
+		$this->assertSame( 'heading', $by_id[1]['source'] );
+		$this->assertFalse( $by_id[2]['confirmed'] );
+		$this->assertStringContainsString( 'not prove', $group['reason'] );
+	}
+
 	public function testASavedTopicIsIndependentAndStillNotAConflict(): void {
 		$result = ( new Overlap() )->assess(
 			array(
@@ -169,7 +203,9 @@ final class OverlapTest extends TestCase {
 		$this->assertSame( 'topic', $group['observation'] );
 		$this->assertSame( 'high', $group['observation_confidence'] );
 		$this->assertSame( 'insufficient', $group['conclusion_confidence'] );
-		$this->assertTrue( $this->signal( $group, 'primary_topic' )['independent'] );
+		$topic = $this->signal( $group, 'primary_topic' );
+		$this->assertSame( 'editorial', $topic['source'] );
+		$this->assertTrue( $topic['independent'] );
 		$this->assertSame( 'not_established', $this->signal( $group, 'search_intent' )['establishes'] );
 		$this->assertStringContainsString( 'not prove', $group['reason'] );
 	}
@@ -231,13 +267,14 @@ final class OverlapTest extends TestCase {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function page( int $id, string $title, string $keyphrase, string $topic, string $intent, string $topic_source = '', string $intent_source = '' ): array {
+	private function page( int $id, string $title, string $keyphrase, string $topic, string $intent, string $topic_source = '', string $intent_source = '', string $heading = '' ): array {
 		return array(
 			'post_id'       => $id,
 			'title'         => $title,
 			'keyphrase'     => $keyphrase,
 			'topic'         => $topic,
 			'intent'        => $intent,
+			'heading'       => $heading,
 			'topic_source'  => $topic_source,
 			'intent_source' => $intent_source,
 		);

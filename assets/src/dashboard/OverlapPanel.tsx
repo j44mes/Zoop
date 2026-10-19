@@ -121,7 +121,8 @@ export function OverlapPanel() {
 														) }
 													{ ': ' }
 													{ evidenceSource(
-														page.source
+														page.source,
+														page.confirmed
 													) }
 												</li>
 											) ) }

@@ -48,21 +48,50 @@ final class OverlapReport {
 					'depth'          => $row['depth'] ?? null,
 				)
 			);
-			$topic      = $this->chosen( $post_id, TopicPage::PRIMARY, $suggestion['primary_topic'] );
+			$topic      = $this->chosenTopic( $post_id, $suggestion['primary_topic'] );
 			$intent     = $this->chosen( $post_id, TopicPage::INTENT, $suggestion['search_intent'] );
 			$pages[]    = array(
-				'post_id'       => $post_id,
-				'title'         => (string) ( $row['title'] ?? '' ),
-				'heading'       => $heading,
-				'keyphrase'     => $keyphrase,
-				'topic'         => $topic['value'],
-				'topic_source'  => $topic['source'],
-				'intent'        => $intent['value'],
-				'intent_source' => $intent['source'],
+				'post_id'         => $post_id,
+				'title'           => (string) ( $row['title'] ?? '' ),
+				'heading'         => $heading,
+				'keyphrase'       => $keyphrase,
+				'topic'           => $topic['value'],
+				'topic_source'    => $topic['source'],
+				'topic_confirmed' => $topic['confirmed'],
+				'intent'          => $intent['value'],
+				'intent_source'   => $intent['source'],
 			);
 		}
 
 		return $this->overlap->assess( $pages );
+	}
+
+	/**
+	 * A saved topic keeps its words and records whether the editor confirmed them.
+	 *
+	 * The source stays the field the words came from. Saving the suggestion does not
+	 * make that field an independent observation.
+	 *
+	 * @param array{value?: mixed, source?: mixed} $suggestion Suggested primary topic.
+	 * @return array{value: string, source: string, confirmed: bool}
+	 */
+	private function chosenTopic( int $postId, array $suggestion ): array {
+		$saved = get_post_meta( $postId, TopicPage::PRIMARY, true );
+		if ( is_string( $saved ) && '' !== trim( $saved ) ) {
+			$origin = get_post_meta( $postId, TopicPage::ORIGIN, true );
+			$source = is_string( $origin ) && in_array( $origin, array( 'keyphrase', 'heading', 'title', 'editorial' ), true ) ? $origin : 'saved';
+			return array(
+				'value'     => trim( $saved ),
+				'source'    => $source,
+				'confirmed' => true,
+			);
+		}
+
+		return array(
+			'value'     => trim( (string) ( $suggestion['value'] ?? '' ) ),
+			'source'    => (string) ( $suggestion['source'] ?? 'none' ),
+			'confirmed' => false,
+		);
 	}
 
 	/**

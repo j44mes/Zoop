@@ -379,6 +379,7 @@ export interface OverlapEvidencePage {
 	post_id: number;
 	title: string;
 	source: string;
+	confirmed?: boolean;
 }
 
 export interface OverlapEvidence {

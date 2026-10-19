@@ -64,6 +64,12 @@ describe( 'overlap copy', () => {
 		expect( evidenceSource( 'heading' ) ).toBe(
 			'Suggested from the heading'
 		);
+		expect( evidenceSource( 'heading', true ) ).toBe(
+			'Accepted from the heading'
+		);
+		expect( evidenceSource( 'editorial' ) ).toBe(
+			'Specified by the editor'
+		);
 		expect( evidenceSource( 'title' ) ).toBe( 'Suggested from the title' );
 	} );
 } );

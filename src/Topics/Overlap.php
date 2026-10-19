@@ -66,7 +66,7 @@ final class Overlap {
 	 * Normalise one page and record where its topic and intent came from.
 	 *
 	 * @param array<string, mixed> $page Raw page.
-	 * @return array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}
+	 * @return array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string, topic_confirmed: bool}
 	 */
 	private function prepare( array $page ): array {
 		$keyphrase = $this->fold( (string) ( $page['keyphrase'] ?? '' ) );
@@ -78,32 +78,66 @@ final class Overlap {
 			$intent = 'unassigned';
 		}
 
-		$topic_source = (string) ( $page['topic_source'] ?? '' );
-		if ( '' === $topic_source ) {
-			$topic_source = $this->inferredTopicSource( $topic, $keyphrase, $heading, $title );
+		$recorded  = (string) ( $page['topic_source'] ?? '' );
+		$confirmed = (bool) ( $page['topic_confirmed'] ?? false );
+		if ( 'saved' === $recorded || 'editorial' === $recorded ) {
+			$confirmed = true;
 		}
+		$topic_source  = $this->resolveTopicOrigin( $topic, $keyphrase, $heading, $title, $recorded );
 		$intent_source = (string) ( $page['intent_source'] ?? '' );
 		if ( '' === $intent_source || 'unassigned' === $intent ) {
 			$intent_source = 'unassigned' === $intent ? 'unassigned' : ( '' !== $intent_source ? $intent_source : 'suggested' );
 		}
 
 		return array(
-			'post_id'       => (int) ( $page['post_id'] ?? 0 ),
-			'title'         => trim( (string) ( $page['title'] ?? '' ) ),
-			'keyphrase'     => $keyphrase,
-			'topic'         => $topic,
-			'intent'        => $intent,
-			'topic_source'  => $topic_source,
-			'intent_source' => $intent_source,
+			'post_id'         => (int) ( $page['post_id'] ?? 0 ),
+			'title'           => trim( (string) ( $page['title'] ?? '' ) ),
+			'keyphrase'       => $keyphrase,
+			'topic'           => $topic,
+			'intent'          => $intent,
+			'topic_source'    => $topic_source,
+			'intent_source'   => $intent_source,
+			'topic_confirmed' => $confirmed,
 		);
 	}
 
 	/**
-	 * Guess a topic origin when the caller did not record one.
+	 * Content origin of a topic. A match with an existing field wins over a saved label.
 	 */
-	private function inferredTopicSource( string $topic, string $keyphrase, string $heading, string $title ): string {
+	public static function topicOrigin( string $topic, string $keyphrase, string $heading, string $title ): string {
+		$overlap = new self();
+		return $overlap->resolveTopicOrigin(
+			$overlap->fold( $topic ),
+			$overlap->fold( $keyphrase ),
+			$overlap->fold( $heading ),
+			$overlap->fold( $title ),
+			''
+		);
+	}
+
+	/**
+	 * Prefer a matching field. Otherwise keep a recorded origin, or call an unmatched topic editorial.
+	 */
+	private function resolveTopicOrigin( string $topic, string $keyphrase, string $heading, string $title, string $recorded ): string {
+		$matched = $this->matchedField( $topic, $keyphrase, $heading, $title );
+		if ( '' !== $matched ) {
+			return $matched;
+		}
+		if ( in_array( $recorded, array( 'keyphrase', 'heading', 'title', 'editorial' ), true ) ) {
+			return $recorded;
+		}
 		if ( '' === $topic ) {
 			return 'none';
+		}
+		return 'editorial';
+	}
+
+	/**
+	 * Field whose words are the topic, in the suggestion order.
+	 */
+	private function matchedField( string $topic, string $keyphrase, string $heading, string $title ): string {
+		if ( '' === $topic ) {
+			return '';
 		}
 		if ( '' !== $keyphrase && $topic === $keyphrase ) {
 			return 'keyphrase';
@@ -114,7 +148,7 @@ final class Overlap {
 		if ( '' !== $title && $topic === $title ) {
 			return 'title';
 		}
-		return 'saved';
+		return '';
 	}
 
 	/**
@@ -127,7 +161,7 @@ final class Overlap {
 			if ( '' === $page['topic'] || $page['topic'] !== $page['keyphrase'] ) {
 				return false;
 			}
-			if ( 'keyphrase' !== $page['topic_source'] && 'saved' !== $page['topic_source'] ) {
+			if ( 'keyphrase' !== $page['topic_source'] && 'editorial' !== $page['topic_source'] && 'saved' !== $page['topic_source'] ) {
 				return false;
 			}
 		}
@@ -185,11 +219,11 @@ final class Overlap {
 		$evidence[] = $this->competitionEvidence();
 
 		if ( $independent ) {
-			$reason = __( 'These pages share a saved primary topic. That is a separate observation from their target phrases. It does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+			$reason = __( 'These pages share a primary topic specified by the editor. The words do not come from their target phrases, headings, or titles. It does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
 		} elseif ( count( $sources ) > 1 ) {
-			$reason = __( 'These pages share a primary topic, and the sources differ. Each page keeps its own source. A saved topic is a separate observation for that page. A suggested topic is not independent evidence. This does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+			$reason = __( 'These pages share a primary topic, and the sources differ. Each page keeps its own source. A topic the editor specified is a separate observation for that page. A topic taken from the heading, title, or target phrase is not independent evidence, even when the editor accepted it. This does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
 		} else {
-			$reason = __( 'These pages share a primary topic taken from another field. That is not independent evidence, and it does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
+			$reason = __( 'These pages share a primary topic taken from another field. Accepting that wording does not make it independent evidence, and it does not prove the pages compete. Zoop does not edit the pages.', 'seo-studio' );
 		}
 
 		return $this->finding(
@@ -214,16 +248,16 @@ final class Overlap {
 		}
 		$rows = array();
 		foreach ( $this->pagesBy( $bucket, 'topic_source' ) as $source => $pages ) {
-			$saved  = 'saved' === $source;
+			$one    = 1 === count( $pages );
 			$rows[] = $this->evidence(
 				'primary_topic',
 				(string) $source,
 				'high',
 				'same_observation',
 				false,
-				$saved
-					? __( 'A saved topic uses the same words as the target phrase. Confirming those words does not create a second observation.', 'seo-studio' )
-					: __( 'The primary topic was suggested from that target phrase. It is the same observation, not a second one.', 'seo-studio' ),
+				$one
+					? __( 'This page uses a primary topic with the same words as its target phrase. Accepting those words does not create a second observation.', 'seo-studio' )
+					: __( 'These pages use a primary topic with the same words as the target phrase. Accepting those words does not create a second observation.', 'seo-studio' ),
 				$pages,
 				'topic_source'
 			);
@@ -240,15 +274,14 @@ final class Overlap {
 	private function topicSourceRows( array $bucket ): array {
 		$rows = array();
 		foreach ( $this->pagesBy( $bucket, 'topic_source' ) as $source => $pages ) {
-			$saved       = 'saved' === $source;
-			$independent = $saved && ! $this->topicRepeatsPhrase( $pages );
+			$independent = 'editorial' === $source;
 			$rows[]      = $this->evidence(
 				'primary_topic',
 				(string) $source,
-				$saved ? 'high' : 'medium',
+				$independent ? 'high' : 'medium',
 				$independent ? 'confirmed_overlap' : 'same_observation',
 				$independent,
-				$this->topicSourceDetail( (string) $source, $independent ),
+				$this->topicSourceDetail( (string) $source, count( $pages ) ),
 				$pages,
 				'topic_source'
 			);
@@ -259,23 +292,31 @@ final class Overlap {
 	/**
 	 * Sentence for one topic source. It describes only the pages that use that source.
 	 */
-	private function topicSourceDetail( string $source, bool $independent ): string {
-		if ( 'saved' === $source && $independent ) {
-			return __( 'These pages have a primary topic saved by the editor, separately from the target phrase. That confirms a shared topic for these pages only. It does not prove the pages compete.', 'seo-studio' );
-		}
-		if ( 'saved' === $source ) {
-			return __( 'A saved topic uses the same words as the target phrase. Confirming those words does not create a second observation.', 'seo-studio' );
+	private function topicSourceDetail( string $source, int $count ): string {
+		$one = 1 === $count;
+		if ( 'editorial' === $source ) {
+			return $one
+				? __( 'This page has a primary topic specified by the editor. The words do not come from its target phrase, heading, or title. That is a separate observation for this page. It does not prove the pages compete.', 'seo-studio' )
+				: __( 'These pages have a primary topic specified by the editor. The words do not come from their target phrases, headings, or titles. That is a separate observation. It does not prove the pages compete.', 'seo-studio' );
 		}
 		if ( 'heading' === $source ) {
-			return __( 'The primary topic was suggested from the first heading. It is not an independent observation.', 'seo-studio' );
+			return $one
+				? __( 'This page has a primary topic taken from its first heading. Accepting that suggestion does not make it an independent observation.', 'seo-studio' )
+				: __( 'These pages have a primary topic taken from the first heading. Accepting that suggestion does not make it an independent observation.', 'seo-studio' );
 		}
 		if ( 'title' === $source ) {
-			return __( 'The primary topic was suggested from the page title. It is not an independent observation.', 'seo-studio' );
+			return $one
+				? __( 'This page has a primary topic taken from its title. Accepting that suggestion does not make it an independent observation.', 'seo-studio' )
+				: __( 'These pages have a primary topic taken from the page title. Accepting that suggestion does not make it an independent observation.', 'seo-studio' );
 		}
 		if ( 'keyphrase' === $source ) {
-			return __( 'The primary topic was suggested from the target phrase. It is the same observation, not a second one.', 'seo-studio' );
+			return $one
+				? __( 'This page has a primary topic taken from its target phrase. It is the same observation, not a second one.', 'seo-studio' )
+				: __( 'These pages have a primary topic taken from the target phrase. It is the same observation, not a second one.', 'seo-studio' );
 		}
-		return __( 'The primary topic has no recorded source. It is not an independent observation.', 'seo-studio' );
+		return $one
+			? __( 'This page has a primary topic with no recorded source. It is not an independent observation.', 'seo-studio' )
+			: __( 'These pages have a primary topic with no recorded source. It is not an independent observation.', 'seo-studio' );
 	}
 
 	/**
@@ -314,16 +355,24 @@ final class Overlap {
 		$rows = array();
 		foreach ( $by_intent as $sources ) {
 			foreach ( $sources as $source => $pages ) {
-				$saved  = 'saved' === $source;
+				$saved = 'saved' === $source;
+				$one   = 1 === count( $pages );
+				if ( $saved && $one ) {
+					$detail = __( 'This page has a confirmed intent. That supports a closer look. It is not proof that the pages compete.', 'seo-studio' );
+				} elseif ( $saved ) {
+					$detail = __( 'These pages have the same confirmed intent. That supports a closer look. It is not proof that the pages compete.', 'seo-studio' );
+				} elseif ( $one ) {
+					$detail = __( 'This page has a suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete.', 'seo-studio' );
+				} else {
+					$detail = __( 'These pages have the same suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete.', 'seo-studio' );
+				}
 				$rows[] = $this->evidence(
 					'search_intent',
 					(string) $source,
 					$saved ? 'high' : 'medium',
 					'supports_investigation',
 					$saved,
-					$saved
-						? __( 'These pages have the same confirmed intent. That supports a closer look. It is not proof that the pages compete.', 'seo-studio' )
-						: __( 'These pages have the same suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete.', 'seo-studio' ),
+					$detail,
 					$pages,
 					'intent_source'
 				);
@@ -355,7 +404,7 @@ final class Overlap {
 	 */
 	private function topicIsIndependent( array $bucket ): bool {
 		foreach ( $bucket as $page ) {
-			if ( 'saved' !== $page['topic_source'] || '' === $page['topic'] || $page['topic'] === $page['keyphrase'] ) {
+			if ( 'editorial' !== $page['topic_source'] || '' === $page['topic'] ) {
 				return false;
 			}
 		}
@@ -393,7 +442,7 @@ final class Overlap {
 	 *
 	 * @param list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}> $pages
 	 * @param string                                                                                                                                 $page_field Field that records each page's own source.
-	 * @return array{signal: string, source: string, observation_confidence: string, establishes: string, independent: bool, detail: string, pages: list<array{post_id: int, title: string, source: string}>}
+	 * @return array{signal: string, source: string, observation_confidence: string, establishes: string, independent: bool, detail: string, pages: list<array{post_id: int, title: string, source: string, confirmed: bool}>}
 	 */
 	private function evidence( string $signal, string $source, string $confidence, string $establishes, bool $independent, string $detail, array $pages = array(), string $page_field = '' ): array {
 		$listed = array();
@@ -403,9 +452,10 @@ final class Overlap {
 				$page_source = $page[ $page_field ];
 			}
 			$listed[] = array(
-				'post_id' => $page['post_id'],
-				'title'   => $page['title'],
-				'source'  => $page_source,
+				'post_id'   => $page['post_id'],
+				'title'     => $page['title'],
+				'source'    => $page_source,
+				'confirmed' => 'topic_source' === $page_field && ! empty( $page['topic_confirmed'] ),
 			);
 		}
 
