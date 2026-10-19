@@ -27,6 +27,13 @@ import {
 	socialCaption,
 	workspaceOwnership,
 } from './ownership-note';
+import {
+	imageKind,
+	imageKindLabel,
+	imageModeNote,
+	imageNote,
+	type ReportedImage,
+} from './image-report';
 import { recommendationHeading, whyItMatters } from './recommendation-copy';
 
 function queryValue( name: string ): string {
@@ -42,7 +49,12 @@ export function isPageWorkspace(): boolean {
 }
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type WorkspaceTab = 'recommendations' | 'checks' | 'search' | 'advanced';
+type WorkspaceTab =
+	| 'recommendations'
+	| 'checks'
+	| 'images'
+	| 'search'
+	| 'advanced';
 
 function messageOf( error: unknown, fallback: string ): string {
 	if ( error && typeof error === 'object' && 'message' in error ) {
@@ -139,9 +151,89 @@ function RecommendationCards( {
 	);
 }
 
+function ImageReport( {
+	images,
+	renderMode,
+}: {
+	images: ReportedImage[];
+	renderMode: string;
+} ) {
+	const counts: Record< string, number > = {
+		html: 0,
+		template: 0,
+		css_background: 0,
+		unverified: 0,
+	};
+	images.forEach( ( image ) => {
+		counts[ imageKind( image ) ] += 1;
+	} );
+	return (
+		<section>
+			<h3>{ __( 'Images on this page', 'seo-studio' ) }</h3>
+			<p className="seostudio-muted">{ imageModeNote( renderMode ) }</p>
+			<ul className="seostudio-saved">
+				<li>
+					{ sprintf(
+						/* translators: %d: number of HTML images. */
+						__( 'HTML images: %d', 'seo-studio' ),
+						counts.html
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of template images. */
+						__( 'Template images: %d', 'seo-studio' ),
+						counts.template
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of CSS background images. */
+						__( 'CSS backgrounds: %d', 'seo-studio' ),
+						counts.css_background
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of images that could not be verified. */
+						__( 'Not verified: %d', 'seo-studio' ),
+						counts.unverified
+					) }
+				</li>
+			</ul>
+			{ images.length === 0 ? (
+				<p>
+					{ __(
+						'No images were found in this analysis.',
+						'seo-studio'
+					) }
+				</p>
+			) : (
+				<ol className="seostudio-cards">
+					{ images.map( ( image, index ) => (
+						<li
+							className="seostudio-panel-card"
+							key={ `${ image.kind || 'image' }-${ index }` }
+						>
+							<p className="seostudio-kicker">
+								{ imageKindLabel( imageKind( image ) ) }
+							</p>
+							{ image.src ? (
+								<p className="seostudio-url">{ image.src }</p>
+							) : null }
+							<p>{ imageNote( image ) }</p>
+						</li>
+					) ) }
+				</ol>
+			) }
+		</section>
+	);
+}
+
 const tabs: Array< { id: WorkspaceTab; label: string } > = [
 	{ id: 'recommendations', label: __( 'Recommendations', 'seo-studio' ) },
 	{ id: 'checks', label: __( 'All checks', 'seo-studio' ) },
+	{ id: 'images', label: __( 'Images', 'seo-studio' ) },
 	{ id: 'search', label: __( 'Search appearance', 'seo-studio' ) },
 	{ id: 'advanced', label: __( 'Advanced', 'seo-studio' ) },
 ];
@@ -544,6 +636,12 @@ export function PageWorkspace() {
 										</p>
 										<AssessmentList items={ assessments } />
 									</>
+								) : null }
+								{ tab === 'images' ? (
+									<ImageReport
+										images={ model?.images || [] }
+										renderMode={ record.render_mode || '' }
+									/>
 								) : null }
 								{ tab === 'search' ? (
 									<>

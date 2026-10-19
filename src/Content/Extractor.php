@@ -74,7 +74,7 @@ final class Extractor {
 				'paragraphs'            => $this->paragraphs( $root['node'] ),
 				'sentences'             => $this->sentences( $body ),
 				'links'                 => $this->links( $root['node'], $url ),
-				'images'                => $this->images( $document, $root['node'] ),
+				'images'                => $this->images( $document, $root['node'], $html ),
 				'has_external_css'      => $live ? $this->hasStylesheet( $document ) : null,
 				'html_bytes'            => $live ? strlen( $html ) : null,
 				'visible_text_bytes'    => $live ? strlen( $this->textOf( $document->documentElement ?? $document ) ) : null,
@@ -397,23 +397,203 @@ final class Extractor {
 	}
 
 	/**
-	 * Collect images from the document.
+	 * Collect HTML images, inline CSS backgrounds, and checks that could not be completed.
 	 *
-	 * @return array<int, array{src: string, alt: string, in_body: bool}>
+	 * Stylesheets linked from the page are not downloaded. A CSS background is never given an alt score.
+	 *
+	 * @return array<int, array{src: string, alt: string, in_body: bool, kind: string, source: string}>
 	 */
-	private function images( DOMDocument $document, DOMNode $root ): array {
+	private function images( DOMDocument $document, DOMNode $root, string $html ): array {
 		$images = array();
 		foreach ( $document->getElementsByTagName( 'img' ) as $image ) {
 			if ( ! $image instanceof DOMElement ) {
 				continue;
 			}
+			$resolved = $this->imageAddress( $image );
+			$in_body  = $this->contains( $root, $image );
 			$images[] = array(
-				'src'     => $image->getAttribute( 'src' ),
+				'src'     => $resolved['src'],
 				'alt'     => $image->getAttribute( 'alt' ),
-				'in_body' => $this->contains( $root, $image ),
+				'in_body' => $in_body,
+				'kind'    => '' === $resolved['src'] ? 'unverified' : ( $in_body ? 'html' : 'template' ),
+				'source'  => $resolved['source'],
 			);
 		}
+
+		foreach ( $document->getElementsByTagName( '*' ) as $element ) {
+			if ( ! $element instanceof DOMElement ) {
+				continue;
+			}
+			$style = $element->getAttribute( 'style' );
+			foreach ( $this->backgroundUrls( $style ) as $url ) {
+				$images[] = array(
+					'src'     => $url,
+					'alt'     => '',
+					'in_body' => $this->contains( $root, $element ),
+					'kind'    => 'css_background',
+					'source'  => 'inline',
+				);
+			}
+			if ( $this->unverifiedBackground( $element, $style ) ) {
+				$images[] = array(
+					'src'     => '',
+					'alt'     => '',
+					'in_body' => $this->contains( $root, $element ),
+					'kind'    => 'unverified',
+					'source'  => 'divi',
+				);
+			}
+		}
+
+		$blocks = $this->styleBlockBackgrounds( $html );
+		foreach ( $blocks['urls'] as $url ) {
+			$images[] = array(
+				'src'     => $url,
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'css_background',
+				'source'  => 'style',
+			);
+		}
+		if ( $blocks['unchecked'] ) {
+			$images[] = array(
+				'src'     => '',
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'unverified',
+				'source'  => 'style',
+			);
+		}
+		if ( $this->hasStylesheet( $document ) ) {
+			$images[] = array(
+				'src'     => '',
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'unverified',
+				'source'  => 'stylesheet',
+			);
+		}
+
 		return $images;
+	}
+
+	/**
+	 * Prefer a normal src, then a lazy-load address, then the first srcset candidate.
+	 *
+	 * @return array{src: string, source: string}
+	 */
+	private function imageAddress( DOMElement $image ): array {
+		$src = trim( $image->getAttribute( 'src' ) );
+		if ( '' !== $src && ! str_starts_with( $src, 'data:' ) ) {
+			return array(
+				'src'    => $src,
+				'source' => 'src',
+			);
+		}
+		foreach ( array( 'data-src', 'data-lazy-src' ) as $attribute ) {
+			$lazy = trim( $image->getAttribute( $attribute ) );
+			if ( '' !== $lazy && ! str_starts_with( $lazy, 'data:' ) ) {
+				return array(
+					'src'    => $lazy,
+					'source' => 'data-src',
+				);
+			}
+		}
+		$srcset = $this->firstSrcsetUrl( $image->getAttribute( 'srcset' ) );
+		if ( '' === $srcset ) {
+			$parent = $image->parentNode;
+			if ( $parent instanceof DOMElement && 'picture' === strtolower( $parent->tagName ) ) {
+				foreach ( $parent->getElementsByTagName( 'source' ) as $source ) {
+					if ( $source instanceof DOMElement ) {
+						$srcset = $this->firstSrcsetUrl( $source->getAttribute( 'srcset' ) );
+						if ( '' !== $srcset ) {
+							break;
+						}
+					}
+				}
+			}
+		}
+		if ( '' !== $srcset ) {
+			return array(
+				'src'    => $srcset,
+				'source' => 'srcset',
+			);
+		}
+		return array(
+			'src'    => '',
+			'source' => 'missing',
+		);
+	}
+
+	private function firstSrcsetUrl( string $srcset ): string {
+		$candidate = trim( explode( ',', $srcset )[0] ?? '' );
+		$parts     = preg_split( '/\s+/', $candidate );
+		$url       = is_array( $parts ) ? trim( (string) ( $parts[0] ?? '' ) ) : '';
+		return str_starts_with( $url, 'data:' ) ? '' : $url;
+	}
+
+	/**
+	 * Addresses inside CSS url() values. Data URIs are skipped.
+	 *
+	 * @return string[]
+	 */
+	private function backgroundUrls( string $style ): array {
+		if ( ! preg_match_all( '/url\(\s*([\'"]?)([^\'")]+)\1\s*\)/i', $style, $matches ) ) {
+			return array();
+		}
+		$urls = array();
+		foreach ( $matches[2] as $url ) {
+			$url = trim( html_entity_decode( (string) $url, ENT_QUOTES ) );
+			if ( '' === $url || str_starts_with( strtolower( $url ), 'data:' ) ) {
+				continue;
+			}
+			$urls[] = $url;
+		}
+		return $urls;
+	}
+
+	/**
+	 * A Divi background section whose address is not in this HTML.
+	 */
+	private function unverifiedBackground( DOMElement $element, string $style ): bool {
+		$class = strtolower( $element->getAttribute( 'class' ) );
+		if ( ! str_contains( $class, 'et_pb_with_background' ) ) {
+			return false;
+		}
+		return array() === $this->backgroundUrls( $style );
+	}
+
+	/**
+	 * Background addresses written in style blocks. A very large block is left unverified.
+	 *
+	 * @return array{urls: string[], unchecked: bool}
+	 */
+	private function styleBlockBackgrounds( string $html ): array {
+		if ( ! preg_match_all( '/<style\b[^>]*>(.*?)<\/style>/is', $html, $blocks ) ) {
+			return array(
+				'urls'      => array(),
+				'unchecked' => false,
+			);
+		}
+		$total = 0;
+		$urls  = array();
+		foreach ( $blocks[1] as $css ) {
+			$css    = (string) $css;
+			$total += strlen( $css );
+			if ( $total > 100000 ) {
+				return array(
+					'urls'      => array(),
+					'unchecked' => true,
+				);
+			}
+			foreach ( $this->backgroundUrls( $css ) as $url ) {
+				$urls[] = $url;
+			}
+		}
+		return array(
+			'urls'      => array_values( array_unique( $urls ) ),
+			'unchecked' => false,
+		);
 	}
 
 	private function hasStylesheet( DOMDocument $document ): bool {

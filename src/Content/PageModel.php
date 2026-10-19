@@ -21,7 +21,7 @@ final class PageModel {
 	 * @param string[]                                                              $paragraphs
 	 * @param string[]                                                              $sentences
 	 * @param array<int, array{href: string, anchor: string, internal: bool, nofollow: bool}> $links
-	 * @param array<int, array{src: string, alt: string, in_body: bool}>           $images
+	 * @param array<int, array{src: string, alt: string, in_body: bool, kind?: string, source?: string}> $images
 	 */
 	public function __construct(
 		public readonly string $url = '',
@@ -119,10 +119,17 @@ final class PageModel {
 			if ( ! is_array( $image ) ) {
 				continue;
 			}
+			$in_body = (bool) ( $image['in_body'] ?? false );
+			$kind    = (string) ( $image['kind'] ?? '' );
+			if ( ! in_array( $kind, array( 'html', 'template', 'css_background', 'unverified' ), true ) ) {
+				$kind = $in_body ? 'html' : 'template';
+			}
 			$images[] = array(
 				'src'     => (string) ( $image['src'] ?? '' ),
 				'alt'     => (string) ( $image['alt'] ?? '' ),
-				'in_body' => (bool) ( $image['in_body'] ?? false ),
+				'in_body' => $in_body,
+				'kind'    => $kind,
+				'source'  => (string) ( $image['source'] ?? '' ),
 			);
 		}
 

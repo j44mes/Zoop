@@ -1,5 +1,10 @@
 import { editHref, editTarget } from '../../assets/src/dashboard/edit-route';
 import {
+	imageKind,
+	imageKindLabel,
+	imageNote,
+} from '../../assets/src/dashboard/image-report';
+import {
 	recommendationHeading,
 	whyItMatters,
 } from '../../assets/src/dashboard/recommendation-copy';
@@ -44,6 +49,21 @@ describe( 'page workspace copy', () => {
 		expect( editHref( 5, 'body.word_count' ) ).toBe(
 			'post.php?post=5&action=edit'
 		);
+	} );
+
+	it( 'keeps a CSS background out of the alt-text advice', () => {
+		expect( imageKind( { src: '/a.png', in_body: true } ) ).toBe( 'html' );
+		expect( imageKindLabel( 'css_background' ) ).toBe( 'CSS background' );
+		expect(
+			imageNote( {
+				kind: 'css_background',
+				src: '/hero.jpg',
+				alt: 'rank tracker',
+			} )
+		).toContain( 'not part of the image-description score' );
+		expect(
+			imageNote( { kind: 'html', src: '/door.jpg', alt: '' } )
+		).toContain( 'decorative' );
 	} );
 
 	it( 'names a finding as an action without promising a ranking', () => {

@@ -17,7 +17,13 @@ export interface PageModelResponse {
 	h1?: string[];
 	headings?: Array< { level: number; text: string } >;
 	paragraphs?: string[];
-	images?: Array< { src: string; alt: string } >;
+	images?: Array< {
+		src: string;
+		alt: string;
+		in_body?: boolean;
+		kind?: string;
+		source?: string;
+	} >;
 	links?: Array< { href: string; anchor: string } >;
 	lang?: string;
 	render_mode?: string;
