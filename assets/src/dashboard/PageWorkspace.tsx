@@ -18,15 +18,11 @@ import {
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
 import type { ListedAssessment } from '../shared/ui/AssessmentList';
-import { SnippetPreview } from '../shared/ui/SnippetPreview';
 import { SocialPreview } from '../shared/ui/SocialPreview';
 import { TrafficLight } from '../shared/ui/TrafficLight';
 import { editHref, editTarget } from './edit-route';
-import {
-	snippetCaption,
-	socialCaption,
-	workspaceOwnership,
-} from './ownership-note';
+import { socialCaption, workspaceOwnership } from './ownership-note';
+import { SearchAppearance } from './SearchAppearance';
 import {
 	imageKind,
 	imageKindLabel,
@@ -650,77 +646,11 @@ export function PageWorkspace() {
 									<TopicPanel postId={ postId } />
 								) : null }
 								{ tab === 'search' ? (
-									<>
-										<h3>
-											{ __(
-												'Search appearance',
-												'seo-studio'
-											) }
-										</h3>
-										<p className="seostudio-muted">
-											{ snippetCaption(
-												record.render_mode || ''
-											) }
-										</p>
-										<div className="seostudio-preview-row">
-											<SnippetPreview
-												title={ model?.title_tag || '' }
-												url={ url }
-												description={
-													model?.meta_description ||
-													''
-												}
-											/>
-											<SnippetPreview
-												title={ model?.title_tag || '' }
-												url={ url }
-												description={
-													model?.meta_description ||
-													''
-												}
-												viewport="mobile"
-											/>
-										</div>
-										<h3>
-											{ __(
-												'Saved in Zoop',
-												'seo-studio'
-											) }
-										</h3>
-										<p className="seostudio-muted">
-											{ socialCaption(
-												!! settings?.publishing
-											) }
-										</p>
-										<ul className="seostudio-saved">
-											<li>
-												{ sprintf(
-													/* translators: %s: saved SEO title, or a dash when empty. */
-													__(
-														'SEO title: %s',
-														'seo-studio'
-													),
-													seo?.title || '–'
-												) }
-											</li>
-											<li>
-												{ sprintf(
-													/* translators: %s: saved description, or a dash when empty. */
-													__(
-														'Description: %s',
-														'seo-studio'
-													),
-													seo?.description || '–'
-												) }
-											</li>
-										</ul>
-										<SocialPreview
-											title={ seo?.og_title || '' }
-											description={
-												seo?.og_description || ''
-											}
-										/>
-									</>
+									<SearchAppearance
+										postId={ postId }
+										pageTitle={ title }
+										assessments={ assessments }
+									/>
 								) : null }
 								{ tab === 'advanced' ? (
 									<>
@@ -750,6 +680,23 @@ export function PageWorkspace() {
 												) }
 											</a>
 										</p>
+										<h3>
+											{ __(
+												'Social appearance',
+												'seo-studio'
+											) }
+										</h3>
+										<p className="seostudio-muted">
+											{ socialCaption(
+												!! settings?.publishing
+											) }
+										</p>
+										<SocialPreview
+											title={ seo?.og_title || '' }
+											description={
+												seo?.og_description || ''
+											}
+										/>
 									</>
 								) : null }
 							</div>
