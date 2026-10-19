@@ -28,6 +28,7 @@ final class Uninstaller {
 		Scheduler::unschedule();
 		delete_option( Settings::OPTION );
 		delete_option( 'seostudio_detected_plugins' );
+		delete_option( 'seostudio_search_import' );
 	}
 
 	public static function deleteStoredData(): void {
@@ -38,6 +39,7 @@ final class Uninstaller {
 			$wpdb->prefix . 'seostudio_keyphrases',
 			$wpdb->prefix . 'seostudio_audit_runs',
 			$wpdb->prefix . 'seostudio_pages',
+			$wpdb->prefix . 'seostudio_search_rows',
 		);
 		foreach ( $tables as $table ) {
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names.
