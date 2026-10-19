@@ -70,6 +70,7 @@ final class ExtractorBranchesTest extends TestCase {
 		$this->assertStringContainsString( 'Entry copy.', $id->bodyText );
 		$this->assertStringNotContainsString( 'secret', $id->bodyText );
 		$this->assertCount( 3, $id->links );
+		$this->assertSame( 'contextual', $id->links[0]['kind'] );
 		$this->assertTrue( $id->links[0]['internal'] );
 		$this->assertTrue( $id->links[1]['internal'] );
 		$this->assertFalse( $id->links[2]['internal'] );

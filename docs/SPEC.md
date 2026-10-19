@@ -58,6 +58,8 @@ SEO Studio installs on any WordPress 6.x site, works with any theme or page buil
 
 **Out of scope permanently.** Rank tracking, backlink data, copying either vendor's visual design or wording.
 
+**Amendment (19 October 2026).** The read-only site architecture report is implemented. It inventories published pages, separates contextual and template links, and withholds orphans unless every published page has a stored analysis. It does not suggest anchor text or edit content. Topic mapping, cannibalisation, Search Console evidence, and prioritised recommendations remain separate steps.
+
 ## Architecture
 
 One content pipeline produces a normalised page model; two independent engines score it; a job queue runs the pipeline in batches; a React admin reads everything over the REST API. The Wincher-style engine runs in PHP so scores can be stored and compared. The Yoast-style engine runs in the browser because `yoastseo` is JavaScript and shared hosts have no Node.js.

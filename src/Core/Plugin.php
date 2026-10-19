@@ -14,6 +14,7 @@ use SEOStudio\Admin\Notices;
 use SEOStudio\Cli\Commands;
 use SEOStudio\Jobs\Scheduler;
 use SEOStudio\Output\HeadOutput;
+use SEOStudio\Rest\ArchitectureController;
 use SEOStudio\Rest\AuditsController;
 use SEOStudio\Rest\ContentScoresController;
 use SEOStudio\Rest\KeyphrasesController;
@@ -69,6 +70,7 @@ final class Plugin {
 		( new ModelController() )->register();
 		( new ContentScoresController() )->register();
 		( new AuditsController() )->register();
+		( new ArchitectureController() )->register();
 		( new SettingsController() )->register();
 		( new MigrationsController() )->register();
 		( new ToolsController() )->register();

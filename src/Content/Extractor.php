@@ -73,7 +73,7 @@ final class Extractor {
 				'word_count'            => '' === trim( $body ) ? 0 : count( is_array( $pieces ) ? $pieces : array() ),
 				'paragraphs'            => $this->paragraphs( $root['node'] ),
 				'sentences'             => $this->sentences( $body ),
-				'links'                 => $this->links( $root['node'], $url ),
+				'links'                 => $this->links( $document, $root['node'], $url ),
 				'images'                => $this->images( $document, $root['node'], $html ),
 				'has_external_css'      => $live ? $this->hasStylesheet( $document ) : null,
 				'html_bytes'            => $live ? strlen( $html ) : null,
@@ -364,17 +364,22 @@ final class Extractor {
 	}
 
 	/**
-	 * Collect links under the content root.
+	 * Collect links in the document and mark whether they sit in the content area.
 	 *
-	 * @return array<int, array{href: string, anchor: string, internal: bool, nofollow: bool}>
+	 * Links inside the content root are contextual. Links in the header, footer, or navigation are template links.
+	 * Content mode still prefers main or article, and otherwise uses the body. Theme chrome that is absent from the post HTML is not in that render.
+	 *
+	 * @return array<int, array{href: string, anchor: string, internal: bool, nofollow: bool, kind: string}>
 	 */
-	private function links( DOMNode $root, string $pageUrl ): array {
+	private function links( DOMDocument $document, DOMNode $root, string $pageUrl ): array {
 		$links     = array();
 		$host_part = Urls::component( $pageUrl, PHP_URL_HOST );
 		$host      = is_string( $host_part ) ? $host_part : '';
+		$body      = $document->getElementsByTagName( 'body' )->item( 0 );
+		$scope     = $body instanceof DOMNode ? $body : $document;
 		$this->walk(
-			$root,
-			function ( DOMNode $node ) use ( &$links, $host ): void {
+			$scope,
+			function ( DOMNode $node ) use ( &$links, $host, $root ): void {
 				if ( ! $node instanceof DOMElement || 'a' !== strtolower( $node->tagName ) ) {
 					return;
 				}
@@ -389,6 +394,7 @@ final class Extractor {
 					'href'     => $href,
 					'anchor'   => $this->textOf( $node ),
 					'internal' => '' === $link_host || ( '' !== $host && 0 === strcasecmp( $link_host, $host ) ),
+					'kind'     => $this->contains( $root, $node ) ? 'contextual' : 'template',
 					'nofollow' => str_contains( $rel, 'nofollow' ),
 				);
 			}

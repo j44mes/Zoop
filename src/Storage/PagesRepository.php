@@ -406,6 +406,55 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Links stored for every post row, keyed by object id.
+	 *
+	 * A row with a page model counts as analysed. The graph reads links only, not the body text.
+	 *
+	 * @return array<int, array{render_mode: string, analysed: bool, links: array<int, array{href: string, anchor: string, kind: string}>}>
+	 */
+	public function storedLinks(): array {
+		global $wpdb;
+
+		$table = Tables::pages();
+		$rows  = $wpdb->get_results( "SELECT object_id, render_mode, page_model FROM {$table} WHERE object_type = 'post'", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$stored = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$object_id = (int) ( $row['object_id'] ?? 0 );
+			if ( $object_id <= 0 ) {
+				continue;
+			}
+			$decoded = json_decode( (string) ( $row['page_model'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON.
+			$links   = array();
+			if ( is_array( $decoded ) && isset( $decoded['links'] ) && is_array( $decoded['links'] ) ) {
+				foreach ( $decoded['links'] as $link ) {
+					if ( ! is_array( $link ) ) {
+						continue;
+					}
+					$links[] = array(
+						'href'   => (string) ( $link['href'] ?? '' ),
+						'anchor' => (string) ( $link['anchor'] ?? '' ),
+						'kind'   => (string) ( $link['kind'] ?? '' ),
+					);
+				}
+			}
+			$stored[ $object_id ] = array(
+				'render_mode' => (string) ( $row['render_mode'] ?? '' ),
+				'analysed'    => is_array( $decoded ),
+				'links'       => $links,
+			);
+		}
+
+		return $stored;
+	}
+
+	/**
 	 * Remember a per-page failure without stopping the batch.
 	 */
 	public function recordError( int $postId, string $message ): void {

@@ -27,6 +27,7 @@ import {
 	PageWorkspace,
 	pageWorkspaceUrl,
 } from './PageWorkspace';
+import { ArchitecturePanel } from './ArchitecturePanel';
 import { SettingsPanel } from './settings/SettingsPanel';
 
 export function Dashboard() {
@@ -44,9 +45,9 @@ export function Dashboard() {
 	const [ page, setPage ] = useState( 1 );
 	const [ notice, setNotice ] = useState( '' );
 	const [ error, setError ] = useState( '' );
-	const [ view, setView ] = useState< 'overview' | 'pages' | 'settings' >(
-		sectionView
-	);
+	const [ view, setView ] = useState<
+		'overview' | 'pages' | 'settings' | 'architecture'
+	>( sectionView );
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 
 	useEffect( () => {
@@ -191,7 +192,8 @@ export function Dashboard() {
 		<div className="seostudio-dashboard">
 			<AppBar current={ view } mode={ modeLine } onNavigate={ setView } />
 			{ view === 'settings' ? <SettingsPanel /> : null }
-			{ view !== 'settings' ? (
+			{ view === 'architecture' ? <ArchitecturePanel /> : null }
+			{ view !== 'settings' && view !== 'architecture' ? (
 				<>
 					{ view === 'overview' && summary ? (
 						<div className="seostudio-summary">
@@ -534,11 +536,15 @@ export function Dashboard() {
 	);
 }
 
-function sectionView(): 'overview' | 'pages' | 'settings' {
+function sectionView(): 'overview' | 'pages' | 'settings' | 'architecture' {
 	const section = new URLSearchParams( window.location.search ).get(
 		'section'
 	);
-	if ( section === 'pages' || section === 'settings' ) {
+	if (
+		section === 'pages' ||
+		section === 'settings' ||
+		section === 'architecture'
+	) {
 		return section;
 	}
 	return 'overview';
@@ -549,16 +555,19 @@ function AppBar( {
 	mode,
 	onNavigate,
 }: {
-	current: 'overview' | 'pages' | 'settings';
+	current: 'overview' | 'pages' | 'settings' | 'architecture';
 	mode: string;
-	onNavigate: ( next: 'overview' | 'pages' | 'settings' ) => void;
+	onNavigate: (
+		next: 'overview' | 'pages' | 'settings' | 'architecture'
+	) => void;
 } ) {
 	const items: Array< {
-		id: 'overview' | 'pages' | 'settings';
+		id: 'overview' | 'pages' | 'settings' | 'architecture';
 		label: string;
 	} > = [
 		{ id: 'overview', label: __( 'Overview', 'seo-studio' ) },
 		{ id: 'pages', label: __( 'Pages', 'seo-studio' ) },
+		{ id: 'architecture', label: __( 'Architecture', 'seo-studio' ) },
 		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
 	];
 	return (

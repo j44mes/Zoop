@@ -20,7 +20,7 @@ final class PageModel {
 	 * @param array<int, array{level: int, text: string, order: int}>             $headings
 	 * @param string[]                                                              $paragraphs
 	 * @param string[]                                                              $sentences
-	 * @param array<int, array{href: string, anchor: string, internal: bool, nofollow: bool}> $links
+	 * @param array<int, array{href: string, anchor: string, internal: bool, nofollow: bool, kind?: string}> $links
 	 * @param array<int, array{src: string, alt: string, in_body: bool, kind?: string, source?: string}> $images
 	 */
 	public function __construct(
@@ -138,11 +138,17 @@ final class PageModel {
 			if ( ! is_array( $link ) ) {
 				continue;
 			}
+			$kind = (string) ( $link['kind'] ?? '' );
+			if ( ! in_array( $kind, array( 'contextual', 'template' ), true ) ) {
+				// Older stored rows only contained content-root links.
+				$kind = 'contextual';
+			}
 			$links[] = array(
 				'href'     => (string) ( $link['href'] ?? '' ),
 				'anchor'   => (string) ( $link['anchor'] ?? '' ),
 				'internal' => (bool) ( $link['internal'] ?? false ),
 				'nofollow' => (bool) ( $link['nofollow'] ?? false ),
+				'kind'     => $kind,
 			);
 		}
 
