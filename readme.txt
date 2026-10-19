@@ -18,10 +18,11 @@ A site audit runs in the background. Yoast SEO, Rank Math, and SEOPress fields c
 
 == Installation ==
 
-1. Install Composer dependencies from the plugin directory: `composer install --no-dev --optimize-autoloader`
-2. Build the admin screens: `npm install` and `npm run build`
-3. Copy the directory into `wp-content/plugins/`.
-4. Activate Zoop. Activation creates the custom tables.
+1. Download `seo-studio-0.5.0.zip` from the GitHub release. That file already contains the dependencies and the built admin screens.
+2. In WordPress, open Plugins, choose Add New, then Upload Plugin, and install that zip.
+3. Activate Zoop. Activation creates the custom tables.
+
+To build from the source tree instead, run `composer install --no-dev --optimize-autoloader`, then `npm install` and `npm run build`, and copy the directory into `wp-content/plugins/`.
 
 == Frequently Asked Questions ==
 
@@ -36,6 +37,7 @@ The two code checks need a full-page fetch. A content render leaves them uncheck
 == Changelog ==
 
 = 0.5.0 =
+* Rebuild the admin as a page-analysis workspace, with the score and recommended actions before the full check list.
 * Queue site audits, single-post analysis, and a nightly live fetch through Action Scheduler. The fetch walks every public post type in batches and scores the fetched page.
 * Print the homepage graph on a static front page, inherit robots fields one at a time, and publish saved social titles and descriptions.
 * Add Owner mode head output, including LocalBusiness, VideoObject, and NewsArticle schema.
