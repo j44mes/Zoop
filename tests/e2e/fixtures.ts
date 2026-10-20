@@ -35,6 +35,84 @@ async function fail(
 }
 
 /**
+ * Sign in through the login endpoint. The browser never types into the form.
+ *
+ * @param page     Browser page whose cookie jar receives the session.
+ * @param username WordPress user login.
+ * @param password WordPress password.
+ */
+export async function signIn(
+	page: Page,
+	username: string,
+	password: string
+): Promise< void > {
+	const baseURL = base.info().project.use.baseURL || 'http://localhost:8888';
+	await page.context().clearCookies();
+	await page.context().addCookies( [
+		{
+			name: 'wordpress_test_cookie',
+			value: 'WP Cookie check',
+			url: baseURL,
+		},
+	] );
+	const login = await page.request.post( '/wp-login.php', {
+		form: {
+			log: username,
+			pwd: password,
+			'wp-submit': 'Log In',
+			redirect_to: new URL( '/wp-admin/profile.php', baseURL ).toString(),
+			testcookie: '1',
+		},
+		maxRedirects: 0,
+	} );
+	const loggedIn = ( await page.context().cookies() ).some( ( cookie ) =>
+		cookie.name.startsWith( 'wordpress_logged_in_' )
+	);
+	if ( ! loggedIn ) {
+		await fail(
+			page,
+			'authentication',
+			`login for ${ username } returned ${ login.status() } without a WordPress logged-in cookie.`
+		);
+	}
+	const profile = await page.request.get( '/wp-admin/profile.php', {
+		maxRedirects: 0,
+	} );
+	if ( profile.status() !== 200 ) {
+		await fail(
+			page,
+			'authentication',
+			`profile.php returned ${ profile.status() } for ${ username }.`
+		);
+	}
+	const html = await profile.text();
+	const field = html.match( /<input[^>]*id="user_login"[^>]*>/ );
+	const shown = field?.[ 0 ].match( /value="([^"]*)"/ )?.[ 1 ] ?? '';
+	if ( ! html.includes( 'profile-php' ) || shown !== username ) {
+		await fail(
+			page,
+			'authentication',
+			`profile.php showed "${ shown }" instead of ${ username }.`
+		);
+	}
+}
+
+/**
+ * The current page is the WordPress login screen.
+ *
+ * @param page Browser page.
+ */
+export async function assertSignedIn( page: Page ): Promise< void > {
+	if ( page.url().includes( 'wp-login.php' ) ) {
+		await fail(
+			page,
+			'authentication',
+			'WordPress opened the login screen.'
+		);
+	}
+}
+
+/**
  * WordPress account screen. A redirect to wp-login.php is an authentication failure.
  *
  * @param page Authenticated browser page.

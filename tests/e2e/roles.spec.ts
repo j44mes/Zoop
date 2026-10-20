@@ -1,29 +1,18 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { assertSignedIn, expect, signIn, test } from './fixtures';
 
 test.describe.configure( { mode: 'serial' } );
 
-async function loginAs(
+async function openAs(
 	page: Page,
 	username: string,
 	password: string
 ): Promise< void > {
-	await page.context().clearCookies();
-	const target =
-		'/wp-login.php?redirect_to=' +
-		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
-	await page.goto( target, { waitUntil: 'domcontentloaded' } );
-	if ( ! page.url().includes( '/wp-admin/' ) ) {
-		await page.locator( '#user_login' ).fill( username );
-		await page.locator( '#user_pass' ).fill( password );
-		await page.locator( '#wp-submit' ).click();
-		await page.waitForURL( '**/wp-admin/**', {
-			timeout: 20000,
-			waitUntil: 'commit',
-		} );
-	}
+	await signIn( page, username, password );
 	await page.goto( '/wp-admin/admin.php?page=seostudio', {
 		waitUntil: 'domcontentloaded',
 	} );
+	await assertSignedIn( page );
 }
 
 async function createUser(
@@ -107,7 +96,7 @@ test( 'editors and authors can open Priorities without admin reports', async ( {
 	const stamp = Date.now();
 	const editor = `zoop_editor_${ stamp }`;
 	const author = `zoop_author_${ stamp }`;
-	await loginAs( page, 'admin', 'password' );
+	await openAs( page, 'admin', 'password' );
 	await page.waitForFunction(
 		() =>
 			!! (
@@ -119,9 +108,9 @@ test( 'editors and authors can open Priorities without admin reports', async ( {
 	await createUser( page, editor, 'editor' );
 	await createUser( page, author, 'author' );
 
-	await loginAs( page, editor, 'Zoop-Role-Pass-48fa' );
+	await openAs( page, editor, 'Zoop-Role-Pass-48fa' );
 	await expectContributorNavigation( page );
 
-	await loginAs( page, author, 'Zoop-Role-Pass-48fa' );
+	await openAs( page, author, 'Zoop-Role-Pass-48fa' );
 	await expectContributorNavigation( page );
 } );
