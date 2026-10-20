@@ -322,6 +322,7 @@ export function Dashboard() {
 				<AppBar
 					current="pages"
 					mode={ shortMode( settings, capabilities ) }
+					versionLabel={ capabilities?.version_label ?? '' }
 					allowSite={ !! capabilities?.manage }
 					allowPriorities={
 						!! capabilities?.edit_posts || !! capabilities?.manage
@@ -374,6 +375,7 @@ export function Dashboard() {
 			<AppBar
 				current={ visibleView }
 				mode={ modeLine }
+				versionLabel={ capabilities?.version_label ?? '' }
 				allowSite={ !! capabilities?.manage }
 				allowPriorities={
 					!! capabilities?.edit_posts || !! capabilities?.manage
@@ -988,6 +990,7 @@ function sectionView():
 function AppBar( {
 	current,
 	mode,
+	versionLabel,
 	allowSite,
 	allowPriorities,
 	onNavigate,
@@ -1001,6 +1004,7 @@ function AppBar( {
 		| 'search-console'
 		| 'priorities';
 	mode: string;
+	versionLabel: string;
 	allowSite: boolean;
 	allowPriorities: boolean;
 	onNavigate: (
@@ -1048,6 +1052,9 @@ function AppBar( {
 	return (
 		<div className="seostudio-appbar">
 			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
+			{ versionLabel ? (
+				<p className="seostudio-version">{ versionLabel }</p>
+			) : null }
 			<nav aria-label={ __( 'Zoop sections', 'seo-studio' ) }>
 				{ items.map( ( item ) => (
 					<button

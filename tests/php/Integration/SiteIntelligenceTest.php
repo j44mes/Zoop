@@ -859,7 +859,7 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 	}
 
 	public function test_l7_twenty_twenty_five_post_navigation_is_template_only(): void {
-		$older = self::factory()->post->create(
+		$older   = self::factory()->post->create(
 			array(
 				'post_title'  => 'Older dispatch',
 				'post_name'   => 'older-dispatch',
@@ -867,75 +867,104 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 				'post_status' => 'publish',
 			)
 		);
-			$current = self::factory()->post->create(
-				array(
-					'post_title'  => 'Current dispatch',
-					'post_name'   => 'current-dispatch',
-					'post_date'   => '2020-06-01 00:00:00',
-					'post_status' => 'publish',
-					'post_content' => '<p><a href="' . esc_url( (string) get_permalink( $older ) ) . '">Mentioned in the essay</a></p>',
-				)
-			);
-			self::factory()->post->create(
-				array(
-					'post_title' => 'Newer dispatch',
-					'post_name'  => 'newer-dispatch',
-					'post_date'  => '2020-12-01 00:00:00',
-					'post_status' => 'publish',
-				)
-			);
-			global $wp_query, $post;
-			$wp_query = new \WP_Query(
-				array(
-					'p'         => $current,
-					'post_type' => 'post',
-				)
-			);
-			$post     = get_post( $current );
-			setup_postdata( $post );
-			$this->assertTrue( is_singular() );
-			$markup = $this->twenty_twenty_five_post_navigation();
-			$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
-			$this->assertStringContainsString( 'aria-label="Post navigation"', $markup );
-			$rendered = do_blocks( $markup );
-			$this->assertStringContainsString( 'wp-block-post-navigation-link', $rendered );
-			$this->assertStringContainsString( 'aria-label="Post navigation"', $rendered );
-			$this->assertMatchesRegularExpression( '/rel="(?:prev|next)"/', $rendered );
+		$current = self::factory()->post->create(
+			array(
+				'post_title'   => 'Current dispatch',
+				'post_name'    => 'current-dispatch',
+				'post_date'    => '2020-06-01 00:00:00',
+				'post_status'  => 'publish',
+				'post_content' => '<p>The dispatch itself.</p>',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_title'  => 'Newer dispatch',
+				'post_name'   => 'newer-dispatch',
+				'post_date'   => '2020-12-01 00:00:00',
+				'post_status' => 'publish',
+			)
+		);
+		$essay = self::factory()->post->create(
+			array(
+				'post_title'  => 'Essay target',
+				'post_name'   => 'essay-target',
+				'post_status' => 'publish',
+			)
+		);
+		global $wp_query, $post;
+		$wp_query = new \WP_Query(
+			array(
+				'p'         => $current,
+				'post_type' => 'post',
+			)
+		);
+		$post     = get_post( $current );
+		setup_postdata( $post );
+		$this->assertTrue( is_singular() );
+		$markup = $this->twenty_twenty_five_post_navigation();
+		$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
+		$this->assertStringContainsString( 'aria-label="Post navigation"', $markup );
+		$rendered = do_blocks( $markup );
+		$this->assertStringContainsString( 'wp-block-post-navigation-link', $rendered );
+		$this->assertStringContainsString( 'aria-label="Post navigation"', $rendered );
+		$this->assertMatchesRegularExpression( '/rel="(?:prev|next)"/', $rendered );
 
-			$html  = '<html><body><main>' . $rendered . '<p><a href="' . esc_url( (string) get_permalink( $older ) ) . '">Mentioned in the essay</a></p></main></body></html>';
-			$model = ( new Extractor() )->extract( $html, array( 'url' => (string) get_permalink( $current ), 'render_mode' => 'live' ) );
-			$kinds = array();
-			foreach ( $model->links as $link ) {
-				$kinds[ (string) $link['href'] ][] = $link['kind'];
+		$older_url = (string) get_permalink( $older );
+		$essay_url = (string) get_permalink( $essay );
+		$nav_html  = '<html><body><main>' . $rendered . '</main></body></html>';
+		$nav       = ( new Extractor() )->extract( $nav_html, array( 'url' => (string) get_permalink( $current ), 'render_mode' => 'live' ) );
+		$nav_kinds = array();
+		foreach ( $nav->links as $link ) {
+			$nav_kinds[ (string) $link['href'] ][] = $link['kind'];
+		}
+		$this->assertContains( 'template', $nav_kinds[ $older_url ] ?? array() );
+		$this->assertNotContains( 'contextual', $nav_kinds[ $older_url ] ?? array() );
+
+		$essay_html = '<html><body><main><p><a href="' . esc_url( $essay_url ) . '">Mentioned in the essay</a></p></main></body></html>';
+		$copy       = ( new Extractor() )->extract( $essay_html, array( 'url' => (string) get_permalink( $current ), 'render_mode' => 'live' ) );
+		$this->assertSame( 'contextual', $copy->links[0]['kind'] );
+		$this->assertSame( $essay_url, $copy->links[0]['href'] );
+
+		$links = array();
+		foreach ( $nav->links as $link ) {
+			if ( 'template' === (string) ( $link['kind'] ?? '' ) ) {
+				$links[] = $link;
 			}
-			$older_url = (string) get_permalink( $older );
-			$this->assertContains( 'template', $kinds[ $older_url ] ?? array() );
-			$this->assertContains( 'contextual', $kinds[ $older_url ] ?? array() );
+		}
+		$links[] = $copy->links[0];
+		$this->stamp( $current, $links );
+		$this->stamp( $older, array() );
+		$this->stamp( $essay, array() );
+		$row = $this->pageRow( $older );
+		$this->assertGreaterThan( 0, $row['template_referrers'] );
+		$this->assertSame( 0, $row['contextual_referrers'] );
+		$this->assertSame( 'template_only', $row['status'] );
+		$this->assertNotSame( 'orphan', $row['status'] );
+		$this->assertNotSame( 'weak', $row['status'] );
 
-			$this->stamp( $current, $model->links );
-			$this->stamp( $older, array() );
-			$row = $this->pageRow( $older );
-			$this->assertGreaterThan( 0, $row['template_referrers'] );
-			$this->assertSame( 1, $row['contextual_referrers'] );
-			$this->assertSame( 'weak', $row['status'] );
+		$editorial = $this->pageRow( $essay );
+		$this->assertSame( 1, $editorial['contextual_referrers'] );
+		$this->assertSame( 0, $editorial['template_referrers'] );
+		$this->assertSame( 'weak', $editorial['status'] );
+		$this->assertNotSame( 'template_only', $editorial['status'] );
 
-			$only = self::factory()->post->create( array( 'post_title' => 'Navigation only', 'post_name' => 'navigation-only', 'post_status' => 'publish' ) );
-			$this->stamp(
-				$current,
+		$only = self::factory()->post->create( array( 'post_title' => 'Navigation only', 'post_name' => 'navigation-only', 'post_status' => 'publish' ) );
+		$this->stamp(
+			$current,
+			array(
 				array(
-					array(
-						'href'   => (string) get_permalink( $only ),
-						'anchor' => 'Navigation only',
-						'kind'   => 'template',
-					),
-				)
-			);
-			$this->stamp( $only, array() );
-			$template = $this->pageRow( $only );
-			$this->assertSame( 'template_only', $template['status'] );
-			$this->assertSame( 0, $template['contextual_referrers'] );
-			$this->assertNotSame( 'orphan', $template['status'] );
-			$this->assertNotSame( 'weak', $template['status'] );
+					'href'   => (string) get_permalink( $only ),
+					'anchor' => 'Navigation only',
+					'kind'   => 'template',
+				),
+			)
+		);
+		$this->stamp( $only, array() );
+		$template = $this->pageRow( $only );
+		$this->assertSame( 'template_only', $template['status'] );
+		$this->assertSame( 0, $template['contextual_referrers'] );
+		$this->assertNotSame( 'orphan', $template['status'] );
+		$this->assertNotSame( 'weak', $template['status'] );
 	}
 
 	/**

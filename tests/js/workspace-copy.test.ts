@@ -1,6 +1,8 @@
 import {
 	architectureStatus,
+	depthCountLabel,
 	depthLabel,
+	orphanCountLabel,
 } from '../../assets/src/dashboard/architecture-copy';
 import {
 	evidenceEstablishes,
@@ -69,8 +71,13 @@ describe( 'architecture copy', () => {
 		expect( architectureStatus( 'weak' ) ).toBe( 'Weakly linked' );
 		expect( architectureStatus( 'template_only' ) ).toBe( 'Template only' );
 		expect( architectureStatus( 'unknown' ) ).toBe( 'Not yet verified' );
-		expect( depthLabel( null ) ).toBe( 'Not reached' );
+		expect( depthLabel( null ) ).toBe( 'No verified path' );
+		expect( depthLabel( null, false ) ).toBe( 'Depth not known yet' );
 		expect( depthLabel( 2 ) ).toBe( '2' );
+		expect( orphanCountLabel( null ) ).toBe( 'Not counted yet' );
+		expect( orphanCountLabel( 3 ) ).toBe( '3' );
+		expect( depthCountLabel( null ) ).toBe( 'Depth not known yet' );
+		expect( depthCountLabel( 4 ) ).toBe( '4' );
 	} );
 } );
 

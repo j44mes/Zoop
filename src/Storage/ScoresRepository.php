@@ -11,6 +11,7 @@ namespace SEOStudio\Storage;
 
 use SEOStudio\Content\PageModel;
 use SEOStudio\Content\SourceFingerprint;
+use SEOStudio\Scoring\OnPage\Ruleset;
 use SEOStudio\Scoring\OnPage\Score;
 use SEOStudio\Scoring\OnPage\ScorePresentation;
 
@@ -48,6 +49,7 @@ final class ScoresRepository {
 		$live                        = $model instanceof PageModel && 'live' === $model->renderMode;
 		$details                     = $score->toArray();
 		$details['evidence_version'] = 2;
+		$details['ruleset_version']  = Ruleset::CURRENT;
 		$details['input_hash']       = $inputHash;
 		$details['source_hash']      = $source;
 		$details['readiness']        = $readiness;

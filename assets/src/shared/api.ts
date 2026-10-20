@@ -326,6 +326,7 @@ export interface StudioSettings {
 	uninstall_delete_data: boolean;
 	publishing?: boolean;
 	detected?: { name?: string } | null;
+	version_label?: string;
 	function_word_locale?: string;
 	og_default_image?: number;
 	default_robots?: {
@@ -393,6 +394,7 @@ export interface CapabilityManifest {
 	edit_posts: boolean;
 	publishing: boolean;
 	detected_name: string;
+	version_label?: string;
 }
 
 export function fetchCapabilities(): Promise< CapabilityManifest > {
@@ -434,6 +436,14 @@ export function startMigration(
 	} );
 }
 
+export interface ArchitectureCoverageReasons {
+	unanalysed: number;
+	content_only: number;
+	stale_links: number;
+	navigation_limited: boolean;
+	navigation_note: string;
+}
+
 export interface ArchitecturePage {
 	id: string;
 	post_id: number;
@@ -467,6 +477,7 @@ export interface ArchitectureReport {
 		analysed: number;
 		missing: number;
 		withheld: boolean;
+		reasons?: ArchitectureCoverageReasons;
 	};
 	counts: {
 		inventory: number;
@@ -476,10 +487,12 @@ export interface ArchitectureReport {
 		template_only: number;
 		unknown: number;
 		unresolved: number;
-		unreachable: number;
+		unreachable: number | null;
 		navigation: number;
 		unverified?: number;
 	};
+	depth_explanation?: string;
+	orphan_explanation?: string;
 	deepest: ArchitecturePage | null;
 	orphans: ArchitecturePage[];
 	weak: ArchitecturePage[];

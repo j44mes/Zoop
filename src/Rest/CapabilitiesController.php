@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\VersionIdentity;
 use SEOStudio\Integrations\Detector;
 use SEOStudio\Output\HeadOutput;
 use WP_REST_Server;
@@ -40,6 +41,7 @@ final class CapabilitiesController {
 				'edit_posts'    => current_user_can( 'edit_posts' ),
 				'publishing'    => ( new HeadOutput() )->publishing(),
 				'detected_name' => is_array( $active ) ? $active['name'] : '',
+				'version_label' => VersionIdentity::label(),
 			)
 		);
 	}

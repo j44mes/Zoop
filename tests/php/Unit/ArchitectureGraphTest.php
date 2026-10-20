@@ -100,9 +100,62 @@ final class ArchitectureGraphTest extends TestCase {
 		$this->assertSame( array(), $report['orphans'] );
 		$this->assertSame( 'unknown', $this->find( $pages, 'post:6' )['status'] );
 		$this->assertSame( 'weak', $this->find( $pages, 'post:2' )['status'] );
+		$this->assertNull( $report['counts']['unreachable'] );
 		$notes = implode( ' ', $report['notes'] );
-		$this->assertStringContainsString( 'stay hidden', $notes );
-		$this->assertStringContainsString( 'have not been analysed', $notes );
+		$this->assertStringContainsString( 'not counted yet', $notes );
+		$this->assertStringContainsString( 'not been analysed', $notes );
+		$this->assertStringNotContainsString( 'modelled entry points', $notes );
+	}
+
+	public function testContentOnlyGapDoesNotClaimPagesAreUnanalysed(): void {
+		$pages = array(
+			$this->page( 'post:1', '/', array(), true ),
+			$this->page( 'post:2', '/services', array(), true ),
+		);
+		$result = ( new Graph() )->evaluate(
+			$pages,
+			array(),
+			array(
+				'home'              => 'https://example.test/',
+				'front_id'          => 'post:1',
+				'coverage_complete' => false,
+				'missing'           => 25,
+				'coverage_reasons'  => array(
+					'unanalysed'         => 0,
+					'content_only'       => 26,
+					'stale_links'        => 0,
+					'navigation_limited' => false,
+					'navigation_note'    => '',
+				),
+			)
+		);
+		$report = $result['report'];
+		$text   = implode( ' ', $report['notes'] ) . ' ' . $report['depth_explanation'] . ' ' . $report['orphan_explanation'];
+
+		$this->assertSame( 2, $report['counts']['analysed'] );
+		$this->assertNull( $report['counts']['orphans'] );
+		$this->assertNull( $report['counts']['unreachable'] );
+		$this->assertSame( 'front', $result['pages']['post:1']['status'] );
+		$this->assertSame( 'unknown', $result['pages']['post:2']['status'] );
+		$this->assertNotSame( 'orphan', $result['pages']['post:2']['status'] );
+		$this->assertStringContainsString( 'without published-link verification', $text );
+		$this->assertStringContainsString( 'Depth is not known yet', $report['depth_explanation'] );
+		$this->assertStringNotContainsString( 'not been analysed', $text );
+		$this->assertStringNotContainsString( "haven't been analysed", $text );
+	}
+
+	public function testCompleteCoverageLabelsMissingPathsWithoutClaimingUnreachability(): void {
+		$report = $this->report( true );
+		$notes  = implode( ' ', $report['notes'] );
+
+		$this->assertIsInt( $report['counts']['unreachable'] );
+		$this->assertGreaterThan( 0, $report['counts']['unreachable'] );
+		$this->assertSame( 'orphan', $this->find( $report['pages'], 'post:6' )['status'] );
+		$this->assertSame( 'template_only', $this->find( $report['pages'], 'post:8' )['status'] );
+		$this->assertNotSame( 'unknown', $this->find( $report['pages'], 'post:8' )['status'] );
+		$this->assertStringContainsString( 'modelled entry points', $notes );
+		$this->assertStringContainsString( 'search engines', $report['depth_explanation'] );
+		$this->assertStringNotContainsString( 'not been analysed', $notes );
 	}
 
 	public function testSchemeSlashAndTrackingStillMatchInventory(): void {

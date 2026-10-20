@@ -93,18 +93,11 @@ final class Graph {
 	private string $frontId = '';
 
 	/**
-	 * True when every published page in view has a stored analysis.
+	 * True when every published page in view has current published-link evidence.
 	 *
 	 * @var bool
 	 */
 	private bool $complete = false;
-
-	/**
-	 * Published pages in view that have no stored analysis.
-	 *
-	 * @var int
-	 */
-	private int $missing = 0;
 
 	/**
 	 * True when this account cannot see every published page.
@@ -126,6 +119,19 @@ final class Graph {
 	 * @var string
 	 */
 	private string $coverageGap = '';
+
+	/**
+	 * Separate reasons coverage is incomplete. Missing analysis is not the only one.
+	 *
+	 * @var array{unanalysed: int, content_only: int, stale_links: int, navigation_limited: bool, navigation_note: string}
+	 */
+	private array $reasons = array(
+		'unanalysed'         => 0,
+		'content_only'       => 0,
+		'stale_links'        => 0,
+		'navigation_limited' => false,
+		'navigation_note'    => '',
+	);
 
 	/**
 	 * Untrusted www or non-www hosts and how many links point at them.
@@ -153,12 +159,12 @@ final class Graph {
 		$this->reset();
 		$this->home        = (string) ( $context['home'] ?? '' );
 		$this->complete    = (bool) ( $context['coverage_complete'] ?? false );
-		$this->missing     = max( 0, (int) ( $context['missing'] ?? 0 ) );
 		$this->withheld    = (bool) ( $context['withheld'] ?? false );
 		$this->aliases     = is_array( $context['aliases'] ?? null ) ? array_map( 'strval', $context['aliases'] ) : array();
 		$classifier        = $context['classifier'] ?? null;
 		$this->classifier  = is_callable( $classifier ) ? $classifier : null;
 		$this->coverageGap = (string) ( $context['coverage_gap'] ?? '' );
+		$this->reasons     = $this->reasonsFrom( $context );
 		$this->index( $pages );
 		$this->chooseFront( (string) ( $context['front_id'] ?? '' ) );
 
@@ -569,21 +575,24 @@ final class Graph {
 			}
 		}
 
+		$unreachable_count = $this->complete ? $unreachable : null;
+
 		return array(
-			'coverage'         => array(
+			'coverage'           => array(
 				'complete'  => $this->complete,
 				'inventory' => count( $rows ),
 				'analysed'  => $analysed,
-				'missing'   => $this->missing,
+				'missing'   => $this->reasons['unanalysed'],
 				'withheld'  => $this->withheld,
+				'reasons'   => $this->reasons,
 			),
-			'front'            => array(
+			'front'              => array(
 				'id'    => $this->frontId,
 				'title' => '' !== $this->frontId ? (string) ( $rows[ $this->frontId ]['title'] ?? '' ) : '',
 				'url'   => UrlKey::absolute( $this->home, $this->home ),
 				'kind'  => '' !== $this->frontId ? 'page' : 'blog',
 			),
-			'counts'           => array(
+			'counts'             => array(
 				'inventory'       => count( $rows ),
 				'analysed'        => $analysed,
 				'orphans'         => $this->complete ? count( $orphans ) : null,
@@ -592,20 +601,22 @@ final class Graph {
 				'unknown'         => count( $unknown ),
 				'unresolved'      => count( $unresolved ),
 				'unverified'      => count( $this->unknownDestinations ),
-				'unreachable'     => $unreachable,
+				'unreachable'     => $unreachable_count,
 				'navigation'      => $navigationLinks,
 				'address_clashes' => $this->collisions,
 			),
-			'depth'            => $histogram,
-			'deepest'          => null === $deepest ? null : $this->brief( $deepest ),
-			'orphans'          => $this->complete ? $this->limit( $orphans ) : array(),
-			'weak'             => $this->limit( $weak ),
-			'template_only'    => $this->limit( $template_only ),
-			'unresolved'       => $this->limit( $unresolved ),
-			'unverified'       => $this->limit( array_values( $this->unknownDestinations ) ),
-			'possible_aliases' => $this->aliasNotices(),
-			'limited'          => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT || count( $this->unknownDestinations ) > self::LIST_LIMIT,
-			'notes'            => $this->notes(),
+			'depth'              => $histogram,
+			'deepest'            => null === $deepest ? null : $this->brief( $deepest ),
+			'orphans'            => $this->complete ? $this->limit( $orphans ) : array(),
+			'weak'               => $this->limit( $weak ),
+			'template_only'      => $this->limit( $template_only ),
+			'unresolved'         => $this->limit( $unresolved ),
+			'unverified'         => $this->limit( array_values( $this->unknownDestinations ) ),
+			'possible_aliases'   => $this->aliasNotices(),
+			'limited'            => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT || count( $this->unknownDestinations ) > self::LIST_LIMIT,
+			'notes'              => $this->notes(),
+			'depth_explanation'  => $this->depthExplanation(),
+			'orphan_explanation' => $this->orphanExplanation(),
 		);
 	}
 
@@ -732,14 +743,22 @@ final class Graph {
 		if ( $this->withheld ) {
 			$notes[] = __( 'This report includes published pages this account can edit. Orphan pages stay hidden because the account cannot see every published page.', 'seo-studio' );
 		}
-		if ( $this->missing > 0 ) {
-			$notes[] = sprintf(
-				/* translators: %d: number of published pages with no stored analysis. */
-				__( 'Orphan pages stay hidden until every published page has a stored analysis. %d published pages in this inventory have no stored analysis.', 'seo-studio' ),
-				$this->missing
-			);
-			$notes[] = __( 'Crawl depth uses the stored links and navigation menus. Pages that have not been analysed can still contain links.', 'seo-studio' );
-		} elseif ( $this->withheld ) {
+		if ( ! $this->complete ) {
+			$notes[] = __( 'Orphans are not counted yet.', 'seo-studio' );
+			foreach ( $this->causeSentences() as $cause ) {
+				$notes[] = $cause;
+			}
+			if ( $this->reasons['unanalysed'] > 0 ) {
+				$notes[] = __( 'Run a site audit to analyse page content. A content-only site audit does not restore published-link evidence.', 'seo-studio' );
+			}
+			if ( $this->reasons['content_only'] > 0 || $this->reasons['stale_links'] > 0 ) {
+				$notes[] = __( 'Check the published pages to record current link evidence. A content-only site audit does not restore published links.', 'seo-studio' );
+			}
+			$notes[] = __( 'Depth is not known yet.', 'seo-studio' );
+		} else {
+			$notes[] = __( 'Pages with no verified path have none from the modelled entry points. That is not proof that visitors or search engines cannot reach them.', 'seo-studio' );
+		}
+		if ( $this->withheld && $this->complete ) {
 			$notes[] = __( 'Crawl depth uses the pages this account can edit.', 'seo-studio' );
 		}
 		if ( '' === $this->frontId ) {
@@ -759,5 +778,114 @@ final class Graph {
 			);
 		}
 		return $notes;
+	}
+
+	/**
+	 * Coverage reasons from the survey, or the legacy missing count as unanalysed pages.
+	 *
+	 * @param array<string, mixed> $context Graph context.
+	 * @return array{unanalysed: int, content_only: int, stale_links: int, navigation_limited: bool, navigation_note: string}
+	 */
+	private function reasonsFrom( array $context ): array {
+		$given = $context['coverage_reasons'] ?? null;
+		if ( ! is_array( $given ) ) {
+			return array(
+				'unanalysed'         => max( 0, (int) ( $context['missing'] ?? 0 ) ),
+				'content_only'       => 0,
+				'stale_links'        => 0,
+				'navigation_limited' => false,
+				'navigation_note'    => '',
+			);
+		}
+
+		return array(
+			'unanalysed'         => max( 0, (int) ( $given['unanalysed'] ?? 0 ) ),
+			'content_only'       => max( 0, (int) ( $given['content_only'] ?? 0 ) ),
+			'stale_links'        => max( 0, (int) ( $given['stale_links'] ?? 0 ) ),
+			'navigation_limited' => ! empty( $given['navigation_limited'] ),
+			'navigation_note'    => (string) ( $given['navigation_note'] ?? '' ),
+		);
+	}
+
+	/**
+	 * One sentence per evidence gap. Unanalysed pages are named only when they exist.
+	 *
+	 * @return string[]
+	 */
+	private function causeSentences(): array {
+		$sentences  = array();
+		$unanalysed = $this->reasons['unanalysed'];
+		$content    = $this->reasons['content_only'];
+		$stale      = $this->reasons['stale_links'];
+		if ( $unanalysed > 0 ) {
+			$sentences[] = sprintf(
+				/* translators: %d: published pages with no stored analysis. */
+				_n(
+					'%d published page has not been analysed.',
+					'%d published pages have not been analysed.',
+					$unanalysed,
+					'seo-studio'
+				),
+				$unanalysed
+			);
+		}
+		if ( $content > 0 ) {
+			$sentences[] = sprintf(
+				/* translators: %d: analyses that read post content rather than the published HTML. */
+				_n(
+					'%d page was analysed only from content, without published-link verification.',
+					'%d pages were analysed only from content, without published-link verification.',
+					$content,
+					'seo-studio'
+				),
+				$content
+			);
+		}
+		if ( $stale > 0 ) {
+			$sentences[] = sprintf(
+				/* translators: %d: pages whose stored published links are missing or out of date. */
+				_n(
+					'%d page has a stale published-link observation.',
+					'%d pages have stale published-link observations.',
+					$stale,
+					'seo-studio'
+				),
+				$stale
+			);
+		}
+		if ( $this->reasons['navigation_limited'] ) {
+			$note        = $this->reasons['navigation_note'];
+			$sentences[] = '' !== $note ? $note : __( 'Navigation coverage is incomplete.', 'seo-studio' );
+		}
+
+		return $sentences;
+	}
+
+	private function depthExplanation(): string {
+		if ( $this->complete ) {
+			return __( 'These pages have no verified path from the modelled entry points. That is not proof that visitors or search engines cannot reach them.', 'seo-studio' );
+		}
+
+		$causes = $this->causeSentences();
+		$lead   = __( 'Depth is not known yet.', 'seo-studio' );
+		if ( array() === $causes ) {
+			return $lead . ' ' . __( 'Published-link coverage is incomplete.', 'seo-studio' );
+		}
+
+		return $lead . ' ' . implode( ' ', $causes );
+	}
+
+	private function orphanExplanation(): string {
+		if ( $this->complete ) {
+			return __( 'An orphan has no verified incoming link. Template-only pages are listed separately.', 'seo-studio' );
+		}
+
+		$causes = $this->causeSentences();
+		$lead   = __( 'Orphans are not counted yet.', 'seo-studio' );
+		if ( array() === $causes ) {
+			return $lead . ' ' . __( 'Published-link coverage is incomplete.', 'seo-studio' );
+		}
+
+		return $lead . ' ' . implode( ' ', $causes );
 	}
 }

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Storage;
 
 use SEOStudio\Content\PageModel;
+use SEOStudio\Scoring\OnPage\Ruleset;
 
 /**
  * Reads and writes seostudio_pages.
@@ -101,21 +102,29 @@ final class PagesRepository {
 			return;
 		}
 
-		$details     = json_decode( (string) ( $score['details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
-		$details     = is_array( $details ) ? $details : array();
-		$snapshot    = (string) ( $details['input_hash'] ?? '' );
-		$version     = (int) ( $details['evidence_version'] ?? 0 );
-		$source      = (string) ( $details['source_hash'] ?? '' );
-		$current     = \SEOStudio\Content\SourceFingerprint::current( $postId );
-		$same_model  = $version >= 2 && hash_equals( (string) ( $page['input_hash'] ?? '' ), $snapshot );
-		$same_source = '' !== $source && '' !== $current && hash_equals( $source, $current );
-		if ( $same_model && $same_source ) {
+		$details      = json_decode( (string) ( $score['details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+		$details      = is_array( $details ) ? $details : array();
+		$snapshot     = (string) ( $details['input_hash'] ?? '' );
+		$version      = (int) ( $details['evidence_version'] ?? 0 );
+		$source       = (string) ( $details['source_hash'] ?? '' );
+		$current      = \SEOStudio\Content\SourceFingerprint::current( $postId );
+		$same_model   = $version >= 2 && hash_equals( (string) ( $page['input_hash'] ?? '' ), $snapshot );
+		$same_source  = '' !== $source && '' !== $current && hash_equals( $source, $current );
+		$same_ruleset = Ruleset::matches( (int) ( $details['ruleset_version'] ?? 0 ) );
+		if ( $same_model && $same_source && $same_ruleset ) {
 			$readiness = isset( $details['readiness'] ) && is_array( $details['readiness'] ) ? $details['readiness'] : array();
 			$this->applyScoreCache( (int) $page['id'], 'current', $score, $readiness );
 			return;
 		}
 
 		$this->applyScoreCache( (int) $page['id'], 'needs_reanalysis', null );
+		if ( ! $same_ruleset ) {
+			$wpdb->update(
+				Tables::pages(),
+				array( 'missing_evidence' => 'ruleset' ),
+				array( 'id' => (int) $page['id'] )
+			);
+		}
 	}
 
 	/**
@@ -165,6 +174,30 @@ final class PagesRepository {
 				'input_hash' => $inputHash,
 			)
 		);
+	}
+
+	/**
+	 * Clear current on-page caches that do not carry the given ruleset.
+	 *
+	 * One statement. Score history, published snapshots, page models, and link
+	 * evidence stay. The list query keeps reading columns and does not parse JSON.
+	 */
+	public function retireIncompatibleRuleset( int $ruleset ): bool {
+		global $wpdb;
+
+		$pages            = Tables::pages();
+		$scores           = Tables::scores();
+		$wpdb->last_error = '';
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names. The ruleset is an integer placeholder.
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$pages} SET evidence_ready = 0, missing_evidence = 'ruleset', onpage_state = 'needs_reanalysis', onpage_score_id = NULL, onpage_score = NULL, onpage_denominator = NULL, onpage_rating = NULL WHERE onpage_state = 'current' AND (onpage_score_id IS NULL OR onpage_score_id = 0 OR NOT EXISTS (SELECT 1 FROM {$scores} scores WHERE scores.id = {$pages}.onpage_score_id AND CAST(JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.ruleset_version')) AS UNSIGNED) = %d))",
+				$ruleset
+			)
+		);
+		// phpcs:enable
+
+		return false !== $result && '' === $wpdb->last_error;
 	}
 
 	/**

@@ -9,20 +9,20 @@ declare(strict_types=1);
 
 namespace SEOStudio\Core;
 
-use SEOStudio\Storage\PagesRepository;
-
 use SEOStudio\Storage\Migrations\Migration_001_Initial;
+use SEOStudio\Storage\PagesRepository;
 
 /**
  * Runs ordered migrations when the stored schema version is behind.
  */
 final class Upgrader {
-	public const CURRENT = 6;
+	public const CURRENT = 7;
 
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
 		$current  = (int) ( $settings['schema_version'] ?? 0 );
 		if ( $current >= self::CURRENT && self::tablesExist() ) {
+			RulesetApplier::synchronise();
 			return;
 		}
 
@@ -52,6 +52,13 @@ final class Upgrader {
 		if ( $current < 6 ) {
 			self::ensureReadinessColumns();
 			( new PagesRepository() )->retireUnverifiedLiveScores();
+		}
+		// Schema 7 adds no columns. Retire incompatible scores before the settings
+		// option is saved, because that save also marks published snapshots stale.
+		// A failed retirement leaves the schema behind so the next load can retry
+		// while the current scores are still current.
+		if ( self::tablesExist() && ! RulesetApplier::synchronise() ) {
+			return;
 		}
 		$settings['schema_version'] = self::CURRENT;
 		update_option( Settings::OPTION, $settings, true );

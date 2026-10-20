@@ -11,6 +11,7 @@ namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Scoring\OnPage\CheckPresentation;
+use SEOStudio\Scoring\OnPage\Ruleset;
 use SEOStudio\Scoring\OnPage\ScorePresentation;
 use SEOStudio\Storage\PagesRepository;
 use SEOStudio\Storage\ScoresRepository;
@@ -242,6 +243,9 @@ final class PageRecord {
 		if ( (int) ( $payload['evidence_version'] ?? 0 ) < 2 ) {
 			return false;
 		}
+		if ( ! Ruleset::matches( (int) ( $payload['ruleset_version'] ?? 0 ) ) ) {
+			return false;
+		}
 
 		$focus = (string) ( $page['focus_hash'] ?? '' );
 		$key   = md5( mb_strtolower( (string) ( $score['keyphrase'] ?? '' ), 'UTF-8' ) );
@@ -285,7 +289,7 @@ final class PageRecord {
 		$presentation = ScorePresentation::fromRow( $row );
 		$details      = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
 		$issue        = '';
-		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
+		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && Ruleset::matches( (int) ( $details['ruleset_version'] ?? 0 ) ) && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
 			foreach ( $details['assessments'] as $assessment ) {
 				if ( ! is_array( $assessment ) || ! isset( $assessment['status'] ) ) {
 					continue;

@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
       - name: Lint
         run: composer lint
 
@@ -63,6 +69,12 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -99,6 +111,12 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -142,6 +160,12 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -201,6 +225,9 @@ jobs:
       - name: Install dependencies
         run: |
           composer install --no-interaction --prefer-dist
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
           npm ci
           npm run build
           npx playwright install --with-deps chromium webkit
@@ -211,6 +238,8 @@ jobs:
           wp-env start
 
       - name: Browser flows
+        env:
+          REQUIRE_BUILD_STAMP: '1'
         run: npm run test:e2e
 
       - name: Keep failure traces

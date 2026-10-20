@@ -212,6 +212,13 @@ final class SiteSurvey {
 				'withheld'          => false,
 				'aliases'           => SiteBoundary::aliasHosts( $home ),
 				'coverage_gap'      => implode( ' ', $gap ),
+				'coverage_reasons'  => array(
+					'unanalysed'         => $missing,
+					'content_only'       => $content,
+					'stale_links'        => $stale_links,
+					'navigation_limited' => '' !== $navigation['limitation'],
+					'navigation_note'    => $navigation['limitation'],
+				),
 				'classifier'        => static function ( string $absolute ) use ( $resolver, $home ): array {
 					return $resolver->classify( $absolute, $home );
 				},

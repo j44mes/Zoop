@@ -131,6 +131,7 @@ final class ScorePresentation {
 			'title'        => __( 'The published page title has not been observed.', 'seo-studio' ),
 			'h1'           => __( 'The full-document H1 has not been observed.', 'seo-studio' ),
 			'keyphrase'    => __( 'The focus keyphrase has not been checked in an observed title.', 'seo-studio' ),
+			'ruleset'      => __( 'Scores need checking against the current rules.', 'seo-studio' ),
 		);
 		$items  = array();
 		foreach ( array_filter( explode( ',', $codes ) ) as $code ) {
