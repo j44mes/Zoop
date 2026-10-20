@@ -17,7 +17,12 @@ final class Ruleset {
 
 	public const OPTION = 'seostudio_applied_onpage_ruleset';
 
-	public static function matches( int $stored ): bool {
-		return self::CURRENT === $stored;
+	/**
+	 * True only when the stored JSON value is the integer itself.
+	 *
+	 * A string or a longer integer such as 10 is not version 1.
+	 */
+	public static function matches( mixed $stored ): bool {
+		return is_int( $stored ) && self::CURRENT === $stored;
 	}
 }

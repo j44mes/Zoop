@@ -133,6 +133,8 @@ final class ArchitectureGraphTest extends TestCase {
 		$text   = implode( ' ', $report['notes'] ) . ' ' . $report['depth_explanation'] . ' ' . $report['orphan_explanation'];
 
 		$this->assertSame( 2, $report['counts']['analysed'] );
+		$this->assertSame( 0, $report['coverage']['missing'] );
+		$this->assertSame( 26, $report['coverage']['needs_published_check'] );
 		$this->assertNull( $report['counts']['orphans'] );
 		$this->assertNull( $report['counts']['unreachable'] );
 		$this->assertSame( 'front', $result['pages']['post:1']['status'] );

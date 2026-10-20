@@ -128,8 +128,172 @@ final class RulesetCurrencyTest extends WP_UnitTestCase {
 		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
 		$row = $this->row( $post );
 		$this->assertSame( 'current', $row['onpage_state'] );
-		$this->assertSame( '1', (string) $row['evidence_ready'] );
+		$this->assertSame( '0', (string) $row['evidence_ready'] );
 		$this->assertNotNull( $row['onpage_score'] );
+		$record = $this->record( $post );
+		$this->assertFalse( $record['presentation']['definitive'] );
+
+		$this->assertTrue( RulesetApplier::synchronise( Ruleset::CURRENT + 1 ) );
+		$this->assertSame( Ruleset::CURRENT + 1, (int) get_option( Ruleset::OPTION ) );
+		$this->assertSame( 'needs_reanalysis', $this->row( $post )['onpage_state'] );
+		$this->assertSame( 'ruleset', $this->row( $post )['missing_evidence'] );
+	}
+
+	public function test_a_failed_withhold_leaves_the_marker_and_the_definitive_score(): void {
+		$post = $this->post( 'Rank tracker title' );
+		$this->live( $post, $this->html( 'Rank tracker title', 'Rank tracker title' ) );
+		$block = static function ( $query ) {
+			if ( is_string( $query ) && str_contains( $query, "SET evidence_ready = 0 WHERE onpage_state = 'current'" ) ) {
+				return '';
+			}
+			return $query;
+		};
+		add_filter( 'query', $block );
+		try {
+			$applied = RulesetApplier::synchronise( Ruleset::CURRENT + 1 );
+		} finally {
+			remove_filter( 'query', $block );
+		}
+
+		$this->assertFalse( $applied );
+		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
+		$this->assertSame( '1', (string) $this->row( $post )['evidence_ready'] );
+		$this->assertTrue( $this->record( $post )['presentation']['definitive'] );
+	}
+
+	public function test_ruleset_ten_is_not_treated_as_ruleset_one_and_an_interrupt_can_resume(): void {
+		$kept    = $this->plantRulesetScore( 1, true );
+		$longer  = $this->plantRulesetScore( 10, true );
+		$missing = $this->plantUnstampedCurrentScore();
+		delete_option( Ruleset::OPTION );
+		$queries = array();
+		$observe = static function ( $query ) use ( &$queries ) {
+			if ( is_string( $query ) ) {
+				$queries[] = $query;
+			}
+			return $query;
+		};
+		add_filter( 'query', $observe );
+		try {
+			$this->assertFalse( ( new PagesRepository() )->retireIncompatibleRuleset( 1, 1 ) );
+		} finally {
+			remove_filter( 'query', $observe );
+		}
+		$this->assertSame( 0, (int) get_option( Ruleset::OPTION, 0 ) );
+		foreach ( array( $longer, $missing ) as $planted ) {
+			$open = ( new PagesRepository() )->find( $planted['page_id'] );
+			$this->assertNotSame( '1', (string) $open['evidence_ready'] );
+		}
+		$this->assertTrue( RulesetApplier::synchronise( 1 ) );
+		$this->assertSame( 1, (int) get_option( Ruleset::OPTION ) );
+		$kept_row = ( new PagesRepository() )->find( $kept['page_id'] );
+		$this->assertSame( 'current', $kept_row['onpage_state'] );
+		$this->assertSame( '1', (string) $kept_row['evidence_ready'] );
+		$this->assertSame( 'needs_reanalysis', ( new PagesRepository() )->find( $longer['page_id'] )['onpage_state'] );
+		$this->assertSame( 'needs_reanalysis', ( new PagesRepository() )->find( $missing['page_id'] )['onpage_state'] );
+		$this->assertSame( $kept['model'], $kept_row['page_model'] );
+		foreach ( $queries as $query ) {
+			$this->assertStringNotContainsString( 'JSON_EXTRACT', $query );
+		}
+	}
+
+	public function test_ten_thousand_cached_scores_retire_without_database_json_functions(): void {
+		global $wpdb;
+
+		$pages  = Tables::pages();
+		$scores = Tables::scores();
+		$now    = current_time( 'mysql', true );
+		for ( $offset = 0; $offset < 10000; $offset += 500 ) {
+			$page_rows  = array();
+			$score_rows = array();
+			for ( $i = 0; $i < 500; ++$i ) {
+				$n          = $offset + $i;
+				$page_rows[] = $wpdb->prepare( "('post', %d, %s, %s, '{}', 'live', 'current', 1)", $n + 1, 'https://example.test/ruleset-' . $n . '/', md5( (string) $n ) );
+			}
+			$wpdb->query( "INSERT INTO {$pages} (object_type, object_id, url, url_hash, page_model, render_mode, onpage_state, evidence_ready) VALUES " . implode( ',', $page_rows ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Each row is prepared. Internal table.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$pages} WHERE url LIKE %s ORDER BY id ASC", 'https://example.test/ruleset-%' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table.
+			$ids = array_slice( array_map( 'intval', is_array( $ids ) ? $ids : array() ), $offset, 500 );
+			foreach ( $ids as $index => $page_id ) {
+				$n        = $offset + $index;
+				$ruleset  = 0 === $n % 2 ? 1 : ( 1 === $n % 5 ? 10 : 0 );
+				$details  = array(
+					'evidence_version' => 2,
+					'readiness'        => array( 'ready' => true ),
+				);
+				if ( $ruleset > 0 ) {
+					$details['ruleset_version'] = $ruleset;
+				}
+				$score_rows[] = $wpdb->prepare( '(%d, %s, %s, %s, 40, 80, %s, %s, %s, %s)', $page_id, 'rank tracker', md5( 'rank tracker' ), 'onpage', 'orange', wp_json_encode( $details ), '0.6.0-dev.1', $now );
+			}
+			$wpdb->query( "INSERT INTO {$scores} (page_id, keyphrase, keyphrase_hash, engine, score, denominator, rating, details, plugin_version, created_at) VALUES " . implode( ',', $score_rows ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Each row is prepared. Internal table.
+			$wpdb->query( "UPDATE {$pages} pages INNER JOIN {$scores} scores ON scores.page_id = pages.id SET pages.onpage_score_id = scores.id, pages.onpage_score = 40, pages.onpage_denominator = 80, pages.onpage_rating = 'orange' WHERE pages.url LIKE 'https://example.test/ruleset-%' AND pages.onpage_score_id IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal tables.
+		}
+
+		$queries = array();
+		$observe = static function ( $query ) use ( &$queries ) {
+			if ( is_string( $query ) ) {
+				$queries[] = $query;
+			}
+			return $query;
+		};
+		delete_option( Ruleset::OPTION );
+		add_filter( 'query', $observe );
+		try {
+			$this->assertTrue( RulesetApplier::synchronise( 1 ) );
+		} finally {
+			remove_filter( 'query', $observe );
+		}
+
+		$this->assertSame( 1, (int) get_option( Ruleset::OPTION ) );
+		$ready = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$pages} WHERE url LIKE 'https://example.test/ruleset-%' AND onpage_state = 'current' AND evidence_ready = 1" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table.
+		$retired = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$pages} WHERE url LIKE 'https://example.test/ruleset-%' AND onpage_state = 'needs_reanalysis' AND missing_evidence = 'ruleset'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table.
+		$this->assertSame( 5000, $ready );
+		$this->assertSame( 5000, $retired );
+		foreach ( $queries as $query ) {
+			$this->assertStringNotContainsString( 'JSON_EXTRACT', $query );
+		}
+		$this->assertTrue( RulesetApplier::synchronise( 1 ) );
+	}
+
+	public function test_focus_backfill_does_not_use_database_json_functions(): void {
+		global $wpdb;
+
+		$post_id = $this->post( 'Rank tracker title' );
+		$page_id = ( new PagesRepository() )->storeModel( $post_id, new \SEOStudio\Content\PageModel( url: 'https://example.test/?p=' . $post_id, bodyText: 'Body' ), '' );
+		$wpdb->insert(
+			Tables::scores(),
+			array(
+				'page_id'        => $page_id,
+				'keyphrase'      => 'rank tracker',
+				'keyphrase_hash' => md5( 'rank tracker' ),
+				'engine'         => 'onpage',
+				'score'          => 40,
+				'denominator'    => 80,
+				'rating'         => 'orange',
+				'details'        => '{"evidence_version":2,"input_hash":""}',
+				'plugin_version' => '0.5.0',
+				'created_at'     => current_time( 'mysql', true ),
+			)
+		);
+		$queries = array();
+		$observe = static function ( $query ) use ( &$queries ) {
+			if ( is_string( $query ) ) {
+				$queries[] = $query;
+			}
+			return $query;
+		};
+		add_filter( 'query', $observe );
+		try {
+			( new PagesRepository() )->backfillFocus();
+		} finally {
+			remove_filter( 'query', $observe );
+		}
+		$row = ( new PagesRepository() )->find( $page_id );
+		$this->assertSame( 'current', $row['onpage_state'] );
+		$this->assertNotNull( $row['onpage_score'] );
+		foreach ( $queries as $query ) {
+			$this->assertStringNotContainsString( 'JSON_EXTRACT', $query );
+		}
 	}
 
 	public function test_plugin_version_alone_does_not_retire_a_compatible_score(): void {
@@ -212,6 +376,30 @@ final class RulesetCurrencyTest extends WP_UnitTestCase {
 		} else {
 			$this->assertStringNotContainsString( '(build ', $label );
 		}
+	}
+
+	/**
+	 * @return array{post_id: int, page_id: int, score_id: int, model: string}
+	 */
+	private function plantRulesetScore( int $ruleset, bool $ready ): array {
+		$planted = $this->plantUnstampedCurrentScore();
+		global $wpdb;
+		$details = array(
+			'earned'           => 40,
+			'denominator'      => 80,
+			'evidence_version' => 2,
+			'ruleset_version'  => $ruleset,
+			'input_hash'       => (string) ( new PagesRepository() )->find( $planted['page_id'] )['input_hash'],
+			'source_hash'      => \SEOStudio\Content\SourceFingerprint::current( $planted['post_id'] ),
+			'readiness'        => array( 'ready' => $ready ),
+		);
+		$wpdb->update(
+			Tables::scores(),
+			array( 'details' => wp_json_encode( $details ) ),
+			array( 'id' => $planted['score_id'] )
+		);
+
+		return $planted;
 	}
 
 	/**

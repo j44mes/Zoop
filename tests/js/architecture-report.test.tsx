@@ -21,8 +21,9 @@ describe( 'architecture evidence actions', () => {
 			/>
 		);
 		expect( hidden ).not.toContain( 'Run site audit' );
-		expect( hidden ).toContain( 'Check published pages' );
-		expect( hidden ).toContain( 'score_state=unchecked' );
+		expect( hidden ).toContain( '26 pages need a published-page check' );
+		expect( hidden ).toContain( 'score_state=needs_published_check' );
+		expect( hidden ).not.toContain( 'score_state=unchecked' );
 		expect( hidden ).not.toContain( "haven't been analysed" );
 
 		const audit = renderToStaticMarkup(
@@ -33,9 +34,9 @@ describe( 'architecture evidence actions', () => {
 		);
 		expect( audit ).toContain( 'Run site audit' );
 		expect( audit ).toContain(
-			'does not restore published-link evidence'
+			'This checks page content. To count orphans, Zoop also needs to check the published pages.'
 		);
-		expect( audit ).not.toContain( 'Check published pages' );
+		expect( audit ).toContain( '2 pages need a published-page check' );
 	} );
 
 	it( 'hides the unverified heading until a row exists', () => {

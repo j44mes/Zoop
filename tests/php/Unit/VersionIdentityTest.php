@@ -26,6 +26,8 @@ final class VersionIdentityTest extends TestCase {
 		$this->assertFalse( VersionIdentity::isDevelopment( '0.6.0' ) );
 		$this->assertTrue( Ruleset::matches( Ruleset::CURRENT ) );
 		$this->assertFalse( Ruleset::matches( 0 ) );
+		$this->assertFalse( Ruleset::matches( 10 ) );
+		$this->assertFalse( Ruleset::matches( '1' ) );
 		$this->assertFalse( Ruleset::matches( Ruleset::CURRENT + 1 ) );
 	}
 }

@@ -576,15 +576,17 @@ final class Graph {
 		}
 
 		$unreachable_count = $this->complete ? $unreachable : null;
+		$needs_check       = $this->reasons['unanalysed'] + $this->reasons['content_only'] + $this->reasons['stale_links'];
 
 		return array(
 			'coverage'           => array(
-				'complete'  => $this->complete,
-				'inventory' => count( $rows ),
-				'analysed'  => $analysed,
-				'missing'   => $this->reasons['unanalysed'],
-				'withheld'  => $this->withheld,
-				'reasons'   => $this->reasons,
+				'complete'              => $this->complete,
+				'inventory'             => count( $rows ),
+				'analysed'              => $analysed,
+				'missing'               => $this->reasons['unanalysed'],
+				'needs_published_check' => $needs_check,
+				'withheld'              => $this->withheld,
+				'reasons'               => $this->reasons,
 			),
 			'front'              => array(
 				'id'    => $this->frontId,
@@ -593,17 +595,18 @@ final class Graph {
 				'kind'  => '' !== $this->frontId ? 'page' : 'blog',
 			),
 			'counts'             => array(
-				'inventory'       => count( $rows ),
-				'analysed'        => $analysed,
-				'orphans'         => $this->complete ? count( $orphans ) : null,
-				'weak'            => count( $weak ),
-				'template_only'   => count( $template_only ),
-				'unknown'         => count( $unknown ),
-				'unresolved'      => count( $unresolved ),
-				'unverified'      => count( $this->unknownDestinations ),
-				'unreachable'     => $unreachable_count,
-				'navigation'      => $navigationLinks,
-				'address_clashes' => $this->collisions,
+				'inventory'             => count( $rows ),
+				'analysed'              => $analysed,
+				'orphans'               => $this->complete ? count( $orphans ) : null,
+				'weak'                  => count( $weak ),
+				'template_only'         => count( $template_only ),
+				'unknown'               => count( $unknown ),
+				'unresolved'            => count( $unresolved ),
+				'unverified'            => count( $this->unknownDestinations ),
+				'unreachable'           => $unreachable_count,
+				'needs_published_check' => $needs_check,
+				'navigation'            => $navigationLinks,
+				'address_clashes'       => $this->collisions,
 			),
 			'depth'              => $histogram,
 			'deepest'            => null === $deepest ? null : $this->brief( $deepest ),
@@ -753,6 +756,19 @@ final class Graph {
 			}
 			if ( $this->reasons['content_only'] > 0 || $this->reasons['stale_links'] > 0 ) {
 				$notes[] = __( 'Check the published pages to record current link evidence. A content-only site audit does not restore published links.', 'seo-studio' );
+			}
+			$needs_check = $this->reasons['unanalysed'] + $this->reasons['content_only'] + $this->reasons['stale_links'];
+			if ( $needs_check > 0 ) {
+				$notes[] = sprintf(
+					/* translators: %d: published pages that still need a published-page check. */
+					_n(
+						'%d page needs a published-page check before orphans can be counted.',
+						'%d pages need a published-page check before orphans can be counted.',
+						$needs_check,
+						'seo-studio'
+					),
+					$needs_check
+				);
 			}
 			$notes[] = __( 'Depth is not known yet.', 'seo-studio' );
 		} else {

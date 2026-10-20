@@ -56,7 +56,7 @@ export function orphanCountLabel( orphans: number | null ): string {
  */
 export function depthCountLabel( unreachable: number | null ): string {
 	if ( unreachable === null ) {
-		return __( 'Depth not known yet', 'seo-studio' );
+		return __( 'Not known yet', 'seo-studio' );
 	}
 	return String( unreachable );
 }

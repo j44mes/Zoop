@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { pageWorkspaceUrl } from './page-link';
 
 interface CoverageReasons {
@@ -34,8 +34,9 @@ export function CoverageActions( {
 	if ( ! reasons ) {
 		return null;
 	}
-	const checkLinks = reasons.content_only > 0 || reasons.stale_links > 0;
-	if ( reasons.unanalysed < 1 && ! checkLinks ) {
+	const needsCheck =
+		reasons.unanalysed + reasons.content_only + reasons.stale_links;
+	if ( reasons.unanalysed < 1 && needsCheck < 1 ) {
 		return null;
 	}
 	return (
@@ -47,16 +48,25 @@ export function CoverageActions( {
 					</button>{ ' ' }
 					<span className="seostudio-muted">
 						{ __(
-							'This analyses page content. It does not restore published-link evidence.',
+							'This checks page content. To count orphans, Zoop also needs to check the published pages.',
 							'seo-studio'
 						) }
 					</span>
 				</p>
 			) : null }
-			{ checkLinks ? (
+			{ needsCheck > 0 ? (
 				<p>
-					<a href="admin.php?page=seostudio&section=pages&score_state=unchecked">
-						{ __( 'Check published pages', 'seo-studio' ) }
+					<a href="admin.php?page=seostudio&section=pages&score_state=needs_published_check">
+						{ sprintf(
+							/* translators: %d: pages that need a published-page check. */
+							_n(
+								'%d page needs a published-page check',
+								'%d pages need a published-page check',
+								needsCheck,
+								'seo-studio'
+							),
+							needsCheck
+						) }
 					</a>
 				</p>
 			) : null }

@@ -58,6 +58,21 @@ final class NavigationSurvey {
 			++$menus;
 			$links = array_merge( $links, $this->blockLinks( (string) $post->post_content ) );
 		}
+		foreach ( $blocks['inline'] ?? array() as $inline ) {
+			if ( ! is_array( $inline ) ) {
+				continue;
+			}
+			$href = (string) ( $inline['href'] ?? '' );
+			if ( '' === $href ) {
+				continue;
+			}
+			$links[] = array(
+				'href'     => $href,
+				'anchor'   => (string) ( $inline['anchor'] ?? '' ),
+				'kind'     => 'navigation',
+				'verified' => false,
+			);
+		}
 
 		return array(
 			'links'      => $links,

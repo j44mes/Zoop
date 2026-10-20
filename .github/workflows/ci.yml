@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   php:
@@ -34,6 +35,19 @@ jobs:
           php scripts/validate-version.php
           php scripts/stamp-build.php
           php scripts/assert-build-identity.php
+
+      - name: Require a scoring ruleset bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags origin "$(gh pr view --json baseRefName --jq .baseRefName)"
+            base="$(gh pr view --json baseRefOid --jq .baseRefOid)"
+          fi
+          php scripts/check-ruleset-bump.php "$base"
 
       - name: Lint
         run: composer lint

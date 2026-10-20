@@ -947,7 +947,11 @@ function initialScoreState(): string {
 	const value = new URLSearchParams( window.location.search ).get(
 		'score_state'
 	);
-	if ( value === 'needs_reanalysis' || value === 'unchecked' ) {
+	if (
+		value === 'needs_reanalysis' ||
+		value === 'unchecked' ||
+		value === 'needs_published_check'
+	) {
 		return value;
 	}
 	return '';

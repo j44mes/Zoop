@@ -310,7 +310,7 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 		$this->assertSame( 'orphan', $this->row( ( new SiteSurvey() )->report(), $hidden )['status'] );
 	}
 
-	public function test_unreferenced_navigation_blocks_a_high_confidence_orphan(): void {
+	public function test_unreferenced_navigation_does_not_invent_edges_after_a_fresh_check(): void {
 		remove_filter( 'pre_get_block_templates', array( $this, 'empty_block_templates' ), 10 );
 		add_filter(
 			'pre_get_block_templates',
@@ -333,13 +333,13 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 			);
 			$this->stamp( $post, array() );
 			$row = $this->pageRow( $post );
-			$this->assertSame( 'unknown', $row['status'] );
-			$this->assertNotSame( 'orphan', $row['status'] );
-			$this->assertSame( 'limited', $row['confidence'] );
-			$this->assertStringContainsString( 'navigation block', (string) $row['evidence'] );
-			$notes = implode( ' ', ( new SiteSurvey() )->report()['notes'] );
-			$this->assertStringContainsString( 'navigation block', $notes );
-			$this->assertSame( array(), ( new SiteSurvey() )->report()['orphans'] );
+			$report = ( new SiteSurvey() )->report();
+			$this->assertSame( 0, $row['template_referrers'] );
+			$this->assertSame( 'orphan', $row['status'] );
+			$this->assertSame( 'high', $row['confidence'] );
+			$this->assertSame( 0, $report['coverage']['needs_published_check'] );
+			$this->assertIsInt( $report['counts']['orphans'] );
+			$this->assertGreaterThan( 0, $report['counts']['orphans'] );
 		} finally {
 			remove_all_filters( 'pre_get_block_templates' );
 			add_filter( 'pre_get_block_templates', array( $this, 'empty_block_templates' ), 10, 3 );

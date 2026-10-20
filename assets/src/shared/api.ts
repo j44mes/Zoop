@@ -476,6 +476,7 @@ export interface ArchitectureReport {
 		inventory: number;
 		analysed: number;
 		missing: number;
+		needs_published_check?: number;
 		withheld: boolean;
 		reasons?: ArchitectureCoverageReasons;
 	};
@@ -488,6 +489,7 @@ export interface ArchitectureReport {
 		unknown: number;
 		unresolved: number;
 		unreachable: number | null;
+		needs_published_check?: number;
 		navigation: number;
 		unverified?: number;
 	};

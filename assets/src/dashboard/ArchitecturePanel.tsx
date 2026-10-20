@@ -188,11 +188,7 @@ export function ArchitecturePanel() {
 					) : null }
 				</article>
 				<article>
-					<h2>
-						{ depthKnown
-							? __( 'No verified path', 'seo-studio' )
-							: __( 'Depth', 'seo-studio' ) }
-					</h2>
+					<h2>{ __( 'No verified path', 'seo-studio' ) }</h2>
 					<p>{ depthCountLabel( report.counts.unreachable ) }</p>
 					{ report.depth_explanation ? (
 						<p className="seostudio-muted">

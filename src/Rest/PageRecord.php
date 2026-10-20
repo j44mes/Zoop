@@ -107,6 +107,9 @@ final class PageRecord {
 	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|string|bool|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
+		if ( 'needs_published_check' === (string) $request->get_param( 'score_state' ) ) {
+			return $this->publishedChecks( $request );
+		}
 		$filters  = $this->authorise( $this->filtersFromRequest( $request ) );
 		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
@@ -177,6 +180,42 @@ final class PageRecord {
 	}
 
 	/**
+	 * Pages whose published-link evidence is missing, using the graph's classification.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function publishedChecks( WP_REST_Request $request ): array {
+		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
+		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
+		$ids      = $this->pages->needsPublishedCheckIds();
+		$allowed  = array();
+		foreach ( array_chunk( $ids, 200 ) as $batch ) {
+			_prime_post_caches( $batch, false, false );
+			foreach ( $batch as $post_id ) {
+				if ( Capabilities::canEditPost( (int) $post_id ) ) {
+					$allowed[] = (int) $post_id;
+				}
+			}
+		}
+		$total   = count( $allowed );
+		$slice   = array_slice( $allowed, ( $page - 1 ) * $per_page, $per_page );
+		$visible = array();
+		foreach ( $this->pages->rowsForObjects( $slice ) as $row ) {
+			$visible[] = $this->item( $row );
+		}
+
+		return array(
+			'items'   => $visible,
+			'total'   => $total,
+			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
+			'summary' => array(
+				'analysed'              => $total,
+				'needs_published_check' => $total,
+			),
+		);
+	}
+
+	/**
 	 * Query arguments shared by the list and its count.
 	 *
 	 * @return array<string, mixed>
@@ -243,7 +282,7 @@ final class PageRecord {
 		if ( (int) ( $payload['evidence_version'] ?? 0 ) < 2 ) {
 			return false;
 		}
-		if ( ! Ruleset::matches( (int) ( $payload['ruleset_version'] ?? 0 ) ) ) {
+		if ( ! Ruleset::matches( $payload['ruleset_version'] ?? null ) ) {
 			return false;
 		}
 
@@ -289,7 +328,7 @@ final class PageRecord {
 		$presentation = ScorePresentation::fromRow( $row );
 		$details      = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
 		$issue        = '';
-		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && Ruleset::matches( (int) ( $details['ruleset_version'] ?? 0 ) ) && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
+		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && Ruleset::matches( $details['ruleset_version'] ?? null ) && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
 			foreach ( $details['assessments'] as $assessment ) {
 				if ( ! is_array( $assessment ) || ! isset( $assessment['status'] ) ) {
 					continue;

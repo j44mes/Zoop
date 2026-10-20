@@ -76,7 +76,7 @@ describe( 'architecture copy', () => {
 		expect( depthLabel( 2 ) ).toBe( '2' );
 		expect( orphanCountLabel( null ) ).toBe( 'Not counted yet' );
 		expect( orphanCountLabel( 3 ) ).toBe( '3' );
-		expect( depthCountLabel( null ) ).toBe( 'Depth not known yet' );
+		expect( depthCountLabel( null ) ).toBe( 'Not known yet' );
 		expect( depthCountLabel( 4 ) ).toBe( '4' );
 	} );
 } );
