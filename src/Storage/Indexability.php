@@ -55,6 +55,13 @@ final class Indexability {
 			);
 		}
 
+		if ( '0' === (string) get_option( 'blog_public' ) ) {
+			return array(
+				'status' => 'site_discouraged',
+				'source' => 'blog_public',
+			);
+		}
+
 		$live = 'live' === $model->renderMode && 'observed_html' === $model->metadataStatus;
 		if ( $live && ( self::blocksIndex( $model->robotsMeta ) || self::blocksIndex( $model->robotsHttp ) ) ) {
 			$meta = self::blocksIndex( $model->robotsMeta );
@@ -62,13 +69,6 @@ final class Indexability {
 			return array(
 				'status' => 'noindex',
 				'source' => $meta && $http ? 'meta+http' : ( $http ? 'http' : 'meta' ),
-			);
-		}
-
-		if ( '0' === (string) get_option( 'blog_public' ) ) {
-			return array(
-				'status' => 'site_discouraged',
-				'source' => 'blog_public',
 			);
 		}
 

@@ -113,6 +113,7 @@ export interface PageList {
 		orange: number;
 		green: number;
 		reanalysis_notice?: string;
+		search_discouraged?: boolean;
 	};
 }
 
@@ -599,6 +600,7 @@ export interface RecommendationItem {
 	conclusion?: string;
 	conclusion_confidence?: string;
 	pages: RecommendationPage[];
+	href?: string;
 }
 
 export interface RecommendationReport {

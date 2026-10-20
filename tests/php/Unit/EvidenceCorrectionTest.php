@@ -146,9 +146,9 @@ final class EvidenceCorrectionTest extends TestCase {
 	}
 
 	public function testTheReanalysisSentenceUsesSingularAndPlural(): void {
-		$this->assertSame( '1 page needs re-analysis since the scoring update.', ScorePresentation::reanalysisNotice( 1 ) );
-		$this->assertSame( '2 pages need re-analysis since the scoring update.', ScorePresentation::reanalysisNotice( 2 ) );
-		$this->assertSame( '0 pages need re-analysis since the scoring update.', ScorePresentation::reanalysisNotice( 0 ) );
+		$this->assertSame( '1 page has changed or needs checking again.', ScorePresentation::reanalysisNotice( 1 ) );
+		$this->assertSame( '2 pages have changed or need checking again.', ScorePresentation::reanalysisNotice( 2 ) );
+		$this->assertSame( '0 pages have changed or need checking again.', ScorePresentation::reanalysisNotice( 0 ) );
 	}
 
 	public function testAPresentedCheckCarriesTheMeasuredValueAndRecommendation(): void {

@@ -103,53 +103,29 @@ final class PageRecord {
 	/**
 	 * Filtered, capability-checked page list.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|string|null>}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|string|bool|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
-		$filters  = array(
-			'search'        => $request->get_param( 'search' ),
-			'object_id'     => $request->get_param( 'object_id' ),
-			'post_type'     => $request->get_param( 'post_type' ),
-			'rating'        => $request->get_param( 'rating' ),
-			'score_min'     => $request->get_param( 'score_min' ),
-			'score_max'     => $request->get_param( 'score_max' ),
-			'orderby'       => $request->get_param( 'orderby' ),
-			'order'         => $request->get_param( 'order' ),
-			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
-		);
+		$filters  = $this->authorise( $this->filtersFromRequest( $request ) );
 		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-		if ( Capabilities::needsObjectChecks() ) {
-			// Custom mappings can grant as well as deny access, so do not prefilter by role SQL.
-			$allowed = array();
-			foreach ( array_chunk( $this->pages->permissionCandidates( $filters ), 200 ) as $batch ) {
-				_prime_post_caches( array_map( 'intval', array_column( $batch, 'object_id' ) ), false, false );
-				foreach ( $batch as $candidate ) {
-					if ( Capabilities::canEditPost( (int) $candidate['object_id'] ) ) {
-						$allowed[] = (int) $candidate['id'];
-					}
-				}
-			}
-			$filters['ids'] = $allowed;
-		} else {
-			$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
-		}
 
 		// Every query uses the same authorised set, before aggregation and pagination.
 		$stats   = $this->pages->aggregate( $filters );
 		$total   = $stats['total'];
 		$summary = array(
-			'analysed'          => $total,
-			'scored'            => $stats['scored'],
-			'unscored'          => $stats['unscored'],
-			'needs_reanalysis'  => $stats['needs_reanalysis'],
-			'not_analysed'      => $stats['not_analysed'],
-			'failed'            => $stats['failed'],
-			'average'           => $stats['average'],
-			'red'               => $stats['red'],
-			'orange'            => $stats['orange'],
-			'green'             => $stats['green'],
-			'reanalysis_notice' => ScorePresentation::reanalysisNotice( (int) $stats['needs_reanalysis'] ),
+			'analysed'           => $total,
+			'scored'             => $stats['scored'],
+			'unscored'           => $stats['unscored'],
+			'needs_reanalysis'   => $stats['needs_reanalysis'],
+			'not_analysed'       => $stats['not_analysed'],
+			'failed'             => $stats['failed'],
+			'average'            => $stats['average'],
+			'red'                => $stats['red'],
+			'orange'             => $stats['orange'],
+			'green'              => $stats['green'],
+			'reanalysis_notice'  => ScorePresentation::reanalysisNotice( (int) $stats['needs_reanalysis'] ),
+			'search_discouraged' => '0' === (string) get_option( 'blog_public' ),
 		);
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
@@ -164,6 +140,64 @@ final class PageRecord {
 			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
 			'summary' => $summary,
 		);
+	}
+
+	/**
+	 * Count rows the current user may see. The same filters and permission check as the page list.
+	 *
+	 * @param array<string, mixed> $filters List filters.
+	 */
+	public function count( array $filters ): int {
+		$stats = $this->pages->aggregate( $this->authorise( $filters ) );
+
+		return (int) $stats['total'];
+	}
+
+	/**
+	 * Query arguments shared by the list and its count.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function filtersFromRequest( WP_REST_Request $request ): array {
+		return array(
+			'search'        => $request->get_param( 'search' ),
+			'object_id'     => $request->get_param( 'object_id' ),
+			'post_type'     => $request->get_param( 'post_type' ),
+			'rating'        => $request->get_param( 'rating' ),
+			'score_min'     => $request->get_param( 'score_min' ),
+			'score_max'     => $request->get_param( 'score_max' ),
+			'orderby'       => $request->get_param( 'orderby' ),
+			'order'         => $request->get_param( 'order' ),
+			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
+			'score_state'   => $request->get_param( 'score_state' ),
+			'visibility'    => $request->get_param( 'visibility' ),
+		);
+	}
+
+	/**
+	 * Restrict a list to posts the current user can edit, before counting or paging.
+	 *
+	 * @param array<string, mixed> $filters List filters.
+	 * @return array<string, mixed>
+	 */
+	private function authorise( array $filters ): array {
+		if ( Capabilities::needsObjectChecks() ) {
+			// Custom mappings can grant as well as deny access, so do not prefilter by role SQL.
+			$allowed = array();
+			foreach ( array_chunk( $this->pages->permissionCandidates( $filters ), 200 ) as $batch ) {
+				_prime_post_caches( array_map( 'intval', array_column( $batch, 'object_id' ) ), false, false );
+				foreach ( $batch as $candidate ) {
+					if ( Capabilities::canEditPost( (int) $candidate['object_id'] ) ) {
+						$allowed[] = (int) $candidate['id'];
+					}
+				}
+			}
+			$filters['ids'] = $allowed;
+			return $filters;
+		}
+
+		$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
+		return $filters;
 	}
 
 	/**

@@ -22,6 +22,7 @@ import {
 	type StudioSettings,
 } from '../shared/api';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
+import { pagesListEmpty, suggestionEmpty } from './list-empty';
 import { scoreStateLabel, suggestionForState } from './score-state';
 import { RunProgress } from '../shared/ui/RunProgress';
 import { TrafficLight } from '../shared/ui/TrafficLight';
@@ -65,6 +66,8 @@ export function Dashboard() {
 	>( sectionView );
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 	const [ listTick, setListTick ] = useState( 0 );
+	const [ scoreState, setScoreState ] = useState( initialScoreState );
+	const [ visibility, setVisibility ] = useState( initialVisibility );
 
 	useEffect( () => {
 		fetchCapabilities()
@@ -122,6 +125,12 @@ export function Dashboard() {
 		if ( hasKeyphrase ) {
 			query.has_keyphrase = '1';
 		}
+		if ( view === 'pages' && scoreState ) {
+			query.score_state = scoreState;
+		}
+		if ( view === 'pages' && visibility ) {
+			query.visibility = visibility;
+		}
 		fetchPages( query )
 			.then( ( next ) => {
 				if ( cancelled ) {
@@ -152,6 +161,9 @@ export function Dashboard() {
 		page,
 		run?.status,
 		listTick,
+		view,
+		scoreState,
+		visibility,
 	] );
 
 	useEffect( () => {
@@ -180,6 +192,19 @@ export function Dashboard() {
 		}, 2000 );
 		return () => window.clearInterval( timer );
 	}, [ run?.run_id, run?.status ] );
+
+	function openStalePages() {
+		setScoreState( 'needs_reanalysis' );
+		setVisibility( '' );
+		setSearch( '' );
+		setRating( '' );
+		setPostType( '' );
+		setScoreMin( '' );
+		setScoreMax( '' );
+		setHasKeyphrase( false );
+		setPage( 1 );
+		setView( 'pages' );
+	}
 
 	async function checkPublished( item: PageListItem ) {
 		setNotice( __( 'Checking the published page.', 'seo-studio' ) );
@@ -308,6 +333,15 @@ export function Dashboard() {
 			visibleView !== 'search-console' &&
 			visibleView !== 'priorities' ? (
 				<>
+					{ visibleView === 'overview' &&
+					summary?.search_discouraged ? (
+						<p className="seostudio-search-hidden" role="status">
+							{ __(
+								'Search engines are asked not to index this site.',
+								'seo-studio'
+							) }
+						</p>
+					) : null }
 					{ visibleView === 'overview' && summary ? (
 						<div className="seostudio-summary">
 							<article>
@@ -319,8 +353,17 @@ export function Dashboard() {
 								<p>{ summary.scored ?? 0 }</p>
 							</article>
 							<article>
-								<h2>{ __( 'Out of date', 'seo-studio' ) }</h2>
-								<p>{ summary.needs_reanalysis ?? 0 }</p>
+								<h2>
+									<button
+										type="button"
+										onClick={ openStalePages }
+									>
+										{ __( 'Out of date', 'seo-studio' ) }
+									</button>
+								</h2>
+								<p className="seostudio-stat">
+									{ summary.needs_reanalysis ?? 0 }
+								</p>
 								{ summary.reanalysis_notice ? (
 									<p className="seostudio-muted">
 										{ summary.reanalysis_notice }
@@ -383,9 +426,9 @@ export function Dashboard() {
 							<div className="seostudio-suggestions">
 								{ suggestions.length === 0 ? (
 									<p>
-										{ __(
-											'No stored pages yet. Open a page and choose Analyse page.',
-											'seo-studio'
+										{ suggestionEmpty(
+											summary?.analysed ?? 0,
+											summary?.scored ?? 0
 										) }
 									</p>
 								) : (
@@ -571,7 +614,7 @@ export function Dashboard() {
 							/>
 							<CheckboxControl
 								label={ __(
-									'Has a target phrase',
+									'Has a focus keyphrase',
 									'seo-studio'
 								) }
 								checked={ hasKeyphrase }
@@ -589,20 +632,18 @@ export function Dashboard() {
 					) : null }
 					{ list && list.total === 0 ? (
 						<p>
-							{ search ||
-							rating ||
-							postType.trim() ||
-							scoreMin ||
-							scoreMax ||
-							hasKeyphrase
-								? __(
-										'No stored pages match these filters.',
-										'seo-studio'
-								  )
-								: __(
-										'No pages are stored yet. Open a page and choose Analyse page.',
-										'seo-studio'
-								  ) }
+							{ pagesListEmpty(
+								!! (
+									search ||
+									rating ||
+									postType.trim() ||
+									scoreMin ||
+									scoreMax ||
+									hasKeyphrase ||
+									scoreState ||
+									visibility
+								)
+							) }
 						</p>
 					) : (
 						<div className="seostudio-table-wrap">
@@ -675,6 +716,26 @@ function isAdminOnly( section: string ): boolean {
 		section === 'overlap' ||
 		section === 'search-console'
 	);
+}
+
+function initialScoreState(): string {
+	const value = new URLSearchParams( window.location.search ).get(
+		'score_state'
+	);
+	if ( value === 'needs_reanalysis' ) {
+		return value;
+	}
+	return '';
+}
+
+function initialVisibility(): string {
+	const value = new URLSearchParams( window.location.search ).get(
+		'visibility'
+	);
+	if ( value === 'noindex' ) {
+		return value;
+	}
+	return '';
 }
 
 function sectionView():
@@ -888,7 +949,8 @@ function DashboardRow( {
 					item.title
 				) }
 				<div className="seostudio-muted">
-					{ item.keyphrase || __( 'No target phrase', 'seo-studio' ) }
+					{ item.keyphrase ||
+						__( 'No focus keyphrase', 'seo-studio' ) }
 				</div>
 			</td>
 			<td>{ score }</td>

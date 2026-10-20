@@ -122,12 +122,50 @@
 	color: var(--zoop-muted);
 }
 
-.seostudio-dashboard .seostudio-summary > article > p {
+.seostudio-dashboard .seostudio-summary > article > p,
+.seostudio-stat {
 	margin: 4px 0 0;
-	font-size: 1.75rem;
+	font-size: clamp( 1.5rem, 4vw, 1.75rem );
 	font-weight: 650;
 	line-height: 1.2;
 	font-variant-numeric: tabular-nums;
+}
+
+.seostudio-dashboard .seostudio-summary > article > p.seostudio-muted {
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 1.4;
+}
+
+.seostudio-summary h2 button {
+	background: transparent;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.seostudio-summary h2 button:focus-visible,
+.seostudio-check-toggle:focus-visible {
+	outline: 2px solid var( --zoop-focus );
+	outline-offset: 2px;
+}
+
+.seostudio-check-toggle {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	gap: 8px;
+	justify-content: space-between;
+	padding: 0;
+	text-align: left;
+	width: 100%;
 }
 
 .seostudio-actions,

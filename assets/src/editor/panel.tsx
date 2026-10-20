@@ -433,7 +433,7 @@ export function Panel( {
 			) : null }
 			<TextControl
 				id="seostudio-focus-keyphrase"
-				label={ __( 'Target phrase', 'seo-studio' ) }
+				label={ __( 'Focus keyphrase', 'seo-studio' ) }
 				value={ keyphrase }
 				onChange={ setKeyphrase }
 				help={ __(

@@ -147,6 +147,16 @@ final class PagesController {
 			'has_keyphrase' => array(
 				'type' => 'boolean',
 			),
+			'score_state'   => array(
+				'type'              => 'string',
+				'enum'              => array( 'needs_reanalysis' ),
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'visibility'    => array(
+				'type'              => 'string',
+				'enum'              => array( 'noindex' ),
+				'sanitize_callback' => 'sanitize_text_field',
+			),
 		);
 	}
 

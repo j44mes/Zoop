@@ -130,7 +130,7 @@ final class ScorePresentation {
 			'indexability' => __( 'Indexability has not been checked.', 'seo-studio' ),
 			'title'        => __( 'The published page title has not been observed.', 'seo-studio' ),
 			'h1'           => __( 'The full-document H1 has not been observed.', 'seo-studio' ),
-			'keyphrase'    => __( 'The keyphrase has not been checked in an observed title.', 'seo-studio' ),
+			'keyphrase'    => __( 'The focus keyphrase has not been checked in an observed title.', 'seo-studio' ),
 		);
 		$items  = array();
 		foreach ( array_filter( explode( ',', $codes ) ) as $code ) {
@@ -155,8 +155,8 @@ final class ScorePresentation {
 		return sprintf(
 			/* translators: %d: number of pages that need another published-page check. */
 			_n(
-				'%d page needs re-analysis since the scoring update.',
-				'%d pages need re-analysis since the scoring update.',
+				'%d page has changed or needs checking again.',
+				'%d pages have changed or need checking again.',
 				$count,
 				'seo-studio'
 			),

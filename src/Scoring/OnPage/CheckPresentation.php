@@ -107,7 +107,7 @@ final class CheckPresentation {
 			'view_evidence'    => __( 'View evidence', 'seo-studio' ),
 			'view_fix'         => __( 'View safe fix', 'seo-studio' ),
 			'check_published'  => __( 'Check published page', 'seo-studio' ),
-			'add_keyphrase'    => __( 'Add keyphrase', 'seo-studio' ),
+			'add_keyphrase'    => __( 'Add focus keyphrase', 'seo-studio' ),
 			'reanalyse'        => __( 'Re-analyse', 'seo-studio' ),
 			'view_explanation' => __( 'View explanation', 'seo-studio' ),
 			'refresh_content'  => __( 'Refresh content analysis', 'seo-studio' ),

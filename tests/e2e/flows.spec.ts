@@ -117,7 +117,7 @@ async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
 	} );
 	try {
 		await expect(
-			page.getByLabel( 'Target phrase', { exact: true } )
+			page.getByLabel( 'Focus keyphrase', { exact: true } )
 		).toBeVisible( { timeout: 20000 } );
 	} catch ( error ) {
 		throw new Error(
@@ -222,7 +222,7 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	editedPostUrl = page.url();
 	await openSeoSidebar( page, errors );
 	await page
-		.getByLabel( 'Target phrase', { exact: true } )
+		.getByLabel( 'Focus keyphrase', { exact: true } )
 		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
@@ -295,7 +295,9 @@ test( 'editing the title updates the title assessment without a reload', async (
 test( 're-analyse all queues an audit', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Refresh content analysis' } ).click();
+	await page
+		.getByRole( 'button', { name: 'Refresh content analysis' } )
+		.click();
 	await expect(
 		page.getByText(
 			/Audit queued\.|An audit is already running\.|An audit was started recently/

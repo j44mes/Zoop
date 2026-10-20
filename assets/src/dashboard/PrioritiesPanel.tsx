@@ -119,6 +119,16 @@ export function PrioritiesPanel() {
 					) : null }
 					<p>{ item.action }</p>
 					<p>{ item.reason }</p>
+					{ item.href ? (
+						<p>
+							<a href={ item.href }>
+								{ __(
+									'Review the affected pages',
+									'seo-studio'
+								) }
+							</a>
+						</p>
+					) : null }
 					{ item.pages.length > 0 ? (
 						<ul>
 							{ item.pages.map( ( page ) => (

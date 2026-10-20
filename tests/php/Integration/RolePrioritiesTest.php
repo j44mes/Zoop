@@ -55,8 +55,11 @@ final class RolePrioritiesTest extends WP_UnitTestCase {
 
 		wp_set_current_user( $author );
 		$author_report = ( new PrioritiesReport() )->report();
-		$author_json   = (string) wp_json_encode( $author_report );
-		$this->assertStringContainsString( 'Author visible page', $author_json );
+		$author_item   = $this->visibilityItem( $author_report );
+		$this->assertSame( '1 page is hidden from search.', $author_item['title'] );
+		$this->assertSame( array(), $author_item['pages'] );
+		$this->assertStringContainsString( 'visibility=noindex', (string) $author_item['href'] );
+		$author_json = (string) wp_json_encode( $author_report );
 		$this->assertStringNotContainsString( 'Secret other title', $author_json );
 		$this->assertStringNotContainsString( 'Private secret page', $author_json );
 		$this->assertStringNotContainsString( 'Stale noindex page', $author_json );
@@ -65,16 +68,30 @@ final class RolePrioritiesTest extends WP_UnitTestCase {
 		$this->assertLessThanOrEqual( 40, count( $author_report['items'] ) );
 
 		wp_set_current_user( $editor );
-		$editor_json = (string) wp_json_encode( ( new PrioritiesReport() )->report() );
-		$this->assertStringContainsString( 'Secret other title', $editor_json );
-		$this->assertStringContainsString( 'Private secret page', $editor_json );
-		$this->assertStringNotContainsString( 'Stale noindex page', $editor_json );
+		$editor_report = ( new PrioritiesReport() )->report();
+		$editor_item   = $this->visibilityItem( $editor_report );
+		$this->assertSame( '43 pages are hidden from search.', $editor_item['title'] );
+		$this->assertSame( array(), $editor_item['pages'] );
+		$this->assertLessThanOrEqual( 40, count( $editor_report['items'] ) );
 
 		wp_set_current_user( $admin );
 		$admin_report = ( new PrioritiesReport() )->report();
-		$this->assertTrue( $admin_report['limited'] );
-		$this->assertCount( 40, $admin_report['items'] );
-		$this->assertStringContainsString( 'Secret other title', (string) wp_json_encode( $admin_report ) );
+		$admin_item   = $this->visibilityItem( $admin_report );
+		$this->assertSame( '43 pages are hidden from search.', $admin_item['title'] );
+		$this->assertCount( 1, array_filter( $admin_report['items'], static fn ( array $item ): bool => 'visibility' === ( $item['kind'] ?? '' ) ) );
+		$this->assertLessThanOrEqual( 40, count( $admin_report['items'] ) );
+
+		wp_set_current_user( $author );
+		$hidden_secret = $this->pages( 'noindex', 'Secret other title' );
+		$this->assertSame( 0, $hidden_secret['total'] );
+		$stale_hidden = $this->pages( 'noindex', 'Stale noindex page' );
+		$this->assertSame( 0, $stale_hidden['total'] );
+		$stale_list = $this->pages( '', 'Stale noindex page', 'needs_reanalysis' );
+		$this->assertSame( 1, $stale_list['total'] );
+		wp_set_current_user( $editor );
+		$editor_secret = $this->pages( 'noindex', 'Secret other title' );
+		$this->assertSame( 1, $editor_secret['total'] );
+		$this->assertSame( 'Secret other title', $editor_secret['items'][0]['title'] );
 
 		$ranked = $this->encoded( $this->mixedGroup( $author, $mine, $secret ) );
 		$this->assertStringContainsString( 'shared phrase', $ranked );
@@ -113,6 +130,39 @@ final class RolePrioritiesTest extends WP_UnitTestCase {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
 		$denied = rest_do_request( new WP_REST_Request( 'GET', '/seostudio/v1/recommendations' ) );
 		$this->assertSame( 403, $denied->get_status() );
+	}
+
+	/**
+	 * @param array<string, mixed> $report Ranked report.
+	 * @return array<string, mixed>
+	 */
+	private function visibilityItem( array $report ): array {
+		foreach ( $report['items'] as $item ) {
+			if ( 'visibility' === ( $item['kind'] ?? '' ) ) {
+				return $item;
+			}
+		}
+		$this->fail( 'Missing grouped noindex finding.' );
+		return array();
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function pages( string $visibility, string $search, string $score_state = '' ): array {
+		$request = new WP_REST_Request( 'GET', '/seostudio/v1/pages' );
+		$request->set_param( 'search', $search );
+		if ( '' !== $visibility ) {
+			$request->set_param( 'visibility', $visibility );
+		}
+		if ( '' !== $score_state ) {
+			$request->set_param( 'score_state', $score_state );
+		}
+		$response = rest_do_request( $request );
+		$this->assertSame( 200, $response->get_status() );
+		$data = $response->get_data();
+		$this->assertIsArray( $data );
+		return $data;
 	}
 
 	/**

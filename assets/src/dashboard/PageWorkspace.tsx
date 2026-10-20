@@ -469,7 +469,7 @@ export function PageWorkspace() {
 								<TextControl
 									id="seostudio-focus-keyphrase"
 									label={ __(
-										'Target phrase',
+										'Focus keyphrase',
 										'seo-studio'
 									) }
 									value={ phrase }
@@ -793,7 +793,7 @@ export function PageWorkspace() {
 							</p>
 							<TextControl
 								id="seostudio-focus-keyphrase"
-								label={ __( 'Target phrase', 'seo-studio' ) }
+								label={ __( 'Focus keyphrase', 'seo-studio' ) }
 								value={ phrase }
 								onChange={ setPhrase }
 								help={

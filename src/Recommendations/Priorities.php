@@ -22,11 +22,11 @@ final class Priorities {
 	 *
 	 * @param array<string, mixed>       $architecture Public architecture report.
 	 * @param array<string, mixed>       $overlap      Overlap groups and notes.
-	 * @param list<array<string, mixed>> $search_rows  Imported query rows.
-	 * @param list<array<string, mixed>> $visibility   Fresh verified noindex pages.
+	 * @param list<array<string, mixed>> $search_rows       Imported query rows.
+	 * @param int                        $hiddenFromSearch Fresh verified noindex pages the viewer may edit.
 	 * @return array{items: list<array<string, mixed>>, notes: string[], limited: bool}
 	 */
-	public function rank( array $architecture, array $overlap, array $search_rows, array $visibility = array() ): array {
+	public function rank( array $architecture, array $overlap, array $search_rows, int $hiddenFromSearch = 0 ): array {
 		$demand       = $this->demand( $search_rows );
 		$coverage     = $this->searchCoverage( $search_rows );
 		$search_mode  = $coverage['mode'];
@@ -98,7 +98,6 @@ final class Priorities {
 			);
 		}
 
-		$items   = array_merge( $this->visibilityItems( $visibility ), $items );
 		$see_all = ! function_exists( 'current_user_can' ) || current_user_can( 'manage_options' );
 		$items   = $this->actionable(
 			$items,
@@ -107,9 +106,14 @@ final class Priorities {
 				return function_exists( 'current_user_can' ) && current_user_can( 'edit_post', $id );
 			}
 		);
-		$limited = count( $items ) > self::LIST_LIMIT;
-		$items   = array_slice( $items, 0, self::LIST_LIMIT );
-		$public  = array();
+		$hidden  = $this->hiddenFromSearchItem( $hiddenFromSearch );
+		$room    = self::LIST_LIMIT - ( null === $hidden ? 0 : 1 );
+		$limited = count( $items ) > $room;
+		$items   = array_slice( $items, 0, max( 0, $room ) );
+		if ( null !== $hidden ) {
+			$items[] = $hidden;
+		}
+		$public = array();
 		foreach ( $items as $item ) {
 			unset( $item['impressions'] );
 			$public[] = $item;
@@ -200,39 +204,39 @@ final class Priorities {
 	}
 
 	/**
-	 * High-priority review items for fresh, verified noindex pages.
+	 * One finding for every fresh verified noindex page. It does not list those pages.
 	 *
-	 * @param list<array<string, mixed>> $rows Pages already limited to a current verified noindex.
-	 * @return list<array<string, mixed>>
+	 * @return array<string, mixed>|null
 	 */
-	private function visibilityItems( array $rows ): array {
-		$items = array();
-		foreach ( $rows as $row ) {
-			if ( ! is_array( $row ) || empty( $row['fresh'] ) ) {
-				continue;
-			}
-			$title = trim( (string) ( $row['title'] ?? '' ) );
-			if ( '' === $title ) {
-				$title = __( 'Untitled', 'seo-studio' );
-			}
-			$items[] = array(
-				'priority'    => 1,
-				'kind'        => 'visibility',
-				'title'       => $title,
-				'action'      => __( 'Review whether this page should stay out of search. Leaving it out may be intentional.', 'seo-studio' ),
-				'reason'      => __( 'The last published-page check found a noindex directive. The content score is separate and is not reduced. Zoop does not remove the directive.', 'seo-studio' ),
-				'pages'       => array(
-					array(
-						'post_id' => (int) ( $row['post_id'] ?? 0 ),
-						'title'   => $title,
-						'url'     => (string) ( $row['url'] ?? '' ),
-					),
-				),
-				'impressions' => 0,
-			);
+	private function hiddenFromSearchItem( int $count ): ?array {
+		if ( $count < 1 ) {
+			return null;
 		}
 
-		return $items;
+		$href = 'admin.php?page=seostudio&section=pages&visibility=noindex';
+		if ( function_exists( 'admin_url' ) ) {
+			$href = admin_url( $href );
+		}
+
+		return array(
+			'priority'    => 4,
+			'kind'        => 'visibility',
+			'title'       => sprintf(
+				/* translators: %d: number of pages with a fresh noindex directive. */
+				_n(
+					'%d page is hidden from search.',
+					'%d pages are hidden from search.',
+					$count,
+					'seo-studio'
+				),
+				$count
+			),
+			'action'      => __( 'Review these pages. Hiding a page from search may be intentional.', 'seo-studio' ),
+			'reason'      => __( 'This count uses the latest published-page check only. The content score is separate and is not reduced. Zoop does not change the robots directive.', 'seo-studio' ),
+			'href'        => $href,
+			'pages'       => array(),
+			'impressions' => 0,
+		);
 	}
 
 	/**

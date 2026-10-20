@@ -16,7 +16,7 @@ const presentation: ScorePresentation = {
 			id: 'keyphrase',
 			label: 'The keyphrase has not been checked in an observed title.',
 			action: 'add_keyphrase',
-			action_label: 'Add keyphrase',
+			action_label: 'Add focus keyphrase',
 		},
 	],
 	verified_label: '',
@@ -95,20 +95,21 @@ describe( 'evidence readiness UI', () => {
 		expect( html ).toContain( 'seostudio-search-hidden' );
 		expect( html ).toContain( 'Hidden from search' );
 		expect( html ).toContain( 'Missing evidence' );
-		expect( html ).toContain( 'Add keyphrase' );
-		expect( html ).toContain( 'Passed' );
-		expect( html ).toContain( 'Needs work' );
-		expect( html ).toContain( 'Not checked' );
-		expect( html ).toContain( 'Out of date' );
-		expect( html ).toContain( 'View evidence' );
-		expect( html ).toContain( 'View safe fix' );
-		expect( html ).toContain( 'Check published page' );
-		expect( html ).toContain( 'Measured' );
-		expect( html ).toContain( 'Rank tracker' );
+		expect( html ).toContain( 'Add focus keyphrase' );
+		expect( html.indexOf( 'aria-label="Needs work"' ) ).toBeLessThan(
+			html.indexOf( 'aria-label="Not checked"' )
+		);
+		expect( html.indexOf( 'aria-label="Not checked"' ) ).toBeLessThan(
+			html.indexOf( 'aria-label="Out of date"' )
+		);
+		expect( html.indexOf( 'aria-label="Out of date"' ) ).toBeLessThan(
+			html.indexOf( 'aria-controls="seostudio-passed-checks"' )
+		);
+		expect( html ).toContain( 'aria-expanded="false"' );
+		expect( html ).toContain( 'id="seostudio-passed-checks" hidden=""' );
+		expect( html ).not.toContain( 'No measured value was stored.' );
 		expect( html ).toContain( 'Show all checks' );
-		expect( html ).toContain( 'hidden=""' );
 		expect( html ).toContain( 'Doesn&#x27;t apply' );
-		expect( html ).not.toContain( 'post.php?post=4&action=edit' );
 	} );
 
 	it( 'does not paint not-public or site-discouraged pages as noindex', () => {
@@ -151,25 +152,67 @@ describe( 'evidence readiness UI', () => {
 		} );
 		const button = ( name: string ) =>
 			Array.from( container.querySelectorAll( 'button' ) ).find(
-				( node ) => node.textContent === name
+				( node ) => node.textContent?.includes( name )
 			);
+		const passedToggle = button( 'Passed' );
+		expect( passedToggle?.getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+		expect(
+			container
+				.querySelector( '#seostudio-passed-checks' )
+				?.hasAttribute( 'hidden' )
+		).toBe( true );
+		passedToggle?.focus();
+		expect( passedToggle?.ownerDocument.activeElement ).toBe(
+			passedToggle
+		);
 		act( () => {
-			button( 'Add keyphrase' )?.click();
+			passedToggle?.dispatchEvent(
+				new KeyboardEvent( 'keydown', {
+					key: 'Enter',
+					bubbles: true,
+				} )
+			);
+			passedToggle?.click();
+		} );
+		expect( passedToggle?.getAttribute( 'aria-expanded' ) ).toBe( 'true' );
+		expect(
+			container
+				.querySelector( '#seostudio-passed-checks' )
+				?.hasAttribute( 'hidden' )
+		).toBe( false );
+
+		const lengthToggle = button( 'SEO title length' );
+		const lengthPanel = container.querySelector(
+			'[id="seostudio-check-title.length"]'
+		);
+		expect( lengthToggle?.getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+		expect( lengthPanel?.hasAttribute( 'hidden' ) ).toBe( true );
+		act( () => {
+			lengthToggle?.click();
+		} );
+		expect( lengthToggle?.getAttribute( 'aria-expanded' ) ).toBe( 'true' );
+		expect( lengthPanel?.hasAttribute( 'hidden' ) ).toBe( false );
+		expect( lengthPanel?.textContent ).toContain( 'The title is short.' );
+		expect( container.textContent ).toContain( 'Measured: 12' );
+		expect( container.textContent ).toContain( 'Rewrite the title' );
+		expect( container.querySelector( 'a' )?.getAttribute( 'href' ) ).toBe(
+			'post.php?post=4&action=edit'
+		);
+		expect( container.textContent ).not.toContain(
+			'No measured value was stored.'
+		);
+
+		act( () => {
+			button( 'Add focus keyphrase' )?.click();
 		} );
 		expect( phrases ).toEqual( [ 'focus' ] );
+		expect( container.textContent ).toContain(
+			'Add a focus keyphrase below.'
+		);
 		act( () => {
 			button( 'Check published page' )?.click();
 		} );
 		expect( published ).toEqual( [ 'live' ] );
-		act( () => {
-			button( 'View safe fix' )?.click();
-		} );
-		expect( container.innerHTML ).toContain( 'Rewrite the title' );
-		expect(
-			container
-				.querySelector( '[id="seostudio-fix-title.length"] a' )
-				?.getAttribute( 'href' )
-		).toBe( 'post.php?post=4&action=edit' );
 		expect(
 			container
 				.querySelector( '#seostudio-other-checks' )
@@ -183,7 +226,7 @@ describe( 'evidence readiness UI', () => {
 				.querySelector( '#seostudio-other-checks' )
 				?.hasAttribute( 'hidden' )
 		).toBe( false );
-		expect( container.innerHTML ).toContain( "Doesn't apply" );
+		expect( container.textContent ).toContain( "Doesn't apply" );
 		act( () => {
 			root.unmount();
 		} );

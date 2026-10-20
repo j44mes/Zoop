@@ -212,7 +212,7 @@ final class PagesRepository {
 		$pages = Tables::pages();
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name; no user input.
 		$wpdb->query(
-			"UPDATE {$pages} SET evidence_ready = 0, onpage_state = IF(onpage_state = 'current', 'needs_reanalysis', onpage_state), onpage_score_id = IF(onpage_state = 'current', NULL, onpage_score_id), onpage_score = IF(onpage_state = 'current', NULL, onpage_score), onpage_denominator = IF(onpage_state = 'current', NULL, onpage_denominator), onpage_rating = IF(onpage_state = 'current', NULL, onpage_rating), index_status = IF(index_status IN ('indexable', 'noindex'), 'unobserved', index_status) WHERE evidence_ready = 1 OR (has_published_snapshot = 1 AND onpage_state = 'current')"
+			"UPDATE {$pages} SET evidence_ready = 0, onpage_state = IF(onpage_state = 'current', 'needs_reanalysis', onpage_state), onpage_score_id = IF(onpage_state = 'current', NULL, onpage_score_id), onpage_score = IF(onpage_state = 'current', NULL, onpage_score), onpage_denominator = IF(onpage_state = 'current', NULL, onpage_denominator), onpage_rating = IF(onpage_state = 'current', NULL, onpage_rating), index_status = IF(index_status IN ('indexable', 'noindex', 'site_discouraged'), 'unobserved', index_status) WHERE evidence_ready = 1 OR (has_published_snapshot = 1 AND onpage_state = 'current')"
 		);
 		// phpcs:enable
 	}
@@ -549,6 +549,14 @@ final class PagesRepository {
 			$where[] = ! empty( $filters['has_keyphrase'] )
 				? "pages.focus_keyphrase <> ''"
 				: "pages.focus_keyphrase = ''";
+		}
+
+		if ( 'needs_reanalysis' === ( $filters['score_state'] ?? '' ) ) {
+			$where[] = "pages.onpage_state = 'needs_reanalysis'";
+		}
+
+		if ( 'noindex' === ( $filters['visibility'] ?? '' ) ) {
+			$where[] = "pages.evidence_ready = 1 AND pages.onpage_state = 'current' AND pages.index_status = 'noindex'";
 		}
 
 		if ( isset( $filters['ids'] ) && is_array( $filters['ids'] ) ) {

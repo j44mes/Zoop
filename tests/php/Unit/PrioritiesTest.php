@@ -259,8 +259,8 @@ final class PrioritiesTest extends TestCase {
 		$this->assertStringNotContainsString( '900', $result['items'][1]['reason'] );
 	}
 
-	public function testAFreshNoindexPageBecomesAVisibilityBlocker(): void {
-		$result = ( new Priorities() )->rank(
+	public function testVerifiedNoindexPagesAreOneGroupedFinding(): void {
+		$one = ( new Priorities() )->rank(
 			$this->architecture(
 				array(
 					array(
@@ -279,30 +279,57 @@ final class PrioritiesTest extends TestCase {
 					'impressions' => 10,
 				),
 			),
-			array(
-				array(
-					'post_id' => 9,
-					'title'   => 'Hidden guide',
-					'url'     => 'https://example.test/hidden-guide/',
-					'fresh'   => true,
-				),
-				array(
-					'post_id' => 10,
-					'title'   => 'Stale hidden',
-					'url'     => 'https://example.test/stale/',
-					'fresh'   => false,
-				),
-			)
+			1
 		);
+		$this->assertSame( 'Quiet page', $one['items'][0]['title'] );
+		$grouped = $one['items'][ count( $one['items'] ) - 1 ];
+		$this->assertSame( 'visibility', $grouped['kind'] );
+		$this->assertSame( '1 page is hidden from search.', $grouped['title'] );
+		$this->assertSame( array(), $grouped['pages'] );
+		$this->assertStringContainsString( 'visibility=noindex', $grouped['href'] );
+		$this->assertStringContainsString( 'intentional', $grouped['action'] );
+		$this->assertStringNotContainsString( 'remove noindex', strtolower( $grouped['action'] . ' ' . $grouped['reason'] ) );
+		$this->assertStringContainsString( 'content score is separate', $grouped['reason'] );
 
-		$this->assertSame( 'Hidden guide', $result['items'][0]['title'] );
-		$this->assertSame( 1, $result['items'][0]['priority'] );
-		$this->assertSame( 'visibility', $result['items'][0]['kind'] );
-		$this->assertStringContainsString( 'intentional', $result['items'][0]['action'] );
-		$this->assertStringNotContainsString( 'remove noindex', strtolower( $result['items'][0]['action'] . ' ' . $result['items'][0]['reason'] ) );
-		$this->assertStringContainsString( 'content score is separate', $result['items'][0]['reason'] );
-		$this->assertNotContains( 'Stale hidden', array_column( $result['items'], 'title' ) );
-		$this->assertSame( 'Quiet page', $result['items'][1]['title'] );
+		$many = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 4,
+						'title'   => 'Quiet page',
+						'url'     => 'https://example.test/quiet/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(),
+			100
+		);
+		$titles = array_column( $many['items'], 'title' );
+		$this->assertSame( 'Quiet page', $titles[0] );
+		$this->assertSame( '100 pages are hidden from search.', $titles[ count( $titles ) - 1 ] );
+		$this->assertCount( 1, array_filter( $many['items'], static fn ( array $item ): bool => 'visibility' === $item['kind'] ) );
+		$this->assertLessThanOrEqual( 40, count( $many['items'] ) );
+
+		$none = ( new Priorities() )->rank( $this->architecture( array() ), array( 'groups' => array() ), array(), 0 );
+		$this->assertNotContains( 'visibility', array_column( $none['items'], 'kind' ) );
+	}
+
+	public function testAGroupedNoindexFindingDoesNotFillTheFortyItemList(): void {
+		$orphans = array();
+		for ( $index = 0; $index < 45; $index++ ) {
+			$orphans[] = array(
+				'post_id' => $index + 1,
+				'title'   => 'Orphan ' . $index,
+				'url'     => 'https://example.test/orphan-' . $index . '/',
+			);
+		}
+		$result = ( new Priorities() )->rank( $this->architecture( $orphans ), array( 'groups' => array() ), array(), 100 );
+		$this->assertCount( 40, $result['items'] );
+		$this->assertTrue( $result['limited'] );
+		$this->assertSame( 'Orphan 0', $result['items'][0]['title'] );
+		$this->assertSame( '100 pages are hidden from search.', $result['items'][39]['title'] );
+		$this->assertSame( array(), $result['items'][39]['pages'] );
 	}
 
 	public function testPermittedFindingsAreChosenBeforeTheDisplayLimit(): void {

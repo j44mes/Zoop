@@ -6,8 +6,7 @@ import { assessmentTitle } from './assessment-labels';
 type PresentedCheck = NonNullable< ScorePresentation[ 'checks' ] >[ number ];
 type MissingItem = ScorePresentation[ 'missing' ][ number ];
 
-const GROUPS: Array< [ string, string ] > = [
-	[ 'passed', __( 'Passed', 'seo-studio' ) ],
+const OPEN_GROUPS: Array< [ string, string ] > = [
 	[ 'needs_work', __( 'Needs work', 'seo-studio' ) ],
 	[ 'not_checked', __( 'Not checked', 'seo-studio' ) ],
 	[ 'out_of_date', __( 'Out of date', 'seo-studio' ) ],
@@ -50,7 +49,8 @@ export function EvidenceReadiness( {
 	onAddKeyphrase,
 	children,
 }: EvidenceReadinessProps ) {
-	const [ open, setOpen ] = useState( '' );
+	const [ open, setOpen ] = useState< Record< string, boolean > >( {} );
+	const [ showPassed, setShowPassed ] = useState( false );
 	const [ showAll, setShowAll ] = useState( false );
 	const [ notice, setNotice ] = useState( '' );
 
@@ -65,11 +65,13 @@ export function EvidenceReadiness( {
 	const skipped = checks.filter(
 		( check ) => check.state === 'not_applicable'
 	);
+	const passed = applicable.filter( ( check ) => check.state === 'passed' );
 
-	function focusDetail( id: string ) {
-		window.setTimeout( () => {
-			document.getElementById( id )?.focus();
-		}, 0 );
+	function toggle( id: string ) {
+		setOpen( ( current ) => ( {
+			...current,
+			[ id ]: ! current[ id ],
+		} ) );
 	}
 
 	function runCheck( check: PresentedCheck ) {
@@ -79,40 +81,14 @@ export function EvidenceReadiness( {
 			return;
 		}
 		if ( check.action === 'add_keyphrase' ) {
-			setNotice(
-				__( 'The target phrase field is ready.', 'seo-studio' )
-			);
+			setNotice( __( 'Add a focus keyphrase below.', 'seo-studio' ) );
 			onAddKeyphrase();
-			return;
 		}
-		setOpen( check.id );
-		if ( check.action === 'view_fix' ) {
-			setNotice(
-				check.recommendation ||
-					__( 'Showing the safe fix.', 'seo-studio' )
-			);
-			focusDetail( `seostudio-fix-${ check.id }` );
-			return;
-		}
-		if ( check.action === 'view_evidence' ) {
-			setNotice(
-				check.measured ||
-					__( 'Showing the observed value.', 'seo-studio' )
-			);
-			focusDetail( `seostudio-evidence-${ check.id }` );
-			return;
-		}
-		setNotice(
-			check.reason || __( 'Showing the explanation.', 'seo-studio' )
-		);
-		focusDetail( `seostudio-reason-${ check.id }` );
 	}
 
 	function runMissing( item: MissingItem ) {
 		if ( item.action === 'add_keyphrase' ) {
-			setNotice(
-				__( 'The target phrase field is ready.', 'seo-studio' )
-			);
+			setNotice( __( 'Add a focus keyphrase below.', 'seo-studio' ) );
 			onAddKeyphrase();
 			return;
 		}
@@ -161,7 +137,7 @@ export function EvidenceReadiness( {
 				</section>
 			) : null }
 			{ notice ? <p role="status">{ notice }</p> : null }
-			{ GROUPS.map( ( [ state, heading ] ) => {
+			{ OPEN_GROUPS.map( ( [ state, heading ] ) => {
 				const rows = applicable.filter(
 					( check ) => check.state === state
 				);
@@ -176,9 +152,10 @@ export function EvidenceReadiness( {
 								<CheckRow
 									key={ check.id }
 									check={ check }
-									open={ open === check.id }
+									open={ !! open[ check.id ] }
 									editorUrl={ editorUrl }
 									busy={ busy }
+									onToggle={ () => toggle( check.id ) }
 									onRun={ () => runCheck( check ) }
 								/>
 							) ) }
@@ -186,6 +163,38 @@ export function EvidenceReadiness( {
 					</section>
 				);
 			} ) }
+			{ passed.length > 0 ? (
+				<div>
+					<button
+						type="button"
+						className="button-link"
+						aria-expanded={ showPassed }
+						aria-controls="seostudio-passed-checks"
+						onClick={ () =>
+							setShowPassed( ( current ) => ! current )
+						}
+					>
+						{ __( 'Passed', 'seo-studio' ) }
+					</button>
+					<div id="seostudio-passed-checks" hidden={ ! showPassed }>
+						<section aria-label={ __( 'Passed', 'seo-studio' ) }>
+							<ul className="seostudio-checks">
+								{ passed.map( ( check ) => (
+									<CheckRow
+										key={ check.id }
+										check={ check }
+										open={ !! open[ check.id ] }
+										editorUrl={ editorUrl }
+										busy={ busy }
+										onToggle={ () => toggle( check.id ) }
+										onRun={ () => runCheck( check ) }
+									/>
+								) ) }
+							</ul>
+						</section>
+					</div>
+				</div>
+			) : null }
 			{ skipped.length > 0 ? (
 				<div>
 					<button
@@ -207,9 +216,10 @@ export function EvidenceReadiness( {
 									<CheckRow
 										key={ check.id }
 										check={ check }
-										open={ open === check.id }
+										open={ !! open[ check.id ] }
 										editorUrl={ editorUrl }
 										busy={ busy }
+										onToggle={ () => toggle( check.id ) }
 										onRun={ () => runCheck( check ) }
 									/>
 								) ) }
@@ -227,65 +237,67 @@ function CheckRow( {
 	open,
 	editorUrl,
 	busy,
+	onToggle,
 	onRun,
 }: {
 	check: PresentedCheck;
 	open: boolean;
 	editorUrl: string;
 	busy: boolean;
+	onToggle: () => void;
 	onRun: () => void;
 } ) {
-	const reveals =
-		check.action === 'view_evidence' ||
-		check.action === 'view_fix' ||
-		check.action === 'view_explanation';
-	let detailId = `seostudio-reason-${ check.id }`;
-	if ( check.action === 'view_fix' ) {
-		detailId = `seostudio-fix-${ check.id }`;
-	} else if ( check.action === 'view_evidence' ) {
-		detailId = `seostudio-evidence-${ check.id }`;
-	}
+	const panelId = `seostudio-check-${ check.id }`;
+	const title = assessmentTitle( check.id );
 
 	return (
 		<li data-check={ check.id } data-state={ check.state }>
-			<h4>{ assessmentTitle( check.id ) }</h4>
-			<p>
-				<span className="seostudio-chip">{ check.label }</span>
-			</p>
-			<p id={ `seostudio-reason-${ check.id }` } tabIndex={ -1 }>
-				{ check.reason }
-			</p>
-			{ check.measured ? (
-				<p id={ `seostudio-evidence-${ check.id }` } tabIndex={ -1 }>
-					{ __( 'Measured', 'seo-studio' ) }: { check.measured }
-				</p>
-			) : (
-				<p id={ `seostudio-evidence-${ check.id }` } tabIndex={ -1 }>
-					{ __( 'No measured value was stored.', 'seo-studio' ) }
-				</p>
-			) }
-			<button
-				type="button"
-				className="button"
-				disabled={ busy && check.action === 'check_published' }
-				aria-expanded={ reveals ? open : undefined }
-				aria-controls={ reveals ? detailId : undefined }
-				onClick={ onRun }
+			<h4>
+				<button
+					type="button"
+					className="seostudio-check-toggle"
+					aria-expanded={ open }
+					aria-controls={ panelId }
+					onClick={ onToggle }
+				>
+					<span>{ title }</span>
+					<span className="seostudio-chip">{ check.label }</span>
+				</button>
+			</h4>
+			<div
+				id={ panelId }
+				hidden={ ! open }
+				role="region"
+				aria-label={ title }
 			>
-				{ check.action_label }
-			</button>
-			{ check.action === 'view_fix' && open ? (
-				<div id={ `seostudio-fix-${ check.id }` } tabIndex={ -1 }>
+				{ check.reason ? <p>{ check.reason }</p> : null }
+				{ check.measured ? (
+					<p>
+						{ __( 'Measured', 'seo-studio' ) }: { check.measured }
+					</p>
+				) : null }
+				{ check.recommendation ? (
 					<p>{ check.recommendation }</p>
-					{ editorUrl ? (
-						<p>
-							<a href={ editorUrl }>
-								{ __( 'Edit page', 'seo-studio' ) }
-							</a>
-						</p>
-					) : null }
-				</div>
-			) : null }
+				) : null }
+				{ check.action === 'view_fix' && editorUrl ? (
+					<p>
+						<a href={ editorUrl }>
+							{ __( 'Edit page', 'seo-studio' ) }
+						</a>
+					</p>
+				) : null }
+				{ check.action === 'check_published' ||
+				check.action === 'add_keyphrase' ? (
+					<button
+						type="button"
+						className="button"
+						disabled={ busy && check.action === 'check_published' }
+						onClick={ onRun }
+					>
+						{ check.action_label }
+					</button>
+				) : null }
+			</div>
 		</li>
 	);
 }
