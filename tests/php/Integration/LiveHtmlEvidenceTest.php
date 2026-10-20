@@ -199,16 +199,29 @@ final class LiveHtmlEvidenceTest extends WP_UnitTestCase {
 	}
 
 	private function observe( string $html ): PageModel {
-		$fetcher = new LoopbackFetcher(
-			policy: new FetchPolicy( static fn (): array => array( '93.184.216.34' ) ),
-			transport: static fn (): array => array(
-				'code'     => 200,
-				'location' => '',
-				'body'     => $html,
-				'robots'   => '',
-			)
-		);
-		return $fetcher->fetch( home_url( '/observed-page/' ) );
+		// wp-env sets the site home to localhost. The policy blocks that host, and the
+		// injected transport is reached only after the allow check. Point this fetch at
+		// a public origin without changing the rendered HTML or the policy.
+		$home = static function (): string {
+			return 'https://example.test';
+		};
+		add_filter( 'pre_option_home', $home );
+		add_filter( 'pre_option_siteurl', $home );
+		try {
+			$fetcher = new LoopbackFetcher(
+				policy: new FetchPolicy( static fn (): array => array( '93.184.216.34' ) ),
+				transport: static fn (): array => array(
+					'code'     => 200,
+					'location' => '',
+					'body'     => $html,
+					'robots'   => '',
+				)
+			);
+			return $fetcher->fetch( 'https://example.test/observed-page/' );
+		} finally {
+			remove_filter( 'pre_option_home', $home );
+			remove_filter( 'pre_option_siteurl', $home );
+		}
 	}
 
 	private function mode( string $mode ): void {
