@@ -34,6 +34,12 @@ if ( ! defined( 'SEOSTUDIO_JOBS_SYNC' ) ) {
 	define( 'SEOSTUDIO_JOBS_SYNC', true );
 }
 
+// The suite stands in for a local site. The localhost fetch exception still
+// requires SEOSTUDIO_LOCAL_OBSERVE, which individual tests define explicitly.
+if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) {
+	define( 'WP_ENVIRONMENT_TYPE', 'local' );
+}
+
 require dirname( __DIR__, 3 ) . '/vendor/autoload.php';
 require $tests_dir . '/includes/functions.php';
 
