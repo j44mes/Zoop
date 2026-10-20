@@ -50,7 +50,7 @@ final class PhaseOneTest extends WP_UnitTestCase {
 		$keys = get_registered_meta_keys( 'post' );
 		$this->assertArrayHasKey( '_seostudio_focus_keyphrase', $keys );
 		$this->assertArrayHasKey( '_seostudio_title', $keys );
-		$this->assertFalse( $keys['_seostudio_title']['show_in_rest'] );
+		$this->assertNotFalse( $keys['_seostudio_title']['show_in_rest'] );
 
 		$post_id = self::factory()->post->create(
 			array(
@@ -113,7 +113,7 @@ final class PhaseOneTest extends WP_UnitTestCase {
 
 		$update = new WP_REST_Request( 'PUT', '/seostudio/v1/posts/' . $post_id . '/seo' );
 		$update->set_header( 'Content-Type', 'application/json' );
-		$update->set_body( (string) wp_json_encode( array( 'title' => 'rank tracker draft', 'proposal_revision' => 0 ) ) );
+		$update->set_body( (string) wp_json_encode( array( 'title' => 'rank tracker draft' ) ) );
 		$this->assertSame( 200, $this->dispatch( $update )->get_status() );
 
 		$allowed = new WP_REST_Request( 'POST', '/seostudio/v1/analyse/post/' . $post_id );

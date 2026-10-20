@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace SEOStudio\Appearance;
 
+use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Rest\SeoValidator;
 use SEOStudio\Storage\SeoMeta;
-use WP_Error;
 use WP_Post;
 use WP_REST_Request;
 
@@ -88,8 +88,8 @@ final class EditorMeta {
 				)
 			);
 		};
-		$string( Fields::TITLE, 300, 'sanitize_text_field' );
-		$string( Fields::DESCRIPTION, 500, 'sanitize_textarea_field' );
+		$string( '_seostudio_title', 300, 'sanitize_text_field' );
+		$string( '_seostudio_description', 500, 'sanitize_textarea_field' );
 		$string( '_seostudio_canonical', 2048, 'sanitize_text_field' );
 		$string( '_seostudio_og_title', 300, 'sanitize_text_field' );
 		$string( '_seostudio_og_description', 500, 'sanitize_text_field' );
@@ -162,71 +162,33 @@ final class EditorMeta {
 				'auth_callback' => $auth,
 			)
 		);
-		register_post_meta(
-			'',
-			ProposalStore::REVISION,
-			array(
-				'type'          => 'string',
-				'single'        => true,
-				'show_in_rest'  => array(
-					'schema' => array(
-						'type' => 'string',
-					),
-				),
-				'auth_callback' => $auth,
-			)
-		);
 	}
 
 	/**
-	 * Commit a proposal before WordPress writes the post. Core must not write those keys itself.
+	 * The static homepage does not publish its post title or description.
 	 *
 	 * @param mixed $prepared
 	 * @return mixed
 	 */
 	public static function beforeRestSave( $prepared, WP_REST_Request $request ) {
-		$route = $request->get_route();
-		if ( is_wp_error( $prepared ) || str_contains( $route, '/autosaves' ) || str_contains( $route, '/revisions' ) ) {
+		if ( is_wp_error( $prepared ) ) {
+			return $prepared;
+		}
+		$post_id = (int) $request->get_param( 'id' );
+		if ( $post_id <= 0 || ! HomepageMetadata::isStaticPage( $post_id ) ) {
 			return $prepared;
 		}
 		$meta = $request->get_param( 'meta' );
 		if ( ! is_array( $meta ) ) {
 			return $prepared;
 		}
-		if ( array_key_exists( ProposalStore::REVISION, $meta ) ) {
-			unset( $meta[ ProposalStore::REVISION ] );
-			$request->set_param( 'meta', $meta );
-		}
-		$has_title       = array_key_exists( Fields::TITLE, $meta );
-		$has_description = array_key_exists( Fields::DESCRIPTION, $meta );
-		if ( ! $has_title && ! $has_description ) {
-			return $prepared;
-		}
-		$post_id = (int) $request->get_param( 'id' );
-		if ( $post_id <= 0 ) {
-			return new WP_Error( 'seostudio_validation', __( 'Save the draft before saving the SEO proposal.', 'seo-studio' ), array( 'status' => 400 ) );
-		}
-		$header = $request->get_header( 'x_zoop_proposal_revision' );
-		$seen   = ProposalStore::revisionFrom( is_string( $header ) ? $header : null );
-		if ( null === $seen ) {
-			return new WP_Error( 'seostudio_stale', __( 'The proposal revision was missing from this update.', 'seo-studio' ), array( 'status' => 409 ) );
-		}
-		$result = ( new ProposalStore() )->commit(
-			$post_id,
-			$has_title ? (string) $meta[ Fields::TITLE ] : null,
-			$has_description ? (string) $meta[ Fields::DESCRIPTION ] : null,
-			$seen
-		);
-		if ( ! $result['ok'] ) {
-			return new WP_Error( $result['code'], $result['message'], array( 'status' => $result['status'] ) );
-		}
-		unset( $meta[ Fields::TITLE ], $meta[ Fields::DESCRIPTION ], $meta[ ProposalStore::REVISION ] );
+		unset( $meta['_seostudio_title'], $meta['_seostudio_description'] );
 		$request->set_param( 'meta', $meta );
 		return $prepared;
 	}
 
 	/**
-	 * Read the classic editor fields. A rejected proposal does not stop the post save.
+	 * Read the classic editor fields. An invalid SEO value does not stop the post save.
 	 *
 	 * @param mixed $post
 	 */
@@ -248,19 +210,7 @@ final class EditorMeta {
 			return;
 		}
 		self::saveDirect( $postId );
-		if ( ! self::hasProposalInput() ) {
-			return;
-		}
-		$raw      = isset( $_POST['seostudio_proposal_revision'] ) ? (string) wp_unslash( $_POST['seostudio_proposal_revision'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- The nonce was verified above.
-		$expected = ProposalStore::revisionFrom( $raw );
-		if ( null === $expected ) {
-			self::rememberNotice( 'conflict' );
-			return;
-		}
-		$result = ( new ProposalStore() )->commit( $postId, self::posted( Fields::TITLE ), self::posted( Fields::DESCRIPTION ), $expected );
-		if ( ! $result['ok'] ) {
-			self::rememberNotice( self::noticeFor( $result['code'] ) );
-		}
+		self::savePublished( $postId );
 	}
 
 	public static function redirectNotice( string $location ): string {
@@ -278,21 +228,12 @@ final class EditorMeta {
 			'conflict' => __( 'The SEO title and description were not saved because a newer edit was saved first. Review the current proposal. The rest of the update was kept.', 'seo-studio' ),
 			'invalid'  => __( 'The SEO title and description were not saved because they are not valid. The rest of the update was kept.', 'seo-studio' ),
 			'failed'   => __( 'The SEO title and description were not saved because the database write failed. The rest of the update was kept.', 'seo-studio' ),
+			'homepage' => __( 'The homepage title and description are site settings. This update did not change them.', 'seo-studio' ),
 		);
 		if ( ! isset( $messages[ $flag ] ) ) {
 			return;
 		}
 		echo '<div class="notice notice-error"><p>' . esc_html( $messages[ $flag ] ) . '</p></div>';
-	}
-
-	private static function noticeFor( string $code ): string {
-		if ( 'seostudio_stale' === $code ) {
-			return 'conflict';
-		}
-		if ( 'seostudio_validation' === $code ) {
-			return 'invalid';
-		}
-		return 'failed';
 	}
 
 	private static function classicRequest(): bool {
@@ -312,9 +253,8 @@ final class EditorMeta {
 	private static function classicKeys(): array {
 		return array(
 			'seostudio_metabox_nonce',
-			Fields::TITLE,
-			Fields::DESCRIPTION,
-			'seostudio_proposal_revision',
+			'_seostudio_title',
+			'_seostudio_description',
 			'_seostudio_canonical',
 			'_seostudio_og_title',
 			'_seostudio_og_description',
@@ -328,19 +268,36 @@ final class EditorMeta {
 		);
 	}
 
-	private static function hasProposalInput(): bool {
-		return isset( $_POST[ Fields::TITLE ] ) || isset( $_POST[ Fields::DESCRIPTION ] ) || isset( $_POST['seostudio_proposal_revision'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- The nonce is checked before any write.
-	}
-
-	private static function posted( string $key ): ?string {
-		if ( ! isset( $_POST[ $key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
-			return null;
+	private static function savePublished( int $postId ): void {
+		$title_posted       = isset( $_POST['_seostudio_title'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+		$description_posted = isset( $_POST['_seostudio_description'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+		if ( ! $title_posted && ! $description_posted ) {
+			return;
 		}
-		$raw = wp_unslash( (string) $_POST[ $key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
-		if ( Fields::DESCRIPTION === $key ) {
-			return sanitize_textarea_field( $raw );
+		if ( HomepageMetadata::isStaticPage( $postId ) ) {
+			self::rememberNotice( 'homepage' );
+			return;
 		}
-		return sanitize_text_field( $raw );
+		$params = array();
+		if ( $title_posted ) {
+			$params['title'] = sanitize_text_field( wp_unslash( (string) $_POST['_seostudio_title'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+		}
+		if ( $description_posted ) {
+			$params['description'] = sanitize_textarea_field( wp_unslash( (string) $_POST['_seostudio_description'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+		}
+		$error = ( new SeoValidator() )->validate( $params, (string) home_url( '/' ) );
+		if ( null !== $error ) {
+			self::rememberNotice( 'invalid' );
+			return;
+		}
+		foreach ( array(
+			'title'       => '_seostudio_title',
+			'description' => '_seostudio_description',
+		) as $field => $key ) {
+			if ( array_key_exists( $field, $params ) ) {
+				SeoMeta::store( $postId, $key, $params[ $field ] );
+			}
+		}
 	}
 
 	private static function saveDirect( int $postId ): void {
@@ -357,10 +314,11 @@ final class EditorMeta {
 			}
 		}
 		if ( isset( $_POST['seostudio_robots_index'], $_POST['seostudio_robots_follow'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
-			$params['robots'] = array(
-				'index'  => '1' === (string) wp_unslash( $_POST['seostudio_robots_index'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
-				'follow' => '1' === (string) wp_unslash( $_POST['seostudio_robots_follow'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
-			);
+			$existing         = get_post_meta( $postId, '_seostudio_robots', true );
+			$robots           = is_array( $existing ) ? $existing : array();
+			$robots['index']  = '1' === (string) wp_unslash( $_POST['seostudio_robots_index'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+			$robots['follow'] = '1' === (string) wp_unslash( $_POST['seostudio_robots_follow'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
+			$params['robots'] = $robots;
 		}
 		if ( isset( $_POST['seostudio_is_news'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.
 			$params['is_news'] = '1' === (string) wp_unslash( $_POST['seostudio_is_news'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Caller verified the nonce.

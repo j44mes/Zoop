@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Admin;
 
+use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\Settings;
 use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Integrations\Detector;
@@ -111,6 +112,8 @@ final class Assets {
 					'metadata'     => array(
 						'publishesOwn' => 'owner' === ( $settings['mode'] ?? 'analysis' ) && null === $active,
 						'activePlugin' => null === $active ? '' : $active['name'],
+						'pluginUrl'    => self::pluginScreen( is_array( $active ) ? (string) ( $active['slug'] ?? '' ) : '' ),
+						'canManage'    => Capabilities::canManage(),
 						'isHomepage'   => HomepageMetadata::isStaticPage( $post_id ),
 						'homepage'     => HomepageMetadata::isStaticPage( $post_id ) ? HomepageMetadata::resolve() : null,
 					),
@@ -120,5 +123,16 @@ final class Assets {
 			) . ';',
 			'before'
 		);
+	}
+
+	private static function pluginScreen( string $slug ): string {
+		$screens = array(
+			'yoast'     => 'admin.php?page=wpseo_dashboard',
+			'rank_math' => 'admin.php?page=rank-math',
+			'seopress'  => 'admin.php?page=seopress-option',
+			'aioseo'    => 'admin.php?page=aioseo',
+			'tsf'       => 'admin.php?page=theseoframework-settings',
+		);
+		return $screens[ $slug ] ?? '';
 	}
 }

@@ -1,26 +1,33 @@
 import { metadataNote } from '../../assets/src/editor/metadata-note';
 
 describe( 'metadata ownership guidance', () => {
-	it( 'identifies homepage settings and the page fields they override', () => {
+	it( 'sends an administrator to homepage settings', () => {
 		const note = metadataNote( {
 			publishesOwn: true,
 			activePlugin: '',
 			isHomepage: true,
+			canManage: true,
 		} );
-		expect( note ).toContain(
-			'Home title and Home description in Zoop Settings'
-		);
-		expect( note ).toContain( 'saved but do not override' );
-		expect( note ).toContain( 'Social overrides still apply' );
+		expect( note ).toContain( 'Zoop settings' );
+		expect( note ).toContain( 'does not publish a separate SEO title' );
 	} );
 
-	it( 'keeps analysis-only guidance when the static homepage is unpublished', () => {
+	it( 'names the plugin that prints the live tags', () => {
+		const note = metadataNote( {
+			publishesOwn: false,
+			activePlugin: 'Yoast SEO',
+		} );
+		expect( note ).toContain( 'Yoast SEO' );
+		expect( note ).toContain( 'will not write a second set of tags' );
+	} );
+
+	it( 'does not offer a publishing control in analysis-only mode', () => {
 		expect(
 			metadataNote( {
 				publishesOwn: false,
 				activePlugin: '',
 				isHomepage: true,
 			} )
-		).toContain( 'Analysis-only mode' );
+		).toContain( 'not printing tags' );
 	} );
 } );

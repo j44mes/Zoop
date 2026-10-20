@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace SEOStudio\Rest;
 
-use SEOStudio\Appearance\Fields;
-use SEOStudio\Appearance\ProposalStore;
 use SEOStudio\Content\TemplateValues;
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Core\Settings;
 use SEOStudio\Storage\SeoMeta;
 use WP_Error;
@@ -181,24 +180,15 @@ final class PostSeoController {
 			return Responses::error( 'seostudio_validation', $error['message'], 400, $error['field'] );
 		}
 
-		if ( array_key_exists( 'title', $params ) || array_key_exists( 'description', $params ) ) {
-			$revision = ProposalStore::revisionFrom( $params['proposal_revision'] ?? null );
-			if ( null === $revision ) {
-				return Responses::error( 'seostudio_stale', __( 'The proposal revision was missing from this update.', 'seo-studio' ), 409 );
+		if ( HomepageMetadata::isStaticPage( $post_id ) && ( array_key_exists( 'title', $params ) || array_key_exists( 'description', $params ) ) ) {
+			if ( ! Capabilities::canManage() ) {
+				return Responses::error( 'seostudio_homepage_settings', __( 'The homepage title is a site setting. It is available to an administrator.', 'seo-studio' ), 403 );
 			}
-			$proposal = ( new ProposalStore() )->commit(
-				$post_id,
-				array_key_exists( 'title', $params ) ? (string) $params['title'] : null,
-				array_key_exists( 'description', $params ) ? (string) $params['description'] : null,
-				$revision
-			);
-			if ( ! $proposal['ok'] ) {
-				return Responses::error( $proposal['code'], $proposal['message'], $proposal['status'] );
-			}
+			return Responses::error( 'seostudio_homepage_settings', __( 'The homepage title and description are site settings.', 'seo-studio' ), 400 );
 		}
 
 		foreach ( SeoValidator::FIELDS as $name => $meta_key ) {
-			if ( ! array_key_exists( $name, $params ) || 'title' === $name || 'description' === $name ) {
+			if ( ! array_key_exists( $name, $params ) ) {
 				continue;
 			}
 			SeoMeta::store( $post_id, $meta_key, $params[ $name ] );
@@ -215,19 +205,8 @@ final class PostSeoController {
 	private function payload( int $postId ): array {
 		$data = array();
 		foreach ( SeoValidator::FIELDS as $name => $meta_key ) {
-			if ( 'title' === $name ) {
-				$data[ $name ] = get_post_meta( $postId, Fields::TITLE, true );
-				continue;
-			}
-			if ( 'description' === $name ) {
-				$data[ $name ] = get_post_meta( $postId, Fields::DESCRIPTION, true );
-				continue;
-			}
 			$data[ $name ] = get_post_meta( $postId, $meta_key, true );
 		}
-		$data['applied_title']       = get_post_meta( $postId, '_seostudio_title', true );
-		$data['applied_description'] = get_post_meta( $postId, '_seostudio_description', true );
-		$data['proposal_revision']   = ( new ProposalStore() )->revision( $postId );
 
 		$settings                     = Settings::all();
 		$values                       = new TemplateValues(

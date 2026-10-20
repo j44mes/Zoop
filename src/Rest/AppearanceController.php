@@ -108,6 +108,7 @@ final class AppearanceController {
 		if ( ! $proposal['ok'] ) {
 			return Responses::error( $proposal['code'], $proposal['message'], $proposal['status'] );
 		}
+		$this->captureSuggestionBaseline( $post->ID );
 
 		return Responses::json( $this->payload( $post->ID, null ) );
 	}
@@ -126,8 +127,11 @@ final class AppearanceController {
 			return Responses::error( 'seostudio_stale', __( 'A newer proposal was saved. Review it before applying.', 'seo-studio' ), 409 );
 		}
 		$baseline = $this->baseline( $post->ID );
-		$locked   = 'homepage' === $baseline['target'] && ! Capabilities::canManage();
-		$seen     = $this->seenBaseline( $request );
+		if ( '1' === $this->meta( $post->ID, Fields::SUGGESTION_BASELINE_SAVED ) && ( ! $this->decision->sameStored( $this->meta( $post->ID, Fields::SUGGESTION_BASELINE_TITLE ), $baseline['title'] ) || ! $this->decision->sameStored( $this->meta( $post->ID, Fields::SUGGESTION_BASELINE_DESCRIPTION ), $baseline['description'] ) ) ) {
+			return Responses::error( 'seostudio_stale', __( 'The published title changed after this suggestion was saved. Review it again before applying.', 'seo-studio' ), 409 );
+		}
+		$locked = 'homepage' === $baseline['target'] && ! Capabilities::canManage();
+		$seen   = $this->seenBaseline( $request );
 		if ( $seen instanceof WP_Error ) {
 			return $seen;
 		}
@@ -238,6 +242,13 @@ final class AppearanceController {
 			'title'       => $clean['title'],
 			'description' => $clean['description'],
 		);
+	}
+
+	private function captureSuggestionBaseline( int $postId ): void {
+		$baseline = $this->baseline( $postId );
+		update_post_meta( $postId, Fields::SUGGESTION_BASELINE_TITLE, $baseline['title'] );
+		update_post_meta( $postId, Fields::SUGGESTION_BASELINE_DESCRIPTION, $baseline['description'] );
+		update_post_meta( $postId, Fields::SUGGESTION_BASELINE_SAVED, '1' );
 	}
 
 	private function storePrevious( int $postId, string $title, string $description, string $target ): void {

@@ -139,67 +139,60 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		$this->assertSame( 0, ( new ProposalStore() )->revision( $post_id ) );
 	}
 
-	public function test_gutenberg_update_requires_the_revision_header_and_saves_the_proposal(): void {
-		$post_id = self::factory()->post->create( array( 'post_title' => 'Original' ) );
-		$missing = $this->coreUpdate(
-			$post_id,
+	public function test_a_gutenberg_update_publishes_the_title_without_a_proposal_revision(): void {
+		$post_id = self::factory()->post->create(
 			array(
-				'title' => 'Changed too soon',
-				'meta'  => array(
-					Fields::TITLE       => 'Proposal',
-					Fields::DESCRIPTION => 'Proposal description',
-				),
-			),
-			null
+				'post_title'  => 'Original',
+				'post_status' => 'publish',
+			)
 		);
-		$this->assertSame( 409, $missing->get_status() );
-		$this->assertSame( 'seostudio_stale', $missing->as_error()->get_error_code() );
-		$this->assertSame( 'Original', get_post( $post_id )->post_title );
-		$this->assertSame( '', get_post_meta( $post_id, Fields::TITLE, true ) );
-
+		update_post_meta(
+			$post_id,
+			'_seostudio_robots',
+			array(
+				'index'  => true,
+				'follow' => false,
+			)
+		);
 		$saved = $this->coreUpdate(
 			$post_id,
 			array(
 				'title' => 'Updated title',
 				'meta'  => array(
-					Fields::TITLE       => 'Proposal title',
-					Fields::DESCRIPTION => 'Proposal description',
+					'_seostudio_title'       => 'Live SEO title',
+					'_seostudio_description' => 'Live SEO description',
 				),
 			),
-			'0'
+			null
 		);
+
 		$this->assertSame( 200, $saved->get_status() );
-		$this->assertSame( 'Updated title', get_post( $post_id )->post_title );
-		$this->assertSame( 'Proposal title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( '', get_post_meta( $post_id, '_seostudio_title', true ) );
-		$this->assertSame( 1, ( new ProposalStore() )->revision( $post_id ) );
+		$this->assertSame( 'Live SEO title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertFalse( get_post_meta( $post_id, '_seostudio_robots', true )['follow'] );
+		$html = $this->liveHead( $post_id );
+		$this->assertStringContainsString( '<title>Live SEO title</title>', $html );
+		$this->assertStringContainsString( 'content="Live SEO description"', $html );
+		$this->assertStringContainsString( 'nofollow', $html );
 	}
 
-	public function test_a_stale_gutenberg_header_rejects_the_post_title_as_well(): void {
-		$post_id = self::factory()->post->create( array( 'post_title' => 'Original' ) );
-		$this->assertTrue( ( new ProposalStore() )->commit( $post_id, 'Newer title', 'Newer description', 0 )['ok'] );
-
-		$result = $this->coreUpdate(
-			$post_id,
+	public function test_a_classic_update_publishes_the_title_and_keeps_nofollow(): void {
+		$post_id = self::factory()->post->create(
 			array(
-				'title' => 'Should stay original',
-				'meta'  => array(
-					Fields::TITLE       => 'Older title',
-					Fields::DESCRIPTION => 'Older description',
-				),
-			),
-			'0'
+				'post_title'  => 'Original',
+				'post_status' => 'publish',
+			)
 		);
-
-		$this->assertSame( 409, $result->get_status() );
-		$this->assertSame( 'Original', get_post( $post_id )->post_title );
-		$this->assertSame( 'Newer title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 1, ( new ProposalStore() )->revision( $post_id ) );
-	}
-
-	public function test_classic_update_persists_and_survives_reload(): void {
-		$post_id = self::factory()->post->create();
-		$this->classicFields( 'Classic title', 'Classic description', '0' );
+		update_post_meta(
+			$post_id,
+			'_seostudio_robots',
+			array(
+				'index'  => true,
+				'follow' => false,
+			)
+		);
+		$this->classicFields( 'Classic title', 'Classic description' );
+		$_POST['seostudio_robots_index']     = '1';
+		$_POST['seostudio_robots_follow']    = '0';
 		$_POST['_seostudio_focus_keyphrase'] = 'fire doors';
 		$_POST['_seostudio_canonical']       = home_url( '/doors/' );
 		wp_update_post(
@@ -210,22 +203,20 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		);
 		unset( $_POST );
 
-		$this->assertSame( 'Visible title', get_post( $post_id )->post_title );
-		$this->assertSame( 'Classic title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 'Classic description', get_post_meta( $post_id, Fields::DESCRIPTION, true ) );
-		$this->assertSame( 'fire doors', get_post_meta( $post_id, '_seostudio_focus_keyphrase', true ) );
-		$this->assertSame( '', get_post_meta( $post_id, '_seostudio_title', true ) );
-		$this->assertSame( 1, ( new ProposalStore() )->revision( $post_id ) );
+		$this->assertSame( 'Classic title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertSame( 'Classic description', get_post_meta( $post_id, '_seostudio_description', true ) );
+		$this->assertFalse( get_post_meta( $post_id, '_seostudio_robots', true )['follow'] );
+		$this->assertStringContainsString( '<title>Classic title</title>', $this->liveHead( $post_id ) );
+		$this->assertStringContainsString( 'nofollow', $this->liveHead( $post_id ) );
 	}
 
-	public function test_an_invalid_classic_nonce_leaves_the_proposal_and_other_saves_run(): void {
+	public function test_an_invalid_classic_nonce_leaves_the_title_and_other_saves_run(): void {
 		$post_id = self::factory()->post->create();
-		$this->assertTrue( ( new ProposalStore() )->commit( $post_id, 'Kept title', 'Kept description', 0 )['ok'] );
+		update_post_meta( $post_id, '_seostudio_title', 'Kept title' );
 		$_POST = array(
-			'seostudio_metabox_nonce'      => 'not-the-nonce',
-			Fields::TITLE                  => 'Hacked title',
-			Fields::DESCRIPTION            => 'Hacked description',
-			'seostudio_proposal_revision'  => '1',
+			'seostudio_metabox_nonce' => 'not-the-nonce',
+			'_seostudio_title'        => 'Hacked title',
+			'_seostudio_description'  => 'Hacked description',
 		);
 		$ran = false;
 		add_action(
@@ -244,18 +235,16 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		);
 
 		$this->assertTrue( $ran );
-		$this->assertSame( 'Kept title', get_post_meta( $post_id, Fields::TITLE, true ) );
+		$this->assertSame( 'Kept title', get_post_meta( $post_id, '_seostudio_title', true ) );
 		$this->assertSame( 'nonce', $GLOBALS['seostudio_classic_notice'] );
 		$location = apply_filters( 'redirect_post_location', 'post.php?post=' . $post_id . '&action=edit' );
 		$this->assertStringContainsString( 'seostudio_notice=nonce', $location );
 	}
 
-	public function test_a_stale_classic_revision_keeps_the_newer_proposal(): void {
+	public function test_an_invalid_classic_title_is_rejected_and_other_saves_run(): void {
 		$post_id = self::factory()->post->create();
-		$store   = new ProposalStore();
-		$this->assertTrue( $store->commit( $post_id, 'First title', 'First description', 0 )['ok'] );
-		$this->assertTrue( $store->commit( $post_id, 'Newer title', 'Newer description', 1 )['ok'] );
-		$this->classicFields( 'Rejected title', 'Rejected description', '1' );
+		update_post_meta( $post_id, '_seostudio_title', 'Kept title' );
+		$this->classicFields( str_repeat( 'a', 301 ), 'Still valid' );
 		$ran = false;
 		add_action(
 			'save_post',
@@ -273,21 +262,14 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		);
 
 		$this->assertTrue( $ran );
-		$this->assertSame( 'Newer title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 'Newer description', get_post_meta( $post_id, Fields::DESCRIPTION, true ) );
-		$this->assertSame( 2, $store->revision( $post_id ) );
-		$this->assertSame( 'conflict', $GLOBALS['seostudio_classic_notice'] );
-		ob_start();
-		$_GET['seostudio_notice'] = 'conflict';
-		EditorMeta::notice();
-		$html = (string) ob_get_clean();
-		$this->assertStringContainsString( 'newer edit was saved first', $html );
+		$this->assertSame( 'Kept title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertSame( 'invalid', $GLOBALS['seostudio_classic_notice'] );
 	}
 
-	public function test_autosave_and_revision_saves_do_not_change_the_parent_proposal(): void {
+	public function test_autosave_and_revision_saves_do_not_change_the_parent_title(): void {
 		$post_id = self::factory()->post->create();
-		$this->assertTrue( ( new ProposalStore() )->commit( $post_id, 'Parent title', 'Parent description', 0 )['ok'] );
-		$this->classicFields( 'Autosave title', 'Autosave description', '1' );
+		update_post_meta( $post_id, '_seostudio_title', 'Parent title' );
+		$this->classicFields( 'Autosave title', 'Autosave description' );
 		wp_insert_post(
 			array(
 				'post_type'   => 'revision',
@@ -306,13 +288,12 @@ final class MetadataContractTest extends WP_UnitTestCase {
 			)
 		);
 
-		$this->assertSame( 'Parent title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 1, ( new ProposalStore() )->revision( $post_id ) );
+		$this->assertSame( 'Parent title', get_post_meta( $post_id, '_seostudio_title', true ) );
 	}
 
-	public function test_a_save_without_zoop_fields_leaves_the_proposal_untouched(): void {
+	public function test_a_save_without_zoop_fields_leaves_the_title_untouched(): void {
 		$post_id = self::factory()->post->create();
-		$this->assertTrue( ( new ProposalStore() )->commit( $post_id, 'Untouched title', 'Untouched description', 0 )['ok'] );
+		update_post_meta( $post_id, '_seostudio_title', 'Untouched title' );
 		$_POST = array();
 		wp_update_post(
 			array(
@@ -322,8 +303,7 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( 'Quick edit', get_post( $post_id )->post_title );
-		$this->assertSame( 'Untouched title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 1, ( new ProposalStore() )->revision( $post_id ) );
+		$this->assertSame( 'Untouched title', get_post_meta( $post_id, '_seostudio_title', true ) );
 	}
 
 	public function test_an_author_cannot_edit_another_authors_proposal_and_an_editor_can_load_a_page(): void {
@@ -331,9 +311,9 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		$other   = self::factory()->user->create( array( 'role' => 'author' ) );
 		$post_id = self::factory()->post->create( array( 'post_author' => $author ) );
 		wp_set_current_user( $other );
-		$denied = $this->seoUpdate( $post_id, 'Borrowed title', 'Borrowed description', 0 );
+		$denied = $this->seoUpdate( $post_id, 'Borrowed title', 'Borrowed description' );
 		$this->assertSame( 403, $denied->get_status() );
-		$this->assertSame( '', get_post_meta( $post_id, Fields::TITLE, true ) );
+		$this->assertSame( '', get_post_meta( $post_id, '_seostudio_title', true ) );
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
 		wp_set_current_user( $editor );
@@ -344,39 +324,152 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		$settings = rest_do_request( new WP_REST_Request( 'GET', '/seostudio/v1/settings' ) );
 		$this->assertSame( 403, $settings->get_status() );
 
-		$own = self::factory()->post->create( array( 'post_author' => $editor ) );
-		$saved = $this->seoUpdate( $own, 'Editor title', 'Editor description', 0 );
+		$own   = self::factory()->post->create( array( 'post_author' => $editor ) );
+		$saved = $this->seoUpdate( $own, 'Editor title', 'Editor description' );
 		$this->assertSame( 200, $saved->get_status() );
-		$this->assertSame( 'Editor title', get_post_meta( $own, Fields::TITLE, true ) );
-		$this->assertSame( '', get_post_meta( $own, '_seostudio_title', true ) );
+		$this->assertSame( 'Editor title', get_post_meta( $own, '_seostudio_title', true ) );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
 		$hidden = rest_do_request( new WP_REST_Request( 'GET', '/seostudio/v1/capabilities' ) );
 		$this->assertSame( 403, $hidden->get_status() );
 	}
 
-	public function test_yoast_import_syncs_the_proposal_and_a_direct_save_does_not_publish(): void {
-		$post_id = self::factory()->post->create();
+	public function test_yoast_analysis_mode_does_not_overwrite_or_print_a_second_title(): void {
+		Detector::force(
+			array(
+				'slug'    => 'yoast',
+				'name'    => 'Yoast SEO',
+				'version' => 'test',
+			)
+		);
+		$post_id = self::factory()->post->create(
+			array(
+				'post_title'  => 'Door',
+				'post_status' => 'publish',
+			)
+		);
 		update_post_meta( $post_id, '_yoast_wpseo_title', 'Yoast title' );
 		update_post_meta( $post_id, '_yoast_wpseo_metadesc', 'Yoast description' );
-		( new Yoast() )->import( 0, 20 );
+		( new Yoast() )->import( $post_id - 1, 5 );
+		$saved = $this->seoUpdate( $post_id, 'Zoop title', 'Zoop description' );
 
-		$this->assertSame( 'Yoast title', get_post_meta( $post_id, '_yoast_wpseo_title', true ) );
-		$this->assertSame( 'Yoast title', get_post_meta( $post_id, '_seostudio_title', true ) );
-		$this->assertSame( 'Yoast title', get_post_meta( $post_id, Fields::TITLE, true ) );
-		$this->assertSame( 'Yoast description', get_post_meta( $post_id, Fields::DESCRIPTION, true ) );
-
-		$revision = ( new ProposalStore() )->revision( $post_id );
-		$saved    = $this->seoUpdate( $post_id, 'Bypass title', 'Bypass description', $revision );
 		$this->assertSame( 200, $saved->get_status() );
-		$this->assertSame( 'Yoast title', get_post_meta( $post_id, '_seostudio_title', true ) );
 		$this->assertSame( 'Yoast title', get_post_meta( $post_id, '_yoast_wpseo_title', true ) );
-		$this->assertSame( 'Bypass title', get_post_meta( $post_id, Fields::TITLE, true ) );
+		$this->assertSame( 'Zoop title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$html = $this->liveHead( $post_id );
+		$this->assertStringNotContainsString( '<title>Zoop title</title>', $html );
+		$this->assertStringNotContainsString( 'content="Zoop description"', $html );
+		$this->assertSame( 1, substr_count( strtolower( $html ), '<title>' ) );
+	}
+
+	public function test_a_suggestion_stays_unpublished_until_apply_and_a_manual_edit_makes_it_stale(): void {
+		$post_id = self::factory()->post->create(
+			array(
+				'post_title'  => 'Door',
+				'post_status' => 'publish',
+			)
+		);
+		update_post_meta( $post_id, '_seostudio_title', 'Published title' );
+		$suggestion = $this->request( 'PUT', $post_id, '/appearance', array(
+			'title'             => 'Suggested title',
+			'description'       => 'Suggested description',
+			'proposal_revision' => 0,
+		) );
+		$this->assertSame( 200, $suggestion->get_status() );
+		$this->assertSame( 'Published title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertSame( 'Suggested title', get_post_meta( $post_id, Fields::TITLE, true ) );
+
+		$manual = $this->seoUpdate( $post_id, 'Manual title', 'Manual description' );
+		$this->assertSame( 200, $manual->get_status() );
+		$this->assertStringContainsString( '<title>Manual title</title>', $this->liveHead( $post_id ) );
+
+		$stale = $this->request( 'POST', $post_id, '/appearance/apply', array(
+			'confirm'              => true,
+			'proposal_revision'    => 1,
+			'baseline_title'       => 'Manual title',
+			'baseline_description' => 'Manual description',
+		) );
+		$this->assertSame( 409, $stale->get_status() );
+		$this->assertSame( 'seostudio_stale', $stale->as_error()->get_error_code() );
+		$this->assertSame( 'Manual title', get_post_meta( $post_id, '_seostudio_title', true ) );
+	}
+
+	public function test_restore_before_apply_is_rejected(): void {
+		$post_id = self::factory()->post->create();
+		$result  = $this->request( 'POST', $post_id, '/appearance/restore', array(
+			'confirm'              => true,
+			'baseline_title'       => '',
+			'baseline_description' => '',
+		) );
+		$this->assertSame( 400, $result->get_status() );
+		$this->assertSame( 'seostudio_nothing_to_restore', $result->as_error()->get_error_code() );
+	}
+
+	public function test_analyse_does_not_write_metadata_and_an_upgrade_keeps_it(): void {
+		$post_id = self::factory()->post->create( array( 'post_status' => 'publish' ) );
+		update_post_meta( $post_id, '_seostudio_title', 'Kept title' );
+		update_post_meta( $post_id, '_seostudio_description', 'Kept description' );
+		update_post_meta(
+			$post_id,
+			'_seostudio_robots',
+			array(
+				'index'  => true,
+				'follow' => false,
+			)
+		);
+		$analyse = new WP_REST_Request( 'POST', '/seostudio/v1/analyse/post/' . $post_id );
+		$analyse->set_header( 'Content-Type', 'application/json' );
+		$analyse->set_body( (string) wp_json_encode( array( 'keyphrase' => 'fire doors', 'mode' => 'content' ) ) );
+		$this->assertSame( 200, rest_do_request( $analyse )->get_status() );
+		$this->assertSame( 'Kept title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertFalse( get_post_meta( $post_id, '_seostudio_robots', true )['follow'] );
+
+		$settings                    = Settings::all();
+		$settings['schema_version']  = 3;
+		update_option( Settings::OPTION, $settings );
+		\SEOStudio\Core\Upgrader::maybeUpgrade();
+		$this->assertSame( 'Kept title', get_post_meta( $post_id, '_seostudio_title', true ) );
+		$this->assertSame( 'Kept description', get_post_meta( $post_id, '_seostudio_description', true ) );
+		$this->assertFalse( get_post_meta( $post_id, '_seostudio_robots', true )['follow'] );
+	}
+
+	public function test_a_draft_title_is_stored_and_printed_only_after_publish(): void {
+		$post_id = self::factory()->post->create( array( 'post_status' => 'draft', 'post_title' => 'Door' ) );
+		$saved   = $this->seoUpdate( $post_id, 'Draft SEO title', 'Draft SEO description' );
+		$this->assertSame( 200, $saved->get_status() );
+		$this->assertSame( 'Draft SEO title', get_post_meta( $post_id, '_seostudio_title', true ) );
+
+		wp_set_current_user( 0 );
+		$hidden = $this->liveHead( $post_id );
+		$this->assertStringNotContainsString( '<title>Draft SEO title</title>', $hidden );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		wp_publish_post( $post_id );
+		$this->assertStringContainsString( '<title>Draft SEO title</title>', $this->liveHead( $post_id ) );
+	}
+
+	public function test_the_homepage_title_is_not_written_as_post_metadata(): void {
+		$page_id = self::factory()->post->create( array( 'post_type' => 'page', 'post_status' => 'publish' ) );
+		update_option( 'show_on_front', 'page' );
+		update_option( 'page_on_front', $page_id );
+		$admin = $this->seoUpdate( $page_id, 'Page title', 'Page description' );
+		$this->assertSame( 400, $admin->get_status() );
+		$this->assertSame( 'seostudio_homepage_settings', $admin->as_error()->get_error_code() );
+		$this->assertSame( '', get_post_meta( $page_id, '_seostudio_title', true ) );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$editor = $this->seoUpdate( $page_id, 'Editor title', 'Editor description' );
+		$this->assertSame( 403, $editor->get_status() );
+		$this->assertSame( '', get_post_meta( $page_id, '_seostudio_title', true ) );
 	}
 
 	public function test_update_apply_verify_and_restore_use_the_saved_proposal_and_observed_html(): void {
-		$post_id = self::factory()->post->create( array( 'post_title' => 'Door' ) );
-		$saved   = $this->seoUpdate( $post_id, 'Journey title', 'Journey description', 0 );
+		$post_id = self::factory()->post->create( array( 'post_title' => 'Door', 'post_status' => 'publish' ) );
+		$saved   = $this->request( 'PUT', $post_id, '/appearance', array(
+			'title'             => 'Journey title',
+			'description'       => 'Journey description',
+			'proposal_revision' => 0,
+		) );
 		$this->assertSame( 200, $saved->get_status() );
 		$this->assertSame( '', get_post_meta( $post_id, '_seostudio_title', true ) );
 		$this->assertSame( 'Journey title', get_post_meta( $post_id, Fields::TITLE, true ) );
@@ -580,15 +673,14 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		return $response;
 	}
 
-	private function seoUpdate( int $post_id, string $title, string $description, int $revision ): \WP_REST_Response {
+	private function seoUpdate( int $post_id, string $title, string $description ): \WP_REST_Response {
 		$request = new WP_REST_Request( 'PUT', '/seostudio/v1/posts/' . $post_id . '/seo' );
 		$request->set_header( 'Content-Type', 'application/json' );
 		$request->set_body(
 			(string) wp_json_encode(
 				array(
-					'title'             => $title,
-					'description'       => $description,
-					'proposal_revision' => $revision,
+					'title'       => $title,
+					'description' => $description,
 				)
 			)
 		);
@@ -597,13 +689,41 @@ final class MetadataContractTest extends WP_UnitTestCase {
 		return $response;
 	}
 
-	private function classicFields( string $title, string $description, string $revision ): void {
+	private function classicFields( string $title, string $description ): void {
 		$_POST = array(
-			'seostudio_metabox_nonce'     => wp_create_nonce( 'seostudio_metabox' ),
-			Fields::TITLE                 => $title,
-			Fields::DESCRIPTION           => $description,
-			'seostudio_proposal_revision' => $revision,
+			'seostudio_metabox_nonce' => wp_create_nonce( 'seostudio_metabox' ),
+			'_seostudio_title'        => $title,
+			'_seostudio_description'  => $description,
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $body
+	 */
+	private function request( string $method, int $post_id, string $path, array $body ): \WP_REST_Response {
+		$request = new WP_REST_Request( $method, '/seostudio/v1/posts/' . $post_id . $path );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body( (string) wp_json_encode( $body ) );
+		$response = rest_do_request( $request );
+		$this->assertInstanceOf( \WP_REST_Response::class, $response );
+		return $response;
+	}
+
+	private function liveHead( int $post_id ): string {
+		$link = get_permalink( $post_id );
+		if ( is_string( $link ) && '' !== $link ) {
+			$this->go_to( $link );
+		}
+		ob_start();
+		if ( function_exists( '_wp_render_title_tag' ) ) {
+			_wp_render_title_tag();
+		}
+		( new \SEOStudio\Output\HeadOutput() )->render();
+		$robots = apply_filters( 'wp_robots', array() );
+		if ( is_array( $robots ) && ! empty( $robots['nofollow'] ) ) {
+			echo '<meta name="robots" content="nofollow" />';
+		}
+		return (string) ob_get_clean();
 	}
 
 	private function observe( int $post_id, string $html, string $proposal_title, string $proposal_description, string $baseline_title, string $baseline_description, bool $restore = false ): \WP_REST_Response {

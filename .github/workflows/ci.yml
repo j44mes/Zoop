@@ -83,6 +83,45 @@ jobs:
           curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
           wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.integration.xml.dist
 
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, intl
+          coverage: none
+          tools: composer
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Start WordPress 6.9.10
+        run: |
+          npm install -g @wordpress/env
+          printf '{\n  "core": "WordPress/WordPress#6.9.10",\n  "phpVersion": "8.4",\n  "plugins": ["."]\n}\n' > .wp-env.override.json
+          wp-env start
+
+      - name: Integration tests
+        run: |
+          plugin="$(basename "$PWD")"
+          curl -fsSL -o phpunit-9.phar https://phar.phpunit.de/phpunit-9.6.22.phar
+          wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.integration.xml.dist
+
+      - name: Queue tests
+        run: |
+          plugin="$(basename "$PWD")"
+          wp-env run tests-cli --env-cwd="wp-content/plugins/${plugin}" php phpunit-9.phar -c phpunit.queue.xml.dist
+
   queue:
     runs-on: ubuntu-latest
     strategy:

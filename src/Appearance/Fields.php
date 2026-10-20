@@ -26,4 +26,10 @@ final class Fields {
 	public const PREVIOUS_SAVED = '_seostudio_appearance_previous_saved';
 
 	public const PREVIOUS_TARGET = '_seostudio_appearance_previous_target';
+
+	public const SUGGESTION_BASELINE_TITLE = '_seostudio_suggestion_baseline_title';
+
+	public const SUGGESTION_BASELINE_DESCRIPTION = '_seostudio_suggestion_baseline_description';
+
+	public const SUGGESTION_BASELINE_SAVED = '_seostudio_suggestion_baseline_saved';
 }

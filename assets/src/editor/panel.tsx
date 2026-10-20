@@ -10,10 +10,6 @@ import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { metadataNote, type MetadataOwner } from './metadata-note';
-import {
-	currentProposalRevision,
-	setProposalRevision,
-} from './proposal-revision';
 import { requestedSection } from './section';
 export type { MetadataOwner } from './metadata-note';
 import { scoreInWorker } from '../analysis/client';
@@ -127,6 +123,8 @@ export function Panel( {
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
 	const [ fieldsReady, setFieldsReady ] = useState( false );
+	const [ robotsEdited, setRobotsEdited ] = useState( false );
+	const publishTitle = !! metadata?.publishesOwn && ! metadata?.isHomepage;
 	const [ workerDown, setWorkerDown ] = useState( false );
 	const [ selector, setSelector ] = useState( '' );
 	const [ mode, setMode ] = useState( 'content' );
@@ -175,13 +173,6 @@ export function Panel( {
 				setTitle( seo.title || '' );
 				setDescription( seo.description || '' );
 				setCanonical( seo.canonical || '' );
-				syncClassic( 'seostudio-title-proposal', seo.title || '' );
-				syncClassic(
-					'seostudio-description-proposal',
-					seo.description || ''
-				);
-				syncClassic( 'seostudio-canonical-field', seo.canonical || '' );
-				setProposalRevision( String( seo.proposal_revision || 0 ) );
 				setFieldsReady( true );
 				setVideoUrl( seo.video_url || '' );
 				setIsNews(
@@ -189,8 +180,8 @@ export function Panel( {
 						seo.is_news === 1 ||
 						seo.is_news === '1'
 				);
-				setIndexable( seo.robots?.index !== false );
-				setFollow( seo.robots?.follow !== false );
+				setIndexable( robotOn( seo.robots?.index, true ) );
+				setFollow( robotOn( seo.robots?.follow, true ) );
 				setOgTitle( seo.og_title || '' );
 				setOgDescription( seo.og_description || '' );
 			} )
@@ -202,11 +193,13 @@ export function Panel( {
 	}, [ id ] );
 
 	useEffect( () => {
-		if ( blockEditor ) {
+		if ( blockEditor || ! fieldsReady ) {
 			return;
 		}
-		syncClassic( 'seostudio-title-proposal', title );
-		syncClassic( 'seostudio-description-proposal', description );
+		if ( publishTitle ) {
+			syncClassic( 'seostudio-stored-title', title );
+			syncClassic( 'seostudio-stored-description', description );
+		}
 		syncClassic( 'seostudio-canonical-field', canonical );
 		syncClassic( 'seostudio-social-title', ogTitle );
 		syncClassic( 'seostudio-social-description', ogDescription );
@@ -223,9 +216,10 @@ export function Panel( {
 		syncClassic( 'seostudio-robots-index', indexable ? '1' : '0' );
 		syncClassic( 'seostudio-robots-follow', follow ? '1' : '0' );
 		syncClassic( 'seostudio-is-news', isNews ? '1' : '0' );
-		syncClassic( 'seostudio-proposal-revision', currentProposalRevision() );
 	}, [
 		blockEditor,
+		fieldsReady,
+		publishTitle,
 		title,
 		description,
 		canonical,
@@ -238,7 +232,6 @@ export function Panel( {
 		isNews,
 		indexable,
 		follow,
-		fieldsReady,
 	] );
 
 	const runWorker = useCallback(
@@ -402,6 +395,8 @@ export function Panel( {
 			{ blockEditor ? (
 				<GutenbergMetaBridge
 					ready={ fieldsReady }
+					publishTitle={ publishTitle }
+					robotsEdited={ robotsEdited }
 					title={ title }
 					description={ description }
 					canonical={ canonical }
@@ -544,10 +539,22 @@ export function Panel( {
 			</details>
 			<details data-section="search">
 				<summary>{ __( 'Search appearance', 'seo-studio' ) }</summary>
-				{ metadata?.publishesOwn && metadata.isHomepage ? (
-					<Notice status="info" isDismissible={ false }>
-						{ metadataNote( metadata ) }
-					</Notice>
+				<Notice status="info" isDismissible={ false }>
+					{ metadataNote( metadata ) }
+				</Notice>
+				{ metadata?.activePlugin && metadata.pluginUrl ? (
+					<p>
+						<a href={ metadata.pluginUrl }>
+							{ metadata.activePlugin }
+						</a>
+					</p>
+				) : null }
+				{ metadata?.isHomepage && metadata.canManage ? (
+					<p>
+						<a href="admin.php?page=seostudio&section=settings">
+							{ __( 'Edit homepage settings', 'seo-studio' ) }
+						</a>
+					</p>
 				) : null }
 				<SnippetPreview
 					title={ previewTitle }
@@ -560,33 +567,40 @@ export function Panel( {
 					description={ previewDescription }
 					viewport="mobile"
 				/>
-				<VariableInput
-					id="seostudio-title"
-					label={ __( 'SEO title', 'seo-studio' ) }
-					value={ title }
-					onChange={ ( value ) => {
-						setTitle( value );
-						syncClassic( 'seostudio-title-proposal', value );
-					} }
-					hint={ __(
-						'Saved as a proposal. Update stores it. It is published only from Review and apply.',
-						'seo-studio'
-					) }
-				/>
-				<VariableInput
-					id="seostudio-description"
-					label={ __( 'Description', 'seo-studio' ) }
-					value={ description }
-					onChange={ ( value ) => {
-						setDescription( value );
-						syncClassic( 'seostudio-description-proposal', value );
-					} }
-					multiline
-					hint={ __(
-						'Saved as a proposal. Update stores it. It is published only from Review and apply.',
-						'seo-studio'
-					) }
-				/>
+				{ publishTitle ? (
+					<>
+						<VariableInput
+							id="seostudio-title"
+							label={ __( 'SEO title', 'seo-studio' ) }
+							value={ title }
+							onChange={ ( value ) => {
+								setTitle( value );
+								syncClassic( 'seostudio-stored-title', value );
+							} }
+							hint={ __(
+								'Update publishes this title on the public page.',
+								'seo-studio'
+							) }
+						/>
+						<VariableInput
+							id="seostudio-description"
+							label={ __( 'Description', 'seo-studio' ) }
+							value={ description }
+							onChange={ ( value ) => {
+								setDescription( value );
+								syncClassic(
+									'seostudio-stored-description',
+									value
+								);
+							} }
+							multiline
+							hint={ __(
+								'Update publishes this description on the public page.',
+								'seo-studio'
+							) }
+						/>
+					</>
+				) : null }
 				<TextControl
 					label={ __( 'Canonical', 'seo-studio' ) }
 					value={ canonical }
@@ -595,12 +609,18 @@ export function Panel( {
 				<CheckboxControl
 					label={ __( 'Index', 'seo-studio' ) }
 					checked={ indexable }
-					onChange={ setIndexable }
+					onChange={ ( value ) => {
+						setIndexable( value );
+						setRobotsEdited( true );
+					} }
 				/>
 				<CheckboxControl
 					label={ __( 'Follow', 'seo-studio' ) }
 					checked={ follow }
-					onChange={ setFollow }
+					onChange={ ( value ) => {
+						setFollow( value );
+						setRobotsEdited( true );
+					} }
 				/>
 			</details>
 			<details data-section="social">
@@ -677,6 +697,8 @@ function analysisLabelOf( state: string ): string {
 
 function GutenbergMetaBridge( {
 	ready,
+	publishTitle,
+	robotsEdited,
 	title,
 	description,
 	canonical,
@@ -691,6 +713,8 @@ function GutenbergMetaBridge( {
 	follow,
 }: {
 	ready: boolean;
+	publishTitle: boolean;
+	robotsEdited: boolean;
 	title: string;
 	description: string;
 	canonical: string;
@@ -717,31 +741,32 @@ function GutenbergMetaBridge( {
 		}
 		const nextRelated = relatedPayload( related );
 		const nextSynonyms = splitList( synonyms );
-		const robots = meta._seostudio_robots;
-		const robotIndex =
-			robots && typeof robots === 'object' && 'index' in robots
-				? ( robots as { index?: boolean } ).index
-				: true;
-		const robotFollow =
-			robots && typeof robots === 'object' && 'follow' in robots
-				? ( robots as { follow?: boolean } ).follow
-				: true;
+		const storedRobots =
+			meta._seostudio_robots && typeof meta._seostudio_robots === 'object'
+				? ( meta._seostudio_robots as Record< string, unknown > )
+				: undefined;
+		const robotsChanged =
+			!! robotsEdited &&
+			( ! storedRobots ||
+				robotOn( storedRobots.index, true ) !== indexable ||
+				robotOn( storedRobots.follow, true ) !== follow );
 		const currentNews =
 			meta._seostudio_is_news === true ||
 			meta._seostudio_is_news === 1 ||
 			meta._seostudio_is_news === '1';
+		const titleSame =
+			! publishTitle ||
+			( String( meta._seostudio_title ?? '' ) === title &&
+				String( meta._seostudio_description ?? '' ) === description );
 		const same =
-			String( meta._seostudio_title_proposal ?? '' ) === title &&
-			String( meta._seostudio_description_proposal ?? '' ) ===
-				description &&
+			titleSame &&
 			String( meta._seostudio_canonical ?? '' ) === canonical &&
 			String( meta._seostudio_og_title ?? '' ) === ogTitle &&
 			String( meta._seostudio_og_description ?? '' ) === ogDescription &&
 			String( meta._seostudio_focus_keyphrase ?? '' ) === keyphrase &&
 			String( meta._seostudio_video_url ?? '' ) === videoUrl &&
 			currentNews === isNews &&
-			robotIndex === indexable &&
-			robotFollow === follow &&
+			! robotsChanged &&
 			JSON.stringify(
 				Array.isArray( meta._seostudio_related_keyphrases )
 					? meta._seostudio_related_keyphrases
@@ -755,10 +780,8 @@ function GutenbergMetaBridge( {
 		if ( same ) {
 			return;
 		}
-		setMeta( {
+		const next: Record< string, unknown > = {
 			...meta,
-			_seostudio_title_proposal: title,
-			_seostudio_description_proposal: description,
 			_seostudio_canonical: canonical,
 			_seostudio_og_title: ogTitle,
 			_seostudio_og_description: ogDescription,
@@ -767,11 +790,24 @@ function GutenbergMetaBridge( {
 			_seostudio_is_news: isNews,
 			_seostudio_related_keyphrases: nextRelated,
 			_seostudio_synonyms: nextSynonyms,
-			_seostudio_robots: { index: indexable, follow },
-		} );
+		};
+		if ( publishTitle ) {
+			next._seostudio_title = title;
+			next._seostudio_description = description;
+		}
+		if ( robotsChanged ) {
+			next._seostudio_robots = {
+				...( storedRobots || {} ),
+				index: indexable,
+				follow,
+			};
+		}
+		setMeta( next );
 	}, [
 		ready,
 		meta,
+		publishTitle,
+		robotsEdited,
 		title,
 		description,
 		canonical,
@@ -787,6 +823,16 @@ function GutenbergMetaBridge( {
 		setMeta,
 	] );
 	return null;
+}
+
+function robotOn( value: unknown, fallback: boolean ): boolean {
+	if ( value === false || value === 0 || value === '0' ) {
+		return false;
+	}
+	if ( value === true || value === 1 || value === '1' ) {
+		return true;
+	}
+	return fallback;
 }
 
 function relatedPayload(

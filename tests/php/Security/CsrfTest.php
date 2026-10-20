@@ -62,14 +62,13 @@ final class CsrfTest extends WP_UnitTestCase {
 		$this->assertTrue( rest_cookie_check_errors( null ) );
 
 		$this->assertSame( 200, rest_do_request( $this->save() )->get_status() );
-		$this->assertSame( 'Saved title', get_post_meta( $this->postId, '_seostudio_title_proposal', true ) );
-		$this->assertSame( '', get_post_meta( $this->postId, '_seostudio_title', true ) );
+		$this->assertSame( 'Saved title', get_post_meta( $this->postId, '_seostudio_title', true ) );
 	}
 
 	private function save(): WP_REST_Request {
 		$request = new WP_REST_Request( 'PUT', '/seostudio/v1/posts/' . $this->postId . '/seo' );
 		$request->set_header( 'Content-Type', 'application/json' );
-		$request->set_body( '{"title":"Saved title","proposal_revision":0}' );
+		$request->set_body( '{"title":"Saved title"}' );
 		return $request;
 	}
 }

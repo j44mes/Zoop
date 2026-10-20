@@ -214,7 +214,7 @@ export function SearchAppearance( {
 				<h3>{ __( 'Search appearance', 'seo-studio' ) }</h3>
 				<p className="seostudio-lede">
 					{ __(
-						'Compare the published title and description with a proposal. Saving a proposal leaves the website unchanged.',
+						'A title you enter in the editor is published by Update. A suggestion stays here until you review and apply it.',
 						'seo-studio'
 					) }
 				</p>
