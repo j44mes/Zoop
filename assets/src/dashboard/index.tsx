@@ -11,7 +11,9 @@ import {
 	cancelAudit,
 	fetchAudit,
 	fetchPages,
+	fetchCapabilities,
 	fetchSettings,
+	type CapabilityManifest,
 	startAudit,
 	type AuditRun,
 	type PageList,
@@ -37,6 +39,8 @@ export function Dashboard() {
 	const [ list, setList ] = useState< PageList | null >( null );
 	const [ suggestions, setSuggestions ] = useState< PageListItem[] >( [] );
 	const [ settings, setSettings ] = useState< StudioSettings | null >( null );
+	const [ capabilities, setCapabilities ] =
+		useState< CapabilityManifest | null >( null );
 	const [ search, setSearch ] = useState( '' );
 	const [ orderby, setOrderby ] = useState( 'last_rendered_at' );
 	const [ order, setOrder ] = useState( 'desc' );
@@ -60,8 +64,15 @@ export function Dashboard() {
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 
 	useEffect( () => {
-		fetchSettings()
-			.then( setSettings )
+		fetchCapabilities()
+			.then( ( next ) => {
+				setCapabilities( next );
+				if ( next.manage ) {
+					fetchSettings()
+						.then( setSettings )
+						.catch( () => undefined );
+				}
+			} )
 			.catch( () => undefined );
 	}, [] );
 
@@ -185,7 +196,8 @@ export function Dashboard() {
 			<div className="seostudio-dashboard">
 				<AppBar
 					current="pages"
-					mode={ shortMode( settings ) }
+					mode={ shortMode( settings, capabilities ) }
+					allowSite={ !! capabilities?.manage }
 					onNavigate={ () => undefined }
 				/>
 				<PageWorkspace />
@@ -195,23 +207,47 @@ export function Dashboard() {
 
 	const summary = list?.summary;
 	const items = list?.items ?? [];
-	const modeLine = metadataModeLine( settings );
+	const visibleView =
+		capabilities &&
+		! capabilities.manage &&
+		view !== 'overview' &&
+		view !== 'pages'
+			? 'overview'
+			: view;
+	const modeLine = settings
+		? metadataModeLine( settings )
+		: shortMode( null, capabilities );
 
 	return (
 		<div className="seostudio-dashboard">
-			<AppBar current={ view } mode={ modeLine } onNavigate={ setView } />
-			{ view === 'settings' ? <SettingsPanel /> : null }
-			{ view === 'architecture' ? <ArchitecturePanel /> : null }
-			{ view === 'overlap' ? <OverlapPanel /> : null }
-			{ view === 'search-console' ? <SearchConsolePanel /> : null }
-			{ view === 'priorities' ? <PrioritiesPanel /> : null }
-			{ view !== 'settings' &&
-			view !== 'architecture' &&
-			view !== 'overlap' &&
-			view !== 'search-console' &&
-			view !== 'priorities' ? (
+			<AppBar
+				current={ visibleView }
+				mode={ modeLine }
+				allowSite={ !! capabilities?.manage }
+				onNavigate={ setView }
+			/>
+			{ capabilities?.manage && visibleView === 'settings' ? (
+				<SettingsPanel />
+			) : null }
+			{ capabilities?.manage && visibleView === 'architecture' ? (
+				<ArchitecturePanel />
+			) : null }
+			{ capabilities?.manage && visibleView === 'overlap' ? (
+				<OverlapPanel />
+			) : null }
+			{ capabilities?.manage && visibleView === 'search-console' ? (
+				<SearchConsolePanel />
+			) : null }
+			{ capabilities?.manage && visibleView === 'priorities' ? (
+				<PrioritiesPanel />
+			) : null }
+			{ visibleView !== 'settings' &&
+			visibleView !== 'architecture' &&
+			visibleView !== 'overlap' &&
+			visibleView !== 'search-console' &&
+			visibleView !== 'priorities' ? (
 				<>
-					{ view === 'overview' && summary ? (
+					{ visibleView === 'overview' && summary ? (
 						<div className="seostudio-summary">
 							<article>
 								<h2>{ __( 'Stored', 'seo-studio' ) }</h2>
@@ -233,7 +269,7 @@ export function Dashboard() {
 							</article>
 						</div>
 					) : null }
-					{ view === 'overview' ? (
+					{ visibleView === 'overview' ? (
 						<>
 							<p className="seostudio-muted">
 								{ summary?.average === null ||
@@ -311,22 +347,24 @@ export function Dashboard() {
 						</>
 					) : null }
 					<h2>
-						{ view === 'pages'
+						{ visibleView === 'pages'
 							? __( 'Pages', 'seo-studio' )
 							: __( 'All pages', 'seo-studio' ) }
 					</h2>
-					<p className="seostudio-actions">
-						<Button variant="primary" onClick={ reanalyse }>
-							{ __( 'Run website audit', 'seo-studio' ) }
-						</Button>
-						{ run &&
-						( run.status === 'queued' ||
-							run.status === 'running' ) ? (
-							<Button variant="secondary" onClick={ cancel }>
-								{ __( 'Cancel audit', 'seo-studio' ) }
+					{ capabilities?.manage ? (
+						<p className="seostudio-actions">
+							<Button variant="primary" onClick={ reanalyse }>
+								{ __( 'Run website audit', 'seo-studio' ) }
 							</Button>
-						) : null }
-					</p>
+							{ run &&
+							( run.status === 'queued' ||
+								run.status === 'running' ) ? (
+								<Button variant="secondary" onClick={ cancel }>
+									{ __( 'Cancel audit', 'seo-studio' ) }
+								</Button>
+							) : null }
+						</p>
+					) : null }
 					<p className="seostudio-muted">
 						{ __(
 							'A website audit saves on-page scores. SEO and readability scores are saved when you analyse a page in the editor.',
@@ -579,6 +617,7 @@ function sectionView():
 function AppBar( {
 	current,
 	mode,
+	allowSite,
 	onNavigate,
 }: {
 	current:
@@ -590,6 +629,7 @@ function AppBar( {
 		| 'search-console'
 		| 'priorities';
 	mode: string;
+	allowSite: boolean;
 	onNavigate: (
 		next:
 			| 'overview'
@@ -601,7 +641,7 @@ function AppBar( {
 			| 'priorities'
 	) => void;
 } ) {
-	const items: Array< {
+	const sections: Array< {
 		id:
 			| 'overview'
 			| 'pages'
@@ -623,6 +663,9 @@ function AppBar( {
 		{ id: 'priorities', label: __( 'Priorities', 'seo-studio' ) },
 		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
 	];
+	const items = sections.filter(
+		( item ) => allowSite || item.id === 'overview' || item.id === 'pages'
+	);
 	return (
 		<div className="seostudio-appbar">
 			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
@@ -655,12 +698,18 @@ function AppBar( {
 	);
 }
 
-function shortMode( settings: StudioSettings | null ): string {
-	if ( settings?.publishing ) {
+function shortMode(
+	settings: StudioSettings | null,
+	capabilities: CapabilityManifest | null
+): string {
+	if ( settings?.publishing || capabilities?.publishing ) {
 		return __( 'Zoop manages metadata', 'seo-studio' );
 	}
 	if ( settings?.detected?.name ) {
 		return settings.detected.name;
+	}
+	if ( capabilities?.detected_name ) {
+		return capabilities.detected_name;
 	}
 	return __( 'Analysis only', 'seo-studio' );
 }

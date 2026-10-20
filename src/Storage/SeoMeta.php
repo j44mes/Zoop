@@ -33,7 +33,7 @@ final class SeoMeta {
 			return;
 		}
 
-		if ( is_string( $value ) && '_seostudio_description' === $metaKey ) {
+		if ( is_string( $value ) && ( '_seostudio_description' === $metaKey || '_seostudio_description_proposal' === $metaKey ) ) {
 			$value = sanitize_textarea_field( $value );
 		} elseif ( is_string( $value ) && in_array( $metaKey, array( '_seostudio_canonical', '_seostudio_video_url' ), true ) ) {
 			$value = esc_url_raw( $value );

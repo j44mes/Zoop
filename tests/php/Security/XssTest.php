@@ -34,24 +34,28 @@ final class XssTest extends WP_UnitTestCase {
 	}
 
 	public function test_the_rest_api_strips_markup_from_keyphrase_and_title(): void {
-		$post_id = self::factory()->post->create();
+		$post_id  = self::factory()->post->create();
+		$revision = 0;
 		foreach ( self::PAYLOADS as $payload ) {
 			$request = new WP_REST_Request( 'PUT', '/seostudio/v1/posts/' . $post_id . '/seo' );
 			$request->set_header( 'Content-Type', 'application/json' );
 			$request->set_body(
 				(string) wp_json_encode(
 					array(
-						'focus_keyphrase' => 'rank ' . $payload,
-						'title'           => 'Title ' . $payload,
+						'focus_keyphrase'   => 'rank ' . $payload,
+						'title'             => 'Title ' . $payload,
+						'proposal_revision' => $revision,
 					)
 				)
 			);
 			$this->assertSame( 200, rest_do_request( $request )->get_status() );
-			foreach ( array( '_seostudio_focus_keyphrase', '_seostudio_title' ) as $key ) {
+			++$revision;
+			foreach ( array( '_seostudio_focus_keyphrase', '_seostudio_title', '_seostudio_title_proposal' ) as $key ) {
 				$stored = (string) get_post_meta( $post_id, $key, true );
 				$this->assertStringNotContainsString( '<script', $stored, $key );
 				$this->assertStringNotContainsString( '<img', $stored, $key );
 			}
+			$this->assertStringNotContainsString( '<script', (string) get_post_meta( $post_id, '_seostudio_title', true ) );
 		}
 	}
 

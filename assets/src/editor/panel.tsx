@@ -5,10 +5,15 @@ import {
 	TextControl,
 	TextareaControl,
 } from '@wordpress/components';
+import { useEntityProp } from '@wordpress/core-data';
 import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { metadataNote, type MetadataOwner } from './metadata-note';
+import {
+	currentProposalRevision,
+	setProposalRevision,
+} from './proposal-revision';
 import { requestedSection } from './section';
 export type { MetadataOwner } from './metadata-note';
 import { scoreInWorker } from '../analysis/client';
@@ -21,7 +26,6 @@ import {
 	keyphraseUsage,
 	previewModel,
 	saveContentScores,
-	saveSeo,
 	type OnPageScore,
 	type PageModelResponse,
 } from '../shared/api';
@@ -54,6 +58,13 @@ function classicField( id: string ): string | undefined {
 		| HTMLTextAreaElement
 		| null;
 	return field ? field.value : undefined;
+}
+
+function syncClassic( id: string, value: string ): void {
+	const field = document.getElementById( id ) as HTMLInputElement | null;
+	if ( field ) {
+		field.value = value;
+	}
 }
 
 function messageOf( error: unknown ): string {
@@ -115,6 +126,7 @@ export function Panel( {
 	const [ preview, setPreview ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
+	const [ fieldsReady, setFieldsReady ] = useState( false );
 	const [ workerDown, setWorkerDown ] = useState( false );
 	const [ selector, setSelector ] = useState( '' );
 	const [ mode, setMode ] = useState( 'content' );
@@ -163,6 +175,14 @@ export function Panel( {
 				setTitle( seo.title || '' );
 				setDescription( seo.description || '' );
 				setCanonical( seo.canonical || '' );
+				syncClassic( 'seostudio-title-proposal', seo.title || '' );
+				syncClassic(
+					'seostudio-description-proposal',
+					seo.description || ''
+				);
+				syncClassic( 'seostudio-canonical-field', seo.canonical || '' );
+				setProposalRevision( String( seo.proposal_revision || 0 ) );
+				setFieldsReady( true );
 				setVideoUrl( seo.video_url || '' );
 				setIsNews(
 					seo.is_news === true ||
@@ -180,6 +200,46 @@ export function Panel( {
 				)
 			);
 	}, [ id ] );
+
+	useEffect( () => {
+		if ( blockEditor ) {
+			return;
+		}
+		syncClassic( 'seostudio-title-proposal', title );
+		syncClassic( 'seostudio-description-proposal', description );
+		syncClassic( 'seostudio-canonical-field', canonical );
+		syncClassic( 'seostudio-social-title', ogTitle );
+		syncClassic( 'seostudio-social-description', ogDescription );
+		syncClassic( 'seostudio-focus-keyphrase', keyphrase );
+		syncClassic( 'seostudio-video-url', videoUrl );
+		syncClassic(
+			'seostudio-related',
+			JSON.stringify( relatedPayload( related ) )
+		);
+		syncClassic(
+			'seostudio-synonyms',
+			JSON.stringify( splitList( synonyms ) )
+		);
+		syncClassic( 'seostudio-robots-index', indexable ? '1' : '0' );
+		syncClassic( 'seostudio-robots-follow', follow ? '1' : '0' );
+		syncClassic( 'seostudio-is-news', isNews ? '1' : '0' );
+		syncClassic( 'seostudio-proposal-revision', currentProposalRevision() );
+	}, [
+		blockEditor,
+		title,
+		description,
+		canonical,
+		ogTitle,
+		ogDescription,
+		keyphrase,
+		related,
+		synonyms,
+		videoUrl,
+		isNews,
+		indexable,
+		follow,
+		fieldsReady,
+	] );
 
 	const runWorker = useCallback(
 		async ( next: PageModelResponse, persistPageId: number | false ) => {
@@ -279,7 +339,6 @@ export function Panel( {
 		setBusy( true );
 		setError( '' );
 		try {
-			await saveSeo( id, seoPayload() );
 			const record = await analysePost( id, {
 				mode: nextMode,
 				keyphrase,
@@ -301,25 +360,6 @@ export function Panel( {
 		} finally {
 			setBusy( false );
 		}
-	}
-
-	function seoPayload() {
-		return {
-			focus_keyphrase: keyphrase,
-			related_keyphrases: splitList( related ).map( ( phrase ) => ( {
-				keyphrase: phrase,
-				synonyms: [],
-			} ) ),
-			synonyms: splitList( synonyms ),
-			title,
-			description,
-			canonical,
-			video_url: videoUrl,
-			is_news: isNews,
-			robots: { index: indexable, follow },
-			og_title: ogTitle,
-			og_description: ogDescription,
-		};
 	}
 
 	const home =
@@ -358,6 +398,23 @@ export function Panel( {
 						'seo-studio'
 					) }
 				</p>
+			) : null }
+			{ blockEditor ? (
+				<GutenbergMetaBridge
+					ready={ fieldsReady }
+					title={ title }
+					description={ description }
+					canonical={ canonical }
+					ogTitle={ ogTitle }
+					ogDescription={ ogDescription }
+					keyphrase={ keyphrase }
+					related={ related }
+					synonyms={ synonyms }
+					videoUrl={ videoUrl }
+					isNews={ isNews }
+					indexable={ indexable }
+					follow={ follow }
+				/>
 			) : null }
 			<TextControl
 				label={ __( 'Target phrase', 'seo-studio' ) }
@@ -507,16 +564,28 @@ export function Panel( {
 					id="seostudio-title"
 					label={ __( 'SEO title', 'seo-studio' ) }
 					value={ title }
-					onChange={ setTitle }
-					hint={ `${ title.length } / 300` }
+					onChange={ ( value ) => {
+						setTitle( value );
+						syncClassic( 'seostudio-title-proposal', value );
+					} }
+					hint={ __(
+						'Saved as a proposal. Update stores it. It is published only from Review and apply.',
+						'seo-studio'
+					) }
 				/>
 				<VariableInput
 					id="seostudio-description"
 					label={ __( 'Description', 'seo-studio' ) }
 					value={ description }
-					onChange={ setDescription }
+					onChange={ ( value ) => {
+						setDescription( value );
+						syncClassic( 'seostudio-description-proposal', value );
+					} }
 					multiline
-					hint={ `${ description.length }` }
+					hint={ __(
+						'Saved as a proposal. Update stores it. It is published only from Review and apply.',
+						'seo-studio'
+					) }
 				/>
 				<TextControl
 					label={ __( 'Canonical', 'seo-studio' ) }
@@ -604,6 +673,129 @@ function analysisLabelOf( state: string ): string {
 		return __( 'Saved analysis', 'seo-studio' );
 	}
 	return __( 'Not analysed yet', 'seo-studio' );
+}
+
+function GutenbergMetaBridge( {
+	ready,
+	title,
+	description,
+	canonical,
+	ogTitle,
+	ogDescription,
+	keyphrase,
+	related,
+	synonyms,
+	videoUrl,
+	isNews,
+	indexable,
+	follow,
+}: {
+	ready: boolean;
+	title: string;
+	description: string;
+	canonical: string;
+	ogTitle: string;
+	ogDescription: string;
+	keyphrase: string;
+	related: string;
+	synonyms: string;
+	videoUrl: string;
+	isNews: boolean;
+	indexable: boolean;
+	follow: boolean;
+} ) {
+	const postType = useSelect( ( select ): string => {
+		const editor = select( 'core/editor' ) as
+			| { getCurrentPostType?: () => string }
+			| undefined;
+		return editor?.getCurrentPostType?.() || 'post';
+	}, [] );
+	const [ meta, setMeta ] = useEntityProp( 'postType', postType, 'meta' );
+	useEffect( () => {
+		if ( ! ready || ! meta ) {
+			return;
+		}
+		const nextRelated = relatedPayload( related );
+		const nextSynonyms = splitList( synonyms );
+		const robots = meta._seostudio_robots;
+		const robotIndex =
+			robots && typeof robots === 'object' && 'index' in robots
+				? ( robots as { index?: boolean } ).index
+				: true;
+		const robotFollow =
+			robots && typeof robots === 'object' && 'follow' in robots
+				? ( robots as { follow?: boolean } ).follow
+				: true;
+		const currentNews =
+			meta._seostudio_is_news === true ||
+			meta._seostudio_is_news === 1 ||
+			meta._seostudio_is_news === '1';
+		const same =
+			String( meta._seostudio_title_proposal ?? '' ) === title &&
+			String( meta._seostudio_description_proposal ?? '' ) ===
+				description &&
+			String( meta._seostudio_canonical ?? '' ) === canonical &&
+			String( meta._seostudio_og_title ?? '' ) === ogTitle &&
+			String( meta._seostudio_og_description ?? '' ) === ogDescription &&
+			String( meta._seostudio_focus_keyphrase ?? '' ) === keyphrase &&
+			String( meta._seostudio_video_url ?? '' ) === videoUrl &&
+			currentNews === isNews &&
+			robotIndex === indexable &&
+			robotFollow === follow &&
+			JSON.stringify(
+				Array.isArray( meta._seostudio_related_keyphrases )
+					? meta._seostudio_related_keyphrases
+					: []
+			) === JSON.stringify( nextRelated ) &&
+			JSON.stringify(
+				Array.isArray( meta._seostudio_synonyms )
+					? meta._seostudio_synonyms
+					: []
+			) === JSON.stringify( nextSynonyms );
+		if ( same ) {
+			return;
+		}
+		setMeta( {
+			...meta,
+			_seostudio_title_proposal: title,
+			_seostudio_description_proposal: description,
+			_seostudio_canonical: canonical,
+			_seostudio_og_title: ogTitle,
+			_seostudio_og_description: ogDescription,
+			_seostudio_focus_keyphrase: keyphrase,
+			_seostudio_video_url: videoUrl,
+			_seostudio_is_news: isNews,
+			_seostudio_related_keyphrases: nextRelated,
+			_seostudio_synonyms: nextSynonyms,
+			_seostudio_robots: { index: indexable, follow },
+		} );
+	}, [
+		ready,
+		meta,
+		title,
+		description,
+		canonical,
+		ogTitle,
+		ogDescription,
+		keyphrase,
+		related,
+		synonyms,
+		videoUrl,
+		isNews,
+		indexable,
+		follow,
+		setMeta,
+	] );
+	return null;
+}
+
+function relatedPayload(
+	value: string
+): Array< { keyphrase: string; synonyms: string[] } > {
+	return splitList( value ).map( ( keyphrase ) => ( {
+		keyphrase,
+		synonyms: [],
+	} ) );
 }
 
 function splitList( value: string ): string[] {

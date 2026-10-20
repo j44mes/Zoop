@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Appearance\ProposalStore;
 use SEOStudio\Storage\SeoMeta;
 
 /**
@@ -77,6 +78,12 @@ final class RankMath {
 			if ( '' !== $description ) {
 				SeoMeta::store( $post_id, '_seostudio_description', $description );
 			}
+			( new ProposalStore() )->syncImported(
+				$post_id,
+				isset( $converted ) ? $converted : null,
+				'' !== $description ? $description : null
+			);
+			unset( $converted );
 			$keywords = $this->text( $post_id, 'rank_math_focus_keyword' );
 			if ( '' !== $keywords ) {
 				$parts = array_values( array_filter( array_map( 'trim', explode( ',', $keywords ) ) ) );

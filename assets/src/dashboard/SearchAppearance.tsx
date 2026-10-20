@@ -99,7 +99,14 @@ export function SearchAppearance( {
 		setBusy( 'save' );
 		setError( '' );
 		try {
-			remember( await saveAppearance( postId, { title, description } ) );
+			const next = await saveAppearance( postId, {
+				title,
+				description,
+				proposal_revision: report?.proposal_revision ?? 0,
+			} );
+			setTitle( next.proposal.title );
+			setDescription( next.proposal.description );
+			remember( next );
 		} catch ( caught ) {
 			setError(
 				messageOf(
@@ -113,16 +120,26 @@ export function SearchAppearance( {
 	};
 
 	const apply = async () => {
+		if (
+			! report?.proposal_saved ||
+			title !== report.proposal.title ||
+			description !== report.proposal.description
+		) {
+			setError(
+				__( 'Save the proposal before applying it.', 'seo-studio' )
+			);
+			setConfirming( '' );
+			return;
+		}
 		setBusy( 'apply' );
 		setError( '' );
 		try {
 			remember(
 				await applyAppearance( postId, {
 					confirm: true,
-					title,
-					description,
-					baseline_title: report?.baseline.title || '',
-					baseline_description: report?.baseline.description || '',
+					proposal_revision: report.proposal_revision,
+					baseline_title: report.baseline.title,
+					baseline_description: report.baseline.description,
 				} )
 			);
 		} catch ( caught ) {
@@ -255,7 +272,7 @@ export function SearchAppearance( {
 							disabled={ busy !== '' }
 							onClick={ () => setConfirming( 'apply' ) }
 						>
-							{ __( 'Apply approved changes', 'seo-studio' ) }
+							{ __( 'Review and apply', 'seo-studio' ) }
 						</Button>
 					) : null }
 					{ report?.can_restore ? (

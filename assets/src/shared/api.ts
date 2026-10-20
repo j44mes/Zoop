@@ -37,6 +37,7 @@ export interface SeoFields {
 	synonyms?: string[];
 	title?: string;
 	description?: string;
+	proposal_revision?: number;
 	canonical?: string;
 	robots?: { index?: boolean | null; follow?: boolean | null };
 	og_title?: string;
@@ -157,6 +158,7 @@ export interface AppearanceRecord {
 	published: AppearanceText;
 	baseline: AppearanceBaseline;
 	proposal_saved: boolean;
+	proposal_revision: number;
 	proposal: AppearanceText;
 	previous: AppearanceText;
 	verification: AppearanceVerification | null;
@@ -170,7 +172,7 @@ export function fetchAppearance( postId: number ): Promise< AppearanceRecord > {
 
 export function saveAppearance(
 	postId: number,
-	body: AppearanceText
+	body: AppearanceText & { proposal_revision: number }
 ): Promise< AppearanceRecord > {
 	return apiFetch( {
 		path: `/seostudio/v1/posts/${ postId }/appearance`,
@@ -181,8 +183,9 @@ export function saveAppearance(
 
 export function applyAppearance(
 	postId: number,
-	body: AppearanceText & {
+	body: {
 		confirm: boolean;
+		proposal_revision: number;
 		baseline_title: string;
 		baseline_description: string;
 	}
@@ -338,6 +341,17 @@ export function startAudit(): Promise< AuditRun > {
 		method: 'POST',
 		data: { type: 'audit' },
 	} );
+}
+
+export interface CapabilityManifest {
+	manage: boolean;
+	edit_posts: boolean;
+	publishing: boolean;
+	detected_name: string;
+}
+
+export function fetchCapabilities(): Promise< CapabilityManifest > {
+	return apiFetch( { path: '/seostudio/v1/capabilities' } );
 }
 
 export function fetchSettings(): Promise< StudioSettings > {

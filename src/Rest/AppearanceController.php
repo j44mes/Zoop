@@ -11,6 +11,7 @@ namespace SEOStudio\Rest;
 
 use SEOStudio\Appearance\Decision;
 use SEOStudio\Appearance\Fields;
+use SEOStudio\Appearance\ProposalStore;
 use SEOStudio\Content\FetchBlockedException;
 use SEOStudio\Content\LoopbackFetcher;
 use SEOStudio\Content\Renderer;
@@ -19,6 +20,7 @@ use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Core\Settings;
 use SEOStudio\Integrations\Detector;
 use SEOStudio\Output\HeadOutput;
+use SEOStudio\Output\TitleFilter;
 use SEOStudio\Storage\SeoMeta;
 use WP_Error;
 use WP_REST_Request;
@@ -97,8 +99,16 @@ final class AppearanceController {
 		if ( $clean instanceof WP_Error ) {
 			return $clean;
 		}
+		$params   = $request->get_json_params();
+		$revision = ProposalStore::revisionFrom( is_array( $params ) ? ( $params['proposal_revision'] ?? null ) : null );
+		if ( null === $revision ) {
+			return Responses::error( 'seostudio_stale', __( 'The proposal revision was missing from this update.', 'seo-studio' ), 409 );
+		}
+		$proposal = ( new ProposalStore() )->commit( $post->ID, $clean['title'], $clean['description'], $revision );
+		if ( ! $proposal['ok'] ) {
+			return Responses::error( $proposal['code'], $proposal['message'], $proposal['status'] );
+		}
 
-		$this->storeProposal( $post->ID, $clean['title'], $clean['description'] );
 		return Responses::json( $this->payload( $post->ID, null ) );
 	}
 
@@ -107,11 +117,14 @@ final class AppearanceController {
 		if ( $post instanceof WP_Error ) {
 			return $post;
 		}
-		$clean = $this->clean( $request );
-		if ( $clean instanceof WP_Error ) {
-			return $clean;
+		if ( '1' !== $this->meta( $post->ID, Fields::SAVED ) ) {
+			return Responses::error( 'seostudio_unsaved', __( 'Save the proposal before applying it.', 'seo-studio' ), 400 );
 		}
-
+		$params   = $request->get_json_params();
+		$revision = ProposalStore::revisionFrom( is_array( $params ) ? ( $params['proposal_revision'] ?? null ) : null );
+		if ( null === $revision || ( new ProposalStore() )->revision( $post->ID ) !== $revision ) {
+			return Responses::error( 'seostudio_stale', __( 'A newer proposal was saved. Review it before applying.', 'seo-studio' ), 409 );
+		}
 		$baseline = $this->baseline( $post->ID );
 		$locked   = 'homepage' === $baseline['target'] && ! Capabilities::canManage();
 		$seen     = $this->seenBaseline( $request );
@@ -123,8 +136,8 @@ final class AppearanceController {
 			true === $request->get_param( 'confirm' ),
 			$baseline['title'],
 			$baseline['description'],
-			$clean['title'],
-			$clean['description'],
+			$this->meta( $post->ID, Fields::TITLE ),
+			$this->meta( $post->ID, Fields::DESCRIPTION ),
 			$seen['title'],
 			$seen['description']
 		);
@@ -143,7 +156,6 @@ final class AppearanceController {
 
 		$this->storePrevious( $post->ID, $result['previous_title'], $result['previous_description'], $baseline['target'] );
 		$this->writeControlled( $post->ID, $baseline['target'], $result['title'], $result['description'] );
-		$this->storeProposal( $post->ID, $result['title'], $result['description'] );
 
 		return Responses::json( $this->payload( $post->ID, $this->checkPublished( $post->ID ) ) );
 	}
@@ -228,12 +240,6 @@ final class AppearanceController {
 		);
 	}
 
-	private function storeProposal( int $postId, string $title, string $description ): void {
-		SeoMeta::store( $postId, Fields::TITLE, $title );
-		SeoMeta::store( $postId, Fields::DESCRIPTION, $description );
-		update_post_meta( $postId, Fields::SAVED, '1' );
-	}
-
 	private function storePrevious( int $postId, string $title, string $description, string $target ): void {
 		SeoMeta::store( $postId, Fields::PREVIOUS_TITLE, $title );
 		SeoMeta::store( $postId, Fields::PREVIOUS_DESCRIPTION, $description );
@@ -302,7 +308,9 @@ final class AppearanceController {
 	/**
 	 * Compare the published HTML with the title Zoop now intends to print.
 	 *
-	 * @return array{status: string, html_matches: bool, basis: string, note: string, observed_title: string, observed_description: string, checked_at: string}
+	 * Compare fetched HTML with values Zoop's stored fields fully determine.
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function checkPublished( int $postId ): array {
 		$post                 = get_post( $postId );
@@ -331,26 +339,107 @@ final class AppearanceController {
 			$fetched = false;
 		}
 
-		$verdict = $this->decision->verification(
-			$fetched,
-			$fetched && $this->decision->htmlMatches( $expected['title'], $observed_title, $expected['description'], $observed_description )
-		);
+		$expectation = $this->controlledExpectation( $postId );
+		$verdict     = $this->judgeObservation( $fetched, $expectation, $observed_title, $observed_description );
 
 		return array(
-			'status'               => $verdict['status'],
-			'html_matches'         => $verdict['html_matches'],
-			'basis'                => $verdict['basis'],
-			'note'                 => $verdict['note'],
-			'observed_title'       => $fetched ? $observed_title : '',
-			'observed_description' => $fetched ? $observed_description : '',
-			'checked_at'           => gmdate( 'c' ),
+			'status'                 => $verdict['status'],
+			'html_matches'           => $verdict['html_matches'],
+			'basis'                  => $verdict['basis'],
+			'note'                   => $verdict['note'],
+			'title_state'            => $verdict['title_state'],
+			'description_state'      => $verdict['description_state'],
+			'calculated_title'       => $expectation['title'],
+			'calculated_description' => $expectation['description'],
+			'observed_title'         => $fetched ? $observed_title : '',
+			'observed_description'   => $fetched ? $observed_description : '',
+			'checked_at'             => gmdate( 'c' ),
 		);
+	}
+
+	/**
+	 * Values Zoop's stored fields fully determine. Theme fallbacks stay null.
+	 *
+	 * @return array{title: string|null, description: string|null}
+	 */
+	private function controlledExpectation( int $postId ): array {
+		if ( HomepageMetadata::isStaticPage( $postId ) ) {
+			$home = HomepageMetadata::resolve();
+			return array(
+				'title'       => $home['title_tag'],
+				'description' => $home['meta_description'],
+			);
+		}
+		$title       = $this->meta( $postId, '_seostudio_title' );
+		$description = $this->meta( $postId, '_seostudio_description' );
+		return array(
+			'title'       => '' === trim( $title ) ? null : ( new TitleFilter() )->expand( $postId, $title ),
+			'description' => '' === trim( $description ) ? null : trim( $description ),
+		);
+	}
+
+	/**
+	 * Compare observed tags with values Zoop fully determines.
+	 *
+	 * @param array{title: string|null, description: string|null} $expectation
+	 * @return array{status: string, html_matches: bool, basis: string, note: string, title_state: string, description_state: string}
+	 */
+	private function judgeObservation( bool $fetched, array $expectation, string $observed_title, string $observed_description ): array {
+		if ( ! $fetched ) {
+			return array(
+				'status'            => 'not_verified',
+				'html_matches'      => false,
+				'basis'             => 'not_observed',
+				'note'              => __( 'The live HTML was not read. A calculated title is not a verified publication.', 'seo-studio' ),
+				'title_state'       => 'not_verified',
+				'description_state' => 'not_verified',
+			);
+		}
+		$title_state       = $this->fieldState( $expectation['title'], $observed_title );
+		$description_state = $this->fieldState( $expectation['description'], $observed_description );
+		$states            = array();
+		if ( null !== $expectation['title'] || '' !== trim( $observed_title ) ) {
+			$states[] = $title_state;
+		}
+		if ( null !== $expectation['description'] || '' !== trim( $observed_description ) ) {
+			$states[] = $description_state;
+		}
+		$matches = array() !== $states && ! in_array( 'mismatch', $states, true ) && ! in_array( 'not_verified', $states, true );
+		if ( in_array( 'mismatch', $states, true ) ) {
+			$note   = __( 'The published HTML was observed and does not match the title or description Zoop applied.', 'seo-studio' );
+			$status = 'mismatch';
+		} elseif ( $matches ) {
+			$note   = __( 'The published HTML was observed and matches the title and description Zoop applied.', 'seo-studio' );
+			$status = 'verified';
+		} else {
+			$note   = __( 'The published HTML was observed. Zoop is not treating a theme title or generated excerpt as a verified tag.', 'seo-studio' );
+			$status = 'not_verified';
+		}
+		return array(
+			'status'            => $status,
+			'html_matches'      => $matches,
+			'basis'             => 'live_html',
+			'note'              => $note,
+			'title_state'       => $title_state,
+			'description_state' => $description_state,
+		);
+	}
+
+	private function fieldState( ?string $calculated, string $observed ): string {
+		if ( null === $calculated ) {
+			return 'not_verified';
+		}
+		$fold = static function ( string $value ): string {
+			$folded = preg_replace( '/\s+/u', ' ', trim( $value ) );
+			return is_string( $folded ) ? $folded : trim( $value );
+		};
+		return $fold( $calculated ) === $fold( $observed ) ? 'verified' : 'mismatch';
 	}
 
 	/**
 	 * Published values, the saved proposal, and whether Zoop can apply it.
 	 *
-	 * @param array{status: string, html_matches: bool, basis: string, note: string, observed_title: string, observed_description: string, checked_at: string}|null $verification
+	 * @param array<string, mixed>|null $verification
 	 * @return array<string, mixed>
 	 */
 	private function payload( int $postId, ?array $verification ): array {
@@ -368,36 +457,37 @@ final class AppearanceController {
 		$previous_saved = '1' === $this->meta( $postId, Fields::PREVIOUS_SAVED );
 
 		return array(
-			'publishing'     => $publishing,
-			'can_apply'      => $this->decision->canApply( $publishing ) && ! $locked,
-			'can_restore'    => $publishing && $previous_saved && ! $locked,
-			'controller'     => $publishing ? __( 'Zoop', 'seo-studio' ) : ( is_array( $active ) ? $active['name'] : '' ),
-			'edit_url'       => 'post.php?post=' . $postId . '&action=edit',
-			'url'            => $resolved['url'],
-			'resolved'       => array(
+			'publishing'        => $publishing,
+			'can_apply'         => $this->decision->canApply( $publishing ) && ! $locked,
+			'can_restore'       => $publishing && $previous_saved && ! $locked,
+			'controller'        => $publishing ? __( 'Zoop', 'seo-studio' ) : ( is_array( $active ) ? $active['name'] : '' ),
+			'edit_url'          => 'post.php?post=' . $postId . '&action=edit',
+			'url'               => $resolved['url'],
+			'resolved'          => array(
 				'title'       => $resolved['title'],
 				'description' => $resolved['description'],
 				'basis'       => 'saved_settings',
 			),
-			'published'      => array(
+			'published'         => array(
 				'title'       => $resolved['title'],
 				'description' => $resolved['description'],
 			),
-			'baseline'       => array(
+			'baseline'          => array(
 				'title'       => $baseline['title'],
 				'description' => $baseline['description'],
 				'target'      => $baseline['target'],
 			),
-			'proposal_saved' => $saved,
-			'proposal'       => array(
+			'proposal_saved'    => $saved,
+			'proposal_revision' => ( new ProposalStore() )->revision( $postId ),
+			'proposal'          => array(
 				'title'       => $saved ? $this->meta( $postId, Fields::TITLE ) : '',
 				'description' => $saved ? $this->meta( $postId, Fields::DESCRIPTION ) : '',
 			),
-			'previous'       => array(
+			'previous'          => array(
 				'title'       => $previous_saved ? $this->meta( $postId, Fields::PREVIOUS_TITLE ) : '',
 				'description' => $previous_saved ? $this->meta( $postId, Fields::PREVIOUS_DESCRIPTION ) : '',
 			),
-			'verification'   => $verification,
+			'verification'      => $verification,
 		);
 	}
 
