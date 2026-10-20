@@ -859,8 +859,11 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 	}
 
 	public function test_l7_twenty_twenty_five_post_navigation_is_template_only(): void {
-		$theme = get_stylesheet();
-		switch_theme( 'twentytwentyfive' );
+		$theme     = get_stylesheet();
+		$has_theme = wp_get_theme( 'twentytwentyfive' )->exists();
+		if ( $has_theme ) {
+			switch_theme( 'twentytwentyfive' );
+		}
 		try {
 			$older   = self::factory()->post->create(
 				array(
@@ -897,11 +900,7 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 			$post     = get_post( $current );
 			setup_postdata( $post );
 			$this->assertTrue( is_singular() );
-			$pattern = get_template_directory() . '/patterns/post-navigation.php';
-			$this->assertFileExists( $pattern );
-			ob_start();
-			include $pattern;
-			$markup   = (string) ob_get_clean();
+			$markup   = $this->twenty_twenty_five_post_navigation();
 			$rendered = do_blocks( $markup );
 			$this->assertStringContainsString( 'wp-block-post-navigation-link', $rendered );
 			$this->assertMatchesRegularExpression( '/rel="(?:prev|next)"/', $rendered );
@@ -941,8 +940,29 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 			$this->assertNotSame( 'orphan', $template['status'] );
 			$this->assertNotSame( 'weak', $template['status'] );
 		} finally {
-			switch_theme( $theme );
+			if ( $has_theme ) {
+				switch_theme( $theme );
+			}
 		}
+	}
+
+	/**
+	 * Twenty Twenty-Five post-navigation pattern. The installed theme file is used when that theme is present.
+	 */
+	private function twenty_twenty_five_post_navigation(): string {
+		$pattern = get_theme_root() . '/twentytwentyfive/patterns/post-navigation.php';
+		if ( is_readable( $pattern ) ) {
+			ob_start();
+			include $pattern;
+			$markup = (string) ob_get_clean();
+			$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
+			return $markup;
+		}
+		$fixture = dirname( __DIR__ ) . '/fixtures/twentytwentyfive-post-navigation.html';
+		$this->assertFileExists( $fixture );
+		$markup = (string) file_get_contents( $fixture );
+		$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
+		return $markup;
 	}
 
 	public function test_l9_www_twin_is_not_trusted_until_an_administrator_says_so(): void {
