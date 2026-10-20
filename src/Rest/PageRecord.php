@@ -58,7 +58,7 @@ final class PageRecord {
 
 		$scored = false;
 		foreach ( $details as $score ) {
-			if ( 'onpage' === ( $score['engine'] ?? '' ) ) {
+			if ( 'onpage' === $score['engine'] ) {
 				$scored = true;
 				break;
 			}

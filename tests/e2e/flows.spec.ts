@@ -283,20 +283,16 @@ test( 'pages and the workspace withhold a verified SEO light', async ( {
 	} );
 	await assertSignedIn( page );
 	const table = page.getByRole( 'table' );
-	await expect( table ).toContainText(
-		'Content checked. Needs a published-page check to score.'
-	);
+	// Saving the draft after analysis can mark that score out of date.
+	// The list still must not present SEO as verified.
 	await expect( table ).toContainText( 'SEO: Not verified' );
 	await expect( table ).toContainText( 'Content check' );
 	await expect( table ).not.toContainText( 'SEO: Good' );
-	const checked = page
-		.getByRole( 'row' )
-		.filter( {
-			hasText: 'Content checked. Needs a published-page check to score.',
-		} )
-		.first();
-	await checked.getByRole( 'link', { name: 'Open analysis' } ).click();
-	await page.waitForURL( /view=page&post=\d+/ );
+	await page.goto(
+		`/wp-admin/admin.php?page=seostudio&view=page&post=${ postId }`,
+		{ waitUntil: 'domcontentloaded' }
+	);
+	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect(
 		page.getByText(
 			'Content checked. Needs a published-page check to score.',
