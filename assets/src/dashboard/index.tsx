@@ -22,7 +22,12 @@ import {
 	type StudioSettings,
 } from '../shared/api';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
-import { pagesListEmpty, suggestionEmpty } from './list-empty';
+import {
+	dashboardFirstRun,
+	pagesListEmpty,
+	suggestionMessage,
+	type SuggestionStatus,
+} from './list-empty';
 import { scoreStateLabel, suggestionForState } from './score-state';
 import { RunProgress } from '../shared/ui/RunProgress';
 import { TrafficLight } from '../shared/ui/TrafficLight';
@@ -41,6 +46,8 @@ import { SettingsPanel } from './settings/SettingsPanel';
 export function Dashboard() {
 	const [ list, setList ] = useState< PageList | null >( null );
 	const [ suggestions, setSuggestions ] = useState< PageListItem[] >( [] );
+	const [ suggestionStatus, setSuggestionStatus ] =
+		useState< SuggestionStatus >( 'loading' );
 	const [ settings, setSettings ] = useState< StudioSettings | null >( null );
 	const [ capabilities, setCapabilities ] =
 		useState< CapabilityManifest | null >( null );
@@ -167,15 +174,41 @@ export function Dashboard() {
 	] );
 
 	useEffect( () => {
+		let cancelled = false;
+		setSuggestionStatus( 'loading' );
 		fetchPages( {
 			per_page: '3',
 			orderby: 'score',
 			order: 'asc',
 			page: '1',
 			score_min: '0',
+			suggestions: '1',
 		} )
-			.then( ( next ) => setSuggestions( next.items.slice( 0, 3 ) ) )
-			.catch( () => setSuggestions( [] ) );
+			.then( ( next ) => {
+				if ( cancelled ) {
+					return;
+				}
+				const state = next.summary?.suggestion_state;
+				setSuggestions( next.items.slice( 0, 3 ) );
+				if (
+					state === 'unscored' ||
+					state === 'clear' ||
+					state === 'items'
+				) {
+					setSuggestionStatus( state );
+					return;
+				}
+				setSuggestionStatus( 'error' );
+			} )
+			.catch( () => {
+				if ( ! cancelled ) {
+					setSuggestions( [] );
+					setSuggestionStatus( 'error' );
+				}
+			} );
+		return () => {
+			cancelled = true;
+		};
 	}, [ run?.status, list?.total ] );
 
 	useEffect( () => {
@@ -277,6 +310,22 @@ export function Dashboard() {
 
 	const summary = list?.summary;
 	const items = list?.items ?? [];
+	const listFiltered = Boolean(
+		search ||
+			rating ||
+			postType.trim() ||
+			scoreMin ||
+			scoreMax ||
+			hasKeyphrase ||
+			scoreState ||
+			visibility
+	);
+	const firstRun = dashboardFirstRun( summary?.analysed, listFiltered );
+	const shownSuggestion =
+		suggestionStatus === 'items' && suggestions.length === 0
+			? 'error'
+			: suggestionStatus;
+	const suggestionCopy = suggestionMessage( shownSuggestion );
 	let visibleView = view;
 	if ( capabilities && ! capabilities.manage && isAdminOnly( view ) ) {
 		visibleView = 'overview';
@@ -386,321 +435,437 @@ export function Dashboard() {
 							</article>
 						</div>
 					) : null }
-					{ visibleView === 'overview' ? (
+					{ firstRun ? (
+						<section
+							className="seostudio-first-run"
+							aria-label={ __(
+								'No pages checked yet',
+								'seo-studio'
+							) }
+							data-testid="first-run"
+						>
+							<h2>
+								{ __( 'No pages checked yet', 'seo-studio' ) }
+							</h2>
+							<button
+								type="button"
+								className="button button-primary"
+								onClick={ () => {
+									window.location.href = 'edit.php';
+								} }
+							>
+								{ __( 'Open a page', 'seo-studio' ) }
+							</button>
+						</section>
+					) : null }
+					{ ! firstRun && list ? (
 						<>
-							<p className="seostudio-muted">
-								{ summary?.average === null ||
-								summary?.average === undefined
-									? __(
-											'No on-page average yet.',
-											'seo-studio'
-									  )
-									: sprintf(
-											/* translators: %d: average on-page score as a percentage of the available points. */
+							{ visibleView === 'overview' ? (
+								<>
+									<p className="seostudio-muted">
+										{ summary?.average === null ||
+										summary?.average === undefined
+											? __(
+													'No on-page average yet.',
+													'seo-studio'
+											  )
+											: sprintf(
+													/* translators: %d: average on-page score as a percentage of the available points. */
+													__(
+														'Average on-page, as a percentage of the available points: %d%%.',
+														'seo-studio'
+													),
+													summary.average
+											  ) }{ ' ' }
+										{ sprintf(
+											/* translators: 1: poor pages, 2: ok pages, 3: good pages. */
 											__(
-												'Average on-page, as a percentage of the available points: %d%%.',
+												'Poor %1$d, Ok %2$d, Good %3$d.',
 												'seo-studio'
 											),
-											summary.average
-									  ) }{ ' ' }
-								{ sprintf(
-									/* translators: 1: poor pages, 2: ok pages, 3: good pages. */
-									__(
-										'Poor %1$d, Ok %2$d, Good %3$d.',
-										'seo-studio'
-									),
-									summary?.red ?? 0,
-									summary?.orange ?? 0,
-									summary?.green ?? 0
-								) }
-							</p>
-							<h2>
-								{ __( 'Suggested next steps', 'seo-studio' ) }
-							</h2>
-							<p className="seostudio-muted">
-								{ __(
-									'These are the lowest saved on-page results. They are not a ranking forecast.',
-									'seo-studio'
-								) }
-							</p>
-							<div className="seostudio-suggestions">
-								{ suggestions.length === 0 ? (
-									<p>
-										{ suggestionEmpty(
-											summary?.analysed ?? 0,
-											summary?.scored ?? 0
+											summary?.red ?? 0,
+											summary?.orange ?? 0,
+											summary?.green ?? 0
 										) }
 									</p>
-								) : (
-									suggestions.map( ( item ) => (
-										<article
-											className="seostudio-suggestion"
-											key={ item.page_id }
-										>
-											<h3>
-												{ item.title ||
-													__(
-														'Untitled',
-														'seo-studio'
-													) }
-											</h3>
-											<p>{ suggestionText( item ) }</p>
-											<p>
-												<a
-													href={ pageWorkspaceUrl(
-														item.object_id
-													) }
-												>
-													{ __(
-														'Open analysis',
-														'seo-studio'
-													) }
-												</a>
+									<h2>
+										{ __(
+											'Suggested next steps',
+											'seo-studio'
+										) }
+									</h2>
+									<p className="seostudio-muted">
+										{ __(
+											'These are the lowest saved on-page results. They are not a ranking forecast.',
+											'seo-studio'
+										) }
+									</p>
+									<div
+										className="seostudio-suggestions"
+										aria-live="polite"
+									>
+										{ suggestionCopy ? (
+											<p
+												role={
+													shownSuggestion === 'error'
+														? 'alert'
+														: 'status'
+												}
+											>
+												{ suggestionCopy }
 											</p>
-										</article>
-									) )
+										) : (
+											suggestions.map( ( item ) => (
+												<article
+													className="seostudio-suggestion"
+													key={ item.page_id }
+												>
+													<h3>
+														{ item.title ||
+															__(
+																'Untitled',
+																'seo-studio'
+															) }
+													</h3>
+													<p>
+														{ suggestionText(
+															item
+														) }
+													</p>
+													<p>
+														<a
+															href={ pageWorkspaceUrl(
+																item.object_id
+															) }
+														>
+															{ __(
+																'Open analysis',
+																'seo-studio'
+															) }
+														</a>
+													</p>
+												</article>
+											) )
+										) }
+									</div>
+								</>
+							) : null }
+							<section
+								aria-label={ __( 'Pages', 'seo-studio' ) }
+								data-testid="pages-list"
+							>
+								<h2>
+									{ visibleView === 'pages'
+										? __( 'Pages', 'seo-studio' )
+										: __( 'All pages', 'seo-studio' ) }
+								</h2>
+								{ capabilities?.manage ? (
+									<p className="seostudio-actions">
+										<Button
+											variant="primary"
+											onClick={ reanalyse }
+										>
+											{ __(
+												'Refresh content analysis',
+												'seo-studio'
+											) }
+										</Button>
+										{ run &&
+										( run.status === 'queued' ||
+											run.status === 'running' ) ? (
+											<Button
+												variant="secondary"
+												onClick={ cancel }
+											>
+												{ __(
+													'Cancel audit',
+													'seo-studio'
+												) }
+											</Button>
+										) : null }
+									</p>
+								) : null }
+								<p className="seostudio-muted">
+									{ __(
+										'Refresh content analysis updates saved content only. It does not fetch published pages or restore a definitive score. Use Check published page on a page to verify its HTML.',
+										'seo-studio'
+									) }
+								</p>
+								{ notice ? (
+									<p role="status">{ notice }</p>
+								) : null }
+								{ run ? (
+									<RunProgress
+										processed={ run.processed ?? 0 }
+										total={ run.total ?? 0 }
+										message={ auditMessage( run ) }
+									/>
+								) : null }
+								<div className="seostudio-toolbar">
+									<TextControl
+										label={ __( 'Search', 'seo-studio' ) }
+										value={ search }
+										onChange={ ( value ) => {
+											setSearch( value );
+											setPage( 1 );
+										} }
+									/>
+									<SelectControl
+										label={ __( 'Sort', 'seo-studio' ) }
+										value={ orderby }
+										options={ [
+											{
+												label: __(
+													'Last analysed',
+													'seo-studio'
+												),
+												value: 'last_rendered_at',
+											},
+											{
+												label: __(
+													'On-page score',
+													'seo-studio'
+												),
+												value: 'score',
+											},
+											{
+												label: __(
+													'Title',
+													'seo-studio'
+												),
+												value: 'title',
+											},
+										] }
+										onChange={ ( value ) => {
+											setOrderby( value );
+											setPage( 1 );
+										} }
+									/>
+									<SelectControl
+										label={ __(
+											'Direction',
+											'seo-studio'
+										) }
+										value={ order }
+										options={ [
+											{
+												label: __(
+													'Descending',
+													'seo-studio'
+												),
+												value: 'desc',
+											},
+											{
+												label: __(
+													'Ascending',
+													'seo-studio'
+												),
+												value: 'asc',
+											},
+										] }
+										onChange={ ( value ) => {
+											setOrder( value );
+											setPage( 1 );
+										} }
+									/>
+									<SelectControl
+										label={ __(
+											'On-page rating',
+											'seo-studio'
+										) }
+										value={ rating }
+										options={ [
+											{
+												label: __(
+													'All',
+													'seo-studio'
+												),
+												value: '',
+											},
+											{
+												label: __(
+													'Poor',
+													'seo-studio'
+												),
+												value: 'red',
+											},
+											{
+												label: __( 'Ok', 'seo-studio' ),
+												value: 'orange',
+											},
+											{
+												label: __(
+													'Good',
+													'seo-studio'
+												),
+												value: 'green',
+											},
+											{
+												label: __(
+													'Not analysed yet',
+													'seo-studio'
+												),
+												value: 'grey',
+											},
+										] }
+										onChange={ ( value ) => {
+											setRating( value );
+											setPage( 1 );
+										} }
+									/>
+								</div>
+								<details className="seostudio-advanced-filters">
+									<summary>
+										{ __(
+											'Advanced filters',
+											'seo-studio'
+										) }
+									</summary>
+									<div className="seostudio-toolbar">
+										<TextControl
+											label={ __(
+												'Post type',
+												'seo-studio'
+											) }
+											value={ postType }
+											help={ __(
+												'For example, post or page.',
+												'seo-studio'
+											) }
+											onChange={ ( value ) => {
+												setPostType( value );
+												setPage( 1 );
+											} }
+										/>
+										<TextControl
+											label={ __(
+												'Minimum score',
+												'seo-studio'
+											) }
+											value={ scoreMin }
+											onChange={ ( value ) => {
+												setScoreMin( value );
+												setPage( 1 );
+											} }
+										/>
+										<TextControl
+											label={ __(
+												'Maximum score',
+												'seo-studio'
+											) }
+											value={ scoreMax }
+											onChange={ ( value ) => {
+												setScoreMax( value );
+												setPage( 1 );
+											} }
+										/>
+										<CheckboxControl
+											label={ __(
+												'Has a focus keyphrase',
+												'seo-studio'
+											) }
+											checked={ hasKeyphrase }
+											onChange={ ( value ) => {
+												setHasKeyphrase( value );
+												setPage( 1 );
+											} }
+										/>
+									</div>
+								</details>
+								{ error ? (
+									<Notice
+										status="error"
+										isDismissible={ false }
+									>
+										{ error }
+									</Notice>
+								) : null }
+								{ list.total === 0 ? (
+									<p>{ pagesListEmpty( listFiltered ) }</p>
+								) : (
+									<div className="seostudio-table-wrap">
+										<table className="seostudio-table">
+											<thead>
+												<tr>
+													<th scope="col">
+														{ __(
+															'Page',
+															'seo-studio'
+														) }
+													</th>
+													<th scope="col">
+														{ __(
+															'On-page',
+															'seo-studio'
+														) }
+													</th>
+													<th scope="col">
+														{ __(
+															'Editor scores',
+															'seo-studio'
+														) }
+													</th>
+													<th scope="col">
+														{ __(
+															'Main finding',
+															'seo-studio'
+														) }
+													</th>
+													<th scope="col">
+														{ __(
+															'Action',
+															'seo-studio'
+														) }
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{ items.map( ( item ) => (
+													<DashboardRow
+														key={ item.page_id }
+														item={ item }
+														onCheck={
+															checkPublished
+														}
+													/>
+												) ) }
+											</tbody>
+										</table>
+									</div>
 								) }
-							</div>
+								{ list && list.pages > 1 ? (
+									<p className="seostudio-actions">
+										<Button
+											variant="secondary"
+											disabled={ page <= 1 }
+											onClick={ () =>
+												setPage( page - 1 )
+											}
+										>
+											{ __( 'Previous', 'seo-studio' ) }
+										</Button>
+										<Button
+											variant="secondary"
+											disabled={ page >= list.pages }
+											onClick={ () =>
+												setPage( page + 1 )
+											}
+										>
+											{ __( 'Next', 'seo-studio' ) }
+										</Button>
+									</p>
+								) : null }
+							</section>
 						</>
 					) : null }
-					<h2>
-						{ visibleView === 'pages'
-							? __( 'Pages', 'seo-studio' )
-							: __( 'All pages', 'seo-studio' ) }
-					</h2>
-					{ capabilities?.manage ? (
-						<p className="seostudio-actions">
-							<Button variant="primary" onClick={ reanalyse }>
-								{ __(
-									'Refresh content analysis',
-									'seo-studio'
-								) }
-							</Button>
-							{ run &&
-							( run.status === 'queued' ||
-								run.status === 'running' ) ? (
-								<Button variant="secondary" onClick={ cancel }>
-									{ __( 'Cancel audit', 'seo-studio' ) }
-								</Button>
-							) : null }
-						</p>
-					) : null }
-					<p className="seostudio-muted">
-						{ __(
-							'Refresh content analysis updates saved content only. It does not fetch published pages or restore a definitive score. Use Check published page on a page to verify its HTML.',
-							'seo-studio'
-						) }
-					</p>
-					{ notice ? <p role="status">{ notice }</p> : null }
-					{ run ? (
-						<RunProgress
-							processed={ run.processed ?? 0 }
-							total={ run.total ?? 0 }
-							message={ auditMessage( run ) }
-						/>
-					) : null }
-					<div className="seostudio-toolbar">
-						<TextControl
-							label={ __( 'Search', 'seo-studio' ) }
-							value={ search }
-							onChange={ ( value ) => {
-								setSearch( value );
-								setPage( 1 );
-							} }
-						/>
-						<SelectControl
-							label={ __( 'Sort', 'seo-studio' ) }
-							value={ orderby }
-							options={ [
-								{
-									label: __( 'Last analysed', 'seo-studio' ),
-									value: 'last_rendered_at',
-								},
-								{
-									label: __( 'On-page score', 'seo-studio' ),
-									value: 'score',
-								},
-								{
-									label: __( 'Title', 'seo-studio' ),
-									value: 'title',
-								},
-							] }
-							onChange={ ( value ) => {
-								setOrderby( value );
-								setPage( 1 );
-							} }
-						/>
-						<SelectControl
-							label={ __( 'Direction', 'seo-studio' ) }
-							value={ order }
-							options={ [
-								{
-									label: __( 'Descending', 'seo-studio' ),
-									value: 'desc',
-								},
-								{
-									label: __( 'Ascending', 'seo-studio' ),
-									value: 'asc',
-								},
-							] }
-							onChange={ ( value ) => {
-								setOrder( value );
-								setPage( 1 );
-							} }
-						/>
-						<SelectControl
-							label={ __( 'On-page rating', 'seo-studio' ) }
-							value={ rating }
-							options={ [
-								{ label: __( 'All', 'seo-studio' ), value: '' },
-								{
-									label: __( 'Poor', 'seo-studio' ),
-									value: 'red',
-								},
-								{
-									label: __( 'Ok', 'seo-studio' ),
-									value: 'orange',
-								},
-								{
-									label: __( 'Good', 'seo-studio' ),
-									value: 'green',
-								},
-								{
-									label: __(
-										'Not analysed yet',
-										'seo-studio'
-									),
-									value: 'grey',
-								},
-							] }
-							onChange={ ( value ) => {
-								setRating( value );
-								setPage( 1 );
-							} }
-						/>
-					</div>
-					<details className="seostudio-advanced-filters">
-						<summary>
-							{ __( 'Advanced filters', 'seo-studio' ) }
-						</summary>
-						<div className="seostudio-toolbar">
-							<TextControl
-								label={ __( 'Post type', 'seo-studio' ) }
-								value={ postType }
-								help={ __(
-									'For example, post or page.',
-									'seo-studio'
-								) }
-								onChange={ ( value ) => {
-									setPostType( value );
-									setPage( 1 );
-								} }
-							/>
-							<TextControl
-								label={ __( 'Minimum score', 'seo-studio' ) }
-								value={ scoreMin }
-								onChange={ ( value ) => {
-									setScoreMin( value );
-									setPage( 1 );
-								} }
-							/>
-							<TextControl
-								label={ __( 'Maximum score', 'seo-studio' ) }
-								value={ scoreMax }
-								onChange={ ( value ) => {
-									setScoreMax( value );
-									setPage( 1 );
-								} }
-							/>
-							<CheckboxControl
-								label={ __(
-									'Has a focus keyphrase',
-									'seo-studio'
-								) }
-								checked={ hasKeyphrase }
-								onChange={ ( value ) => {
-									setHasKeyphrase( value );
-									setPage( 1 );
-								} }
-							/>
-						</div>
-					</details>
-					{ error ? (
+					{ ! firstRun && ! list && error ? (
 						<Notice status="error" isDismissible={ false }>
 							{ error }
 						</Notice>
 					) : null }
-					{ list && list.total === 0 ? (
-						<p>
-							{ pagesListEmpty(
-								!! (
-									search ||
-									rating ||
-									postType.trim() ||
-									scoreMin ||
-									scoreMax ||
-									hasKeyphrase ||
-									scoreState ||
-									visibility
-								)
-							) }
-						</p>
-					) : (
-						<div className="seostudio-table-wrap">
-							<table className="seostudio-table">
-								<thead>
-									<tr>
-										<th scope="col">
-											{ __( 'Page', 'seo-studio' ) }
-										</th>
-										<th scope="col">
-											{ __( 'On-page', 'seo-studio' ) }
-										</th>
-										<th scope="col">
-											{ __(
-												'Editor scores',
-												'seo-studio'
-											) }
-										</th>
-										<th scope="col">
-											{ __(
-												'Main finding',
-												'seo-studio'
-											) }
-										</th>
-										<th scope="col">
-											{ __( 'Action', 'seo-studio' ) }
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{ items.map( ( item ) => (
-										<DashboardRow
-											key={ item.page_id }
-											item={ item }
-											onCheck={ checkPublished }
-										/>
-									) ) }
-								</tbody>
-							</table>
-						</div>
-					) }
-					{ list && list.pages > 1 ? (
-						<p className="seostudio-actions">
-							<Button
-								variant="secondary"
-								disabled={ page <= 1 }
-								onClick={ () => setPage( page - 1 ) }
-							>
-								{ __( 'Previous', 'seo-studio' ) }
-							</Button>
-							<Button
-								variant="secondary"
-								disabled={ page >= list.pages }
-								onClick={ () => setPage( page + 1 ) }
-							>
-								{ __( 'Next', 'seo-studio' ) }
-							</Button>
+					{ ! firstRun && ! list && ! error ? (
+						<p role="status">
+							{ __( 'Loading pages.', 'seo-studio' ) }
 						</p>
 					) : null }
 				</>

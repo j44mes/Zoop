@@ -114,6 +114,7 @@ export interface PageList {
 		green: number;
 		reanalysis_notice?: string;
 		search_discouraged?: boolean;
+		suggestion_state?: 'unscored' | 'clear' | 'items';
 	};
 }
 

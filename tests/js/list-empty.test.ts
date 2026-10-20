@@ -1,27 +1,38 @@
 import {
+	dashboardFirstRun,
+	isFirstRun,
 	pagesListEmpty,
-	suggestionEmpty,
+	suggestionMessage,
 } from '../../assets/src/dashboard/list-empty';
 
 describe( 'overview and pages empty states', () => {
-	it( 'keeps an empty site distinct from stored pages that have no score', () => {
-		expect( suggestionEmpty( 0, 0 ) ).toBe(
-			'No stored pages yet. Open a page and choose Analyse page.'
-		);
-		expect( suggestionEmpty( 4, 0 ) ).toBe(
-			'No pages have a score yet. Open a page and choose Check published page.'
-		);
-		expect( suggestionEmpty( 4, 2 ) ).toBe(
-			'No suggested pages were stored.'
-		);
-	} );
-
-	it( 'keeps a filtered list distinct from an empty site', () => {
+	it( 'uses one first-run decision and keeps filtered results separate', () => {
+		expect( isFirstRun( 0, false ) ).toBe( true );
+		expect( isFirstRun( 0, true ) ).toBe( false );
+		expect( isFirstRun( 3, false ) ).toBe( false );
+		expect( dashboardFirstRun( undefined, false ) ).toBe( false );
+		expect( dashboardFirstRun( null, false ) ).toBe( false );
+		expect( dashboardFirstRun( 0, false ) ).toBe( true );
+		expect( dashboardFirstRun( 0, true ) ).toBe( false );
 		expect( pagesListEmpty( false ) ).toBe(
 			'No pages are stored yet. Open a page and choose Analyse page.'
 		);
 		expect( pagesListEmpty( true ) ).toBe(
 			'No stored pages match these filters.'
 		);
+	} );
+
+	it( 'does not treat an empty suggestion list as all-clear', () => {
+		expect( suggestionMessage( 'unscored' ) ).toBe(
+			'No suggestions yet. Check a page to get some.'
+		);
+		expect( suggestionMessage( 'clear' ) ).toBe(
+			'Nothing to fix right now.'
+		);
+		expect( suggestionMessage( 'error' ) ).toBe(
+			'Suggestions could not be loaded.'
+		);
+		expect( suggestionMessage( 'items' ) ).toBeNull();
+		expect( suggestionMessage( 'loading' ) ).toBeNull();
 	} );
 } );

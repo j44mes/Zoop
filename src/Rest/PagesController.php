@@ -157,6 +157,9 @@ final class PagesController {
 				'enum'              => array( 'noindex' ),
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			'suggestions'   => array(
+				'type' => 'boolean',
+			),
 		);
 	}
 

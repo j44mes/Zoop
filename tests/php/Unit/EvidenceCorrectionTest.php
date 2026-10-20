@@ -145,6 +145,13 @@ final class EvidenceCorrectionTest extends TestCase {
 		$this->assertStringContainsString( 'has not observed a noindex', ScorePresentation::searchExplanation( 'site_discouraged', 'blog_public' ) );
 	}
 
+	public function testSuggestionStateRequiresAServerCount(): void {
+		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 0 ) );
+		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 3 ) );
+		$this->assertSame( 'clear', ScorePresentation::suggestionState( 4, 0 ) );
+		$this->assertSame( 'items', ScorePresentation::suggestionState( 4, 1 ) );
+	}
+
 	public function testTheReanalysisSentenceUsesSingularAndPlural(): void {
 		$this->assertSame( '1 page has changed or needs checking again.', ScorePresentation::reanalysisNotice( 1 ) );
 		$this->assertSame( '2 pages have changed or need checking again.', ScorePresentation::reanalysisNotice( 2 ) );

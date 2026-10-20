@@ -149,6 +149,19 @@ final class ScorePresentation {
 	/**
 	 * Plural sentence for pages whose published check is out of date.
 	 */
+	/**
+	 * Suggestion outcome. An empty list is not treated as all-clear.
+	 */
+	public static function suggestionState( int $scored, int $actionable ): string {
+		if ( $scored < 1 ) {
+			return 'unscored';
+		}
+		if ( $actionable < 1 ) {
+			return 'clear';
+		}
+		return 'items';
+	}
+
 	public static function reanalysisNotice( int $count ): string {
 		$count = max( 0, $count );
 

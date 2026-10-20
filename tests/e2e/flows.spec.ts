@@ -202,12 +202,25 @@ test( 'dashboard is available after activation', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
 	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
-	// Browser projects share one WordPress database, so another project may already have analysed a page.
+	// Browser projects share one WordPress database, so a later project may already have stored a page.
+	const firstRun = page.getByRole( 'region', {
+		name: 'No pages checked yet',
+	} );
+	const pages = page.getByRole( 'region', { name: 'Pages', exact: true } );
 	await expect(
-		page
-			.getByText( 'No pages are stored yet' )
-			.or( page.getByRole( 'table' ) )
+		firstRun
+			.getByRole( 'heading', { name: 'No pages checked yet' } )
+			.or( pages.getByRole( 'table' ) )
 	).toBeVisible();
+	if ( await firstRun.isVisible() ) {
+		await expect(
+			firstRun.getByRole( 'button', { name: 'Open a page' } )
+		).toBeVisible();
+		await expect(
+			page.getByRole( 'heading', { name: 'Suggested next steps' } )
+		).toHaveCount( 0 );
+		await expect( pages ).toHaveCount( 0 );
+	}
 } );
 
 test( 'the block editor accepts a keyphrase and shows both scores', async ( {

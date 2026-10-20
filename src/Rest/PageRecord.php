@@ -127,6 +127,12 @@ final class PageRecord {
 			'reanalysis_notice'  => ScorePresentation::reanalysisNotice( (int) $stats['needs_reanalysis'] ),
 			'search_discouraged' => '0' === (string) get_option( 'blog_public' ),
 		);
+		if ( true === $request->get_param( 'suggestions' ) ) {
+			$summary['suggestion_state'] = ScorePresentation::suggestionState(
+				(int) $stats['scored'],
+				$this->pages->actionableCount( $filters )
+			);
+		}
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
 			if ( Capabilities::canEditPost( (int) $row['object_id'] ) ) {

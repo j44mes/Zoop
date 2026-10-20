@@ -153,6 +153,20 @@
 	outline-offset: 2px;
 }
 
+.seostudio-first-run {
+	background: var(--zoop-surface);
+	border: 1px solid var(--zoop-border);
+	border-radius: 12px;
+	margin: 16px 0;
+	max-width: 28rem;
+	padding: 24px;
+}
+
+.seostudio-first-run h2 {
+	font-size: 1.5rem;
+	margin: 0 0 12px;
+}
+
 .seostudio-check-toggle {
 	align-items: center;
 	background: transparent;

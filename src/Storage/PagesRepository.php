@@ -480,6 +480,28 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Definitive pages in this authorised set whose stored checks include a fail or partial result.
+	 *
+	 * Called for the suggestions request only, so the dashboard list query stays unchanged.
+	 *
+	 * @param array<string, mixed> $filters Authorised list filters.
+	 */
+	public function actionableCount( array $filters ): int {
+		global $wpdb;
+
+		$query  = $this->listQuery( $filters );
+		$scores = Tables::scores();
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Internal table name. Placeholders are prepared with the list filters.
+		$sql = "SELECT COUNT(*) {$query['sql']} AND pages.onpage_state = 'current' AND pages.evidence_ready = 1 AND EXISTS (
+			SELECT 1 FROM {$scores} findings
+			WHERE findings.id = pages.onpage_score_id
+			AND (findings.details LIKE '%\"status\":\"fail\"%' OR findings.details LIKE '%\"status\":\"partial\"%')
+		)";
+		return (int) $wpdb->get_var( $this->prepare( $sql, $query['values'] ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
 	 * Matching IDs only; never load models or score details for permission checks.
 	 *
 	 * @param array<string, mixed> $filters
