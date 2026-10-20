@@ -114,7 +114,10 @@ export interface PageList {
 		green: number;
 		reanalysis_notice?: string;
 		search_discouraged?: boolean;
-		suggestion_state?: 'unscored' | 'clear' | 'items';
+		suggestion_state?: 'unscored' | 'incomplete' | 'clear' | 'items';
+		suggestion_notice?: string;
+		checked?: number;
+		unchecked?: number;
 	};
 }
 

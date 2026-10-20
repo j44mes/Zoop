@@ -4,6 +4,7 @@ export type SuggestionStatus =
 	| 'loading'
 	| 'error'
 	| 'unscored'
+	| 'incomplete'
 	| 'clear'
 	| 'items';
 
@@ -36,10 +37,17 @@ export function dashboardFirstRun(
  * Suggested-next-steps copy. An empty item list is not an all-clear.
  *
  * @param status Server suggestion state, or error when the request failed.
+ * @param notice Server sentence for an incomplete check, when the state is incomplete.
  */
-export function suggestionMessage( status: SuggestionStatus ): string | null {
+export function suggestionMessage(
+	status: SuggestionStatus,
+	notice?: string | null
+): string | null {
 	if ( status === 'error' ) {
 		return __( 'Suggestions could not be loaded.', 'seo-studio' );
+	}
+	if ( status === 'incomplete' ) {
+		return notice ? notice : null;
 	}
 	if ( status === 'unscored' ) {
 		return __(

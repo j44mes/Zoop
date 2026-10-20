@@ -149,7 +149,7 @@ final class PagesController {
 			),
 			'score_state'   => array(
 				'type'              => 'string',
-				'enum'              => array( 'needs_reanalysis' ),
+				'enum'              => array( 'needs_reanalysis', 'unchecked' ),
 				'sanitize_callback' => 'sanitize_text_field',
 			),
 			'visibility'    => array(

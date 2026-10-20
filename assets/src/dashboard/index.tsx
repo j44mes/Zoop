@@ -48,6 +48,8 @@ export function Dashboard() {
 	const [ suggestions, setSuggestions ] = useState< PageListItem[] >( [] );
 	const [ suggestionStatus, setSuggestionStatus ] =
 		useState< SuggestionStatus >( 'loading' );
+	const [ suggestionNotice, setSuggestionNotice ] = useState( '' );
+	const [ uncheckedPages, setUncheckedPages ] = useState( 0 );
 	const [ settings, setSettings ] = useState< StudioSettings | null >( null );
 	const [ capabilities, setCapabilities ] =
 		useState< CapabilityManifest | null >( null );
@@ -189,9 +191,17 @@ export function Dashboard() {
 					return;
 				}
 				const state = next.summary?.suggestion_state;
+				const serverNotice = next.summary?.suggestion_notice ?? '';
 				setSuggestions( next.items.slice( 0, 3 ) );
+				setSuggestionNotice( serverNotice );
+				setUncheckedPages( next.summary?.unchecked ?? 0 );
+				if ( state === 'incomplete' && '' === serverNotice ) {
+					setSuggestionStatus( 'error' );
+					return;
+				}
 				if (
 					state === 'unscored' ||
+					state === 'incomplete' ||
 					state === 'clear' ||
 					state === 'items'
 				) {
@@ -203,6 +213,8 @@ export function Dashboard() {
 			.catch( () => {
 				if ( ! cancelled ) {
 					setSuggestions( [] );
+					setSuggestionNotice( '' );
+					setUncheckedPages( 0 );
 					setSuggestionStatus( 'error' );
 				}
 			} );
@@ -225,6 +237,19 @@ export function Dashboard() {
 		}, 2000 );
 		return () => window.clearInterval( timer );
 	}, [ run?.run_id, run?.status ] );
+
+	function openUncheckedPages() {
+		setScoreState( 'unchecked' );
+		setVisibility( '' );
+		setSearch( '' );
+		setRating( '' );
+		setPostType( '' );
+		setScoreMin( '' );
+		setScoreMax( '' );
+		setHasKeyphrase( false );
+		setPage( 1 );
+		setView( 'pages' );
+	}
 
 	function openStalePages() {
 		setScoreState( 'needs_reanalysis' );
@@ -325,7 +350,10 @@ export function Dashboard() {
 		suggestionStatus === 'items' && suggestions.length === 0
 			? 'error'
 			: suggestionStatus;
-	const suggestionCopy = suggestionMessage( shownSuggestion );
+	const suggestionCopy = suggestionMessage(
+		shownSuggestion,
+		suggestionNotice
+	);
 	let visibleView = view;
 	if ( capabilities && ! capabilities.manage && isAdminOnly( view ) ) {
 		visibleView = 'overview';
@@ -551,6 +579,32 @@ export function Dashboard() {
 												</article>
 											) )
 										) }
+										{ shownSuggestion !== 'incomplete' &&
+										shownSuggestion !== 'error' &&
+										uncheckedPages > 0 &&
+										suggestionNotice ? (
+											<p role="status">
+												{ suggestionNotice }
+											</p>
+										) : null }
+										{ uncheckedPages > 0 &&
+										shownSuggestion !== 'error' &&
+										shownSuggestion !== 'loading' ? (
+											<p>
+												<button
+													type="button"
+													className="button"
+													onClick={
+														openUncheckedPages
+													}
+												>
+													{ __(
+														'Show unchecked pages',
+														'seo-studio'
+													) }
+												</button>
+											</p>
+										) : null }
 									</section>
 								</>
 							) : null }
@@ -891,7 +945,7 @@ function initialScoreState(): string {
 	const value = new URLSearchParams( window.location.search ).get(
 		'score_state'
 	);
-	if ( value === 'needs_reanalysis' ) {
+	if ( value === 'needs_reanalysis' || value === 'unchecked' ) {
 		return value;
 	}
 	return '';

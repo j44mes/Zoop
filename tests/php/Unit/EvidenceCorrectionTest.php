@@ -146,10 +146,24 @@ final class EvidenceCorrectionTest extends TestCase {
 	}
 
 	public function testSuggestionStateRequiresAServerCount(): void {
-		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 0 ) );
-		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 3 ) );
-		$this->assertSame( 'clear', ScorePresentation::suggestionState( 4, 0 ) );
-		$this->assertSame( 'items', ScorePresentation::suggestionState( 4, 1 ) );
+		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 0, 0 ) );
+		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 0, 25 ) );
+		$this->assertSame( 'unscored', ScorePresentation::suggestionState( 0, 3, 25 ) );
+		$this->assertSame( 'incomplete', ScorePresentation::suggestionState( 1, 0, 25 ) );
+		$this->assertSame( 'incomplete', ScorePresentation::suggestionState( 3, 0, 23 ) );
+		$this->assertSame( 'clear', ScorePresentation::suggestionState( 4, 0, 0 ) );
+		$this->assertSame( 'items', ScorePresentation::suggestionState( 4, 1, 0 ) );
+		$this->assertSame( 'items', ScorePresentation::suggestionState( 4, 1, 23 ) );
+		$this->assertSame(
+			'No fixes found on the 1 checked page. 1 page hasn\'t been checked yet.',
+			ScorePresentation::incompleteNotice( 1, 1 )
+		);
+		$this->assertSame(
+			'No fixes found on the 3 checked pages. 23 pages haven\'t been checked yet.',
+			ScorePresentation::incompleteNotice( 3, 23 )
+		);
+		$this->assertSame( '1 page hasn\'t been checked yet.', ScorePresentation::uncheckedNotice( 1 ) );
+		$this->assertSame( '23 pages haven\'t been checked yet.', ScorePresentation::uncheckedNotice( 23 ) );
 	}
 
 	public function testTheReanalysisSentenceUsesSingularAndPlural(): void {

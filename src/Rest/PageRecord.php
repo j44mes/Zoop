@@ -128,10 +128,26 @@ final class PageRecord {
 			'search_discouraged' => '0' === (string) get_option( 'blog_public' ),
 		);
 		if ( true === $request->get_param( 'suggestions' ) ) {
-			$summary['suggestion_state'] = ScorePresentation::suggestionState(
-				(int) $stats['scored'],
-				$this->pages->actionableCount( $filters )
+			// Authorise the full stored set. The card query's score filter must not shrink it first.
+			$scope = $this->filtersFromRequest( $request );
+			unset( $scope['score_min'], $scope['score_max'], $scope['rating'] );
+			$scope                       = $this->authorise( $scope );
+			$coverage                    = $this->pages->aggregate( $scope );
+			$checked                     = (int) $coverage['scored'];
+			$unchecked                   = max( 0, (int) $coverage['total'] - $checked );
+			$state                       = ScorePresentation::suggestionState(
+				$checked,
+				$this->pages->actionableCount( $scope ),
+				$unchecked
 			);
+			$summary['suggestion_state'] = $state;
+			$summary['checked']          = $checked;
+			$summary['unchecked']        = $unchecked;
+			if ( 'incomplete' === $state ) {
+				$summary['suggestion_notice'] = ScorePresentation::incompleteNotice( $checked, $unchecked );
+			} elseif ( $unchecked > 0 ) {
+				$summary['suggestion_notice'] = ScorePresentation::uncheckedNotice( $unchecked );
+			}
 		}
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
@@ -286,9 +302,8 @@ final class PageRecord {
 			$row['onpage_denominator'] = null;
 		}
 
-		$edit = get_edit_post_link( $object_id, 'raw' );
-
-		return array(
+		$edit    = get_edit_post_link( $object_id, 'raw' );
+		$record  = array(
 			'page_id'            => (int) $row['id'],
 			'object_type'        => (string) $row['object_type'],
 			'object_id'          => $object_id,
@@ -308,5 +323,12 @@ final class PageRecord {
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,
 		);
+		$checked = ! empty( $presentation['definitive'] ) && (int) ( $row['onpage_denominator'] ?? 0 ) > 0;
+		if ( ! $checked ) {
+			$record['recovery_action'] = 'check_published';
+			$record['recovery_label']  = __( 'Check published page', 'seo-studio' );
+		}
+
+		return $record;
 	}
 }

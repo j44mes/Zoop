@@ -147,19 +147,78 @@ final class ScorePresentation {
 	}
 
 	/**
-	 * Plural sentence for pages whose published check is out of date.
+	 * Suggestion outcome for one authorised population.
+	 *
+	 * All-clear requires every stored page in that population to be current,
+	 * definitively scored, and evidence-ready, with no actionable finding.
+	 *
+	 * @param int $checked    Pages with a definitive ready score.
+	 * @param int $actionable Definitive pages whose stored checks include a fail or partial.
+	 * @param int $unchecked  Stored pages that are not definitive. Stale, unscored, unanalysed, and current-but-not-ready rows all count.
 	 */
-	/**
-	 * Suggestion outcome. An empty list is not treated as all-clear.
-	 */
-	public static function suggestionState( int $scored, int $actionable ): string {
-		if ( $scored < 1 ) {
+	public static function suggestionState( int $checked, int $actionable, int $unchecked ): string {
+		if ( $checked < 1 ) {
 			return 'unscored';
 		}
-		if ( $actionable < 1 ) {
-			return 'clear';
+		if ( $actionable > 0 ) {
+			return 'items';
 		}
-		return 'items';
+		if ( $unchecked > 0 ) {
+			return 'incomplete';
+		}
+		return 'clear';
+	}
+
+	/**
+	 * Scoped result when the checked pages have no findings and other stored pages do not.
+	 *
+	 * @param int $checked   Pages with a definitive ready score.
+	 * @param int $unchecked Stored pages that are not definitive.
+	 */
+	public static function incompleteNotice( int $checked, int $unchecked ): string {
+		$checked   = max( 0, $checked );
+		$unchecked = max( 0, $unchecked );
+
+		return sprintf(
+			/* translators: 1: number of checked pages, 2: sentence naming how many stored pages have not been checked. */
+			_n(
+				'No fixes found on the %1$d checked page. %2$s',
+				'No fixes found on the %1$d checked pages. %2$s',
+				$checked,
+				'seo-studio'
+			),
+			$checked,
+			sprintf(
+				/* translators: %d: number of stored pages that do not have a definitive ready score. */
+				_n(
+					'%d page hasn\'t been checked yet.',
+					'%d pages haven\'t been checked yet.',
+					$unchecked,
+					'seo-studio'
+				),
+				$unchecked
+			)
+		);
+	}
+
+	/**
+	 * Sentence for stored pages that are not definitive, used beside suggestion cards.
+	 *
+	 * @param int $unchecked Stored pages that are not definitive.
+	 */
+	public static function uncheckedNotice( int $unchecked ): string {
+		$unchecked = max( 0, $unchecked );
+
+		return sprintf(
+			/* translators: %d: number of stored pages that do not have a definitive ready score. */
+			_n(
+				'%d page hasn\'t been checked yet.',
+				'%d pages haven\'t been checked yet.',
+				$unchecked,
+				'seo-studio'
+			),
+			$unchecked
+		);
 	}
 
 	public static function reanalysisNotice( int $count ): string {

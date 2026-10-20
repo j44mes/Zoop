@@ -286,6 +286,77 @@ test( 'a clear suggestion state is explicit and a failed load is not all-clear',
 	} );
 } );
 
+test( 'an incomplete review is not an all-clear', async ( { page } ) => {
+	const unchecked = storedPage();
+	unchecked.title = 'Unchecked stored page';
+	unchecked.score_state = 'not_analysed';
+	const notice =
+		"No fixes found on the 3 checked pages. 23 pages haven't been checked yet.";
+	await page.route( pagesApi, ( route ) => {
+		const url = requestUrl( route );
+		if ( url.includes( 'suggestions=' ) ) {
+			return route.fulfill( {
+				json: {
+					items: [],
+					total: 3,
+					pages: 1,
+					summary: summary( {
+						analysed: 26,
+						scored: 3,
+						suggestion_state: 'incomplete',
+						suggestion_notice: notice,
+						checked: 3,
+						unchecked: 23,
+					} ),
+				},
+			} );
+		}
+		if ( url.includes( 'score_state=unchecked' ) ) {
+			return route.fulfill( {
+				json: {
+					items: [ unchecked ],
+					total: 23,
+					pages: 2,
+					summary: summary( { analysed: 23, not_analysed: 23 } ),
+				},
+			} );
+		}
+		return route.fulfill( {
+			json: {
+				items: [ storedPage() ],
+				total: 26,
+				pages: 2,
+				summary: summary( {
+					analysed: 26,
+					scored: 3,
+					not_analysed: 23,
+				} ),
+			},
+		} );
+	} );
+	await openDashboard( page );
+	const suggestions = suggestionsRegion( page );
+	await expectRendered( page, async () => {
+		await expect( suggestions.getByText( notice ) ).toBeVisible();
+		await expect(
+			suggestions.getByText( 'Nothing to fix right now.' )
+		).toHaveCount( 0 );
+		await expect(
+			suggestions.getByRole( 'button', { name: 'Show unchecked pages' } )
+		).toBeVisible();
+	} );
+	await suggestions
+		.getByRole( 'button', { name: 'Show unchecked pages' } )
+		.click();
+	const row = pagesRegion( page ).getByRole( 'row', {
+		name: /Unchecked stored page/,
+	} );
+	await expect( row ).toBeVisible();
+	await expect(
+		row.getByRole( 'button', { name: 'Check published page' } )
+	).toBeVisible();
+} );
+
 test( 'an empty suggestion response without a server state is an error', async ( {
 	page,
 } ) => {

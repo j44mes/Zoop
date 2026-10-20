@@ -29,6 +29,15 @@ describe( 'overview and pages empty states', () => {
 		expect( suggestionMessage( 'clear' ) ).toBe(
 			'Nothing to fix right now.'
 		);
+		expect( suggestionMessage( 'incomplete' ) ).toBeNull();
+		expect(
+			suggestionMessage(
+				'incomplete',
+				"No fixes found on the 3 checked pages. 23 pages haven't been checked yet."
+			)
+		).toBe(
+			"No fixes found on the 3 checked pages. 23 pages haven't been checked yet."
+		);
 		expect( suggestionMessage( 'error' ) ).toBe(
 			'Suggestions could not be loaded.'
 		);

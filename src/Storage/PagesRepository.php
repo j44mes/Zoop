@@ -577,6 +577,11 @@ final class PagesRepository {
 			$where[] = "pages.onpage_state = 'needs_reanalysis'";
 		}
 
+		// Same predicate as aggregate()'s scored column. Rows with a stored model stay included.
+		if ( 'unchecked' === ( $filters['score_state'] ?? '' ) ) {
+			$where[] = "NOT (pages.onpage_state = 'current' AND pages.evidence_ready = 1 AND pages.onpage_denominator > 0)";
+		}
+
 		if ( 'noindex' === ( $filters['visibility'] ?? '' ) ) {
 			$where[] = "pages.evidence_ready = 1 AND pages.onpage_state = 'current' AND pages.index_status = 'noindex'";
 		}
