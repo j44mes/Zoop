@@ -859,20 +859,14 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 	}
 
 	public function test_l7_twenty_twenty_five_post_navigation_is_template_only(): void {
-		$theme     = get_stylesheet();
-		$has_theme = wp_get_theme( 'twentytwentyfive' )->exists();
-		if ( $has_theme ) {
-			switch_theme( 'twentytwentyfive' );
-		}
-		try {
-			$older   = self::factory()->post->create(
-				array(
-					'post_title' => 'Older dispatch',
-					'post_name'  => 'older-dispatch',
-					'post_date'  => '2020-01-01 00:00:00',
-					'post_status' => 'publish',
-				)
-			);
+		$older = self::factory()->post->create(
+			array(
+				'post_title'  => 'Older dispatch',
+				'post_name'   => 'older-dispatch',
+				'post_date'   => '2020-01-01 00:00:00',
+				'post_status' => 'publish',
+			)
+		);
 			$current = self::factory()->post->create(
 				array(
 					'post_title'  => 'Current dispatch',
@@ -900,9 +894,12 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 			$post     = get_post( $current );
 			setup_postdata( $post );
 			$this->assertTrue( is_singular() );
-			$markup   = $this->twenty_twenty_five_post_navigation();
+			$markup = $this->twenty_twenty_five_post_navigation();
+			$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
+			$this->assertStringContainsString( 'aria-label="Post navigation"', $markup );
 			$rendered = do_blocks( $markup );
 			$this->assertStringContainsString( 'wp-block-post-navigation-link', $rendered );
+			$this->assertStringContainsString( 'aria-label="Post navigation"', $rendered );
 			$this->assertMatchesRegularExpression( '/rel="(?:prev|next)"/', $rendered );
 
 			$html  = '<html><body><main>' . $rendered . '<p><a href="' . esc_url( (string) get_permalink( $older ) ) . '">Mentioned in the essay</a></p></main></body></html>';
@@ -939,29 +936,16 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 			$this->assertSame( 0, $template['contextual_referrers'] );
 			$this->assertNotSame( 'orphan', $template['status'] );
 			$this->assertNotSame( 'weak', $template['status'] );
-		} finally {
-			if ( $has_theme ) {
-				switch_theme( $theme );
-			}
-		}
 	}
 
 	/**
-	 * Twenty Twenty-Five post-navigation pattern. The installed theme file is used when that theme is present.
+	 * Committed Twenty Twenty-Five post-navigation pattern. The installed theme is not read.
 	 */
 	private function twenty_twenty_five_post_navigation(): string {
-		$pattern = get_theme_root() . '/twentytwentyfive/patterns/post-navigation.php';
-		if ( is_readable( $pattern ) ) {
-			ob_start();
-			include $pattern;
-			$markup = (string) ob_get_clean();
-			$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
-			return $markup;
-		}
 		$fixture = dirname( __DIR__ ) . '/fixtures/twentytwentyfive-post-navigation.html';
 		$this->assertFileExists( $fixture );
-		$markup = (string) file_get_contents( $fixture );
-		$this->assertStringContainsString( 'wp:post-navigation-link', $markup );
+		$markup = (string) file_get_contents( $fixture ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Committed fixture, not a remote request.
+		$this->assertNotSame( '', $markup );
 		return $markup;
 	}
 
