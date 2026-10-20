@@ -18,30 +18,26 @@ interface UnverifiedLink {
 	occurrences: number;
 }
 
-/**
- * Next actions for incomplete architecture coverage.
- *
- * A site audit is offered only when pages still need content analysis.
- * Published-link gaps link to the existing page-level check.
- */
+// A site audit is offered only when pages still need content analysis.
+// Published-link gaps use the server count and the existing page-level check.
 export function CoverageActions( {
 	reasons,
+	needsPublishedCheck,
 	onAudit,
 }: {
 	reasons: CoverageReasons | null;
+	needsPublishedCheck: number | null;
 	onAudit: () => void;
 } ) {
-	if ( ! reasons ) {
-		return null;
-	}
-	const needsCheck =
-		reasons.unanalysed + reasons.content_only + reasons.stale_links;
-	if ( reasons.unanalysed < 1 && needsCheck < 1 ) {
+	const unanalysed = reasons?.unanalysed ?? 0;
+	const showLink =
+		typeof needsPublishedCheck === 'number' && needsPublishedCheck > 0;
+	if ( unanalysed < 1 && ! showLink ) {
 		return null;
 	}
 	return (
 		<>
-			{ reasons.unanalysed > 0 ? (
+			{ unanalysed > 0 ? (
 				<p>
 					<button type="button" onClick={ onAudit }>
 						{ __( 'Run site audit', 'seo-studio' ) }
@@ -54,7 +50,7 @@ export function CoverageActions( {
 					</span>
 				</p>
 			) : null }
-			{ needsCheck > 0 ? (
+			{ showLink ? (
 				<p>
 					<a href="admin.php?page=seostudio&section=pages&score_state=needs_published_check">
 						{ sprintf(
@@ -62,10 +58,10 @@ export function CoverageActions( {
 							_n(
 								'%d page needs a published-page check',
 								'%d pages need a published-page check',
-								needsCheck,
+								needsPublishedCheck,
 								'seo-studio'
 							),
-							needsCheck
+							needsPublishedCheck
 						) }
 					</a>
 				</p>
@@ -74,9 +70,7 @@ export function CoverageActions( {
 	);
 }
 
-/**
- * Unverified destinations. The heading is omitted when there are none.
- */
+// Unverified destinations. The heading is omitted when there are none.
 export function UnverifiedLinks( { links }: { links: UnverifiedLink[] } ) {
 	if ( links.length === 0 ) {
 		return null;

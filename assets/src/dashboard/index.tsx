@@ -12,6 +12,7 @@ import {
 	cancelAudit,
 	fetchAudit,
 	fetchPages,
+	dismissRulesetNotice,
 	fetchCapabilities,
 	fetchSettings,
 	type CapabilityManifest,
@@ -30,7 +31,8 @@ import {
 } from './list-empty';
 import { scoreStateLabel, suggestionForState } from './score-state';
 import { RunProgress } from '../shared/ui/RunProgress';
-import { TrafficLight } from '../shared/ui/TrafficLight';
+import { EvidenceLights } from '../shared/ui/EvidenceLights';
+import { UpgradeNoticeBanner } from './upgrade-notice';
 import '../shared/ui/style.css';
 import {
 	isPageWorkspace,
@@ -285,6 +287,18 @@ export function Dashboard() {
 		}
 	}
 
+	async function dismissUpgrade() {
+		if ( ! capabilities?.upgrade_notice ) {
+			return;
+		}
+		try {
+			await dismissRulesetNotice();
+			setCapabilities( { ...capabilities, upgrade_notice: null } );
+		} catch ( _caught ) {
+			// Leave the notice visible when dismissal does not save.
+		}
+	}
+
 	async function reanalyse() {
 		setNotice( '' );
 		try {
@@ -329,6 +343,12 @@ export function Dashboard() {
 					}
 					onNavigate={ () => undefined }
 				/>
+				{ capabilities?.upgrade_notice ? (
+					<UpgradeNoticeBanner
+						notice={ capabilities.upgrade_notice }
+						onDismiss={ dismissUpgrade }
+					/>
+				) : null }
 				<PageWorkspace />
 			</div>
 		);
@@ -382,6 +402,12 @@ export function Dashboard() {
 				}
 				onNavigate={ setView }
 			/>
+			{ capabilities?.upgrade_notice ? (
+				<UpgradeNoticeBanner
+					notice={ capabilities.upgrade_notice }
+					onDismiss={ dismissUpgrade }
+				/>
+			) : null }
 			{ capabilities && ! capabilities.manage ? (
 				<p className="seostudio-muted">
 					{ __(
@@ -950,7 +976,8 @@ function initialScoreState(): string {
 	if (
 		value === 'needs_reanalysis' ||
 		value === 'unchecked' ||
-		value === 'needs_published_check'
+		value === 'needs_published_check' ||
+		value === 'ruleset_retired'
 	) {
 		return value;
 	}
@@ -1189,13 +1216,10 @@ function DashboardRow( {
 			</td>
 			<td>{ score }</td>
 			<td>
-				<TrafficLight
-					rating={ item.seo_rating }
-					label={ __( 'SEO', 'seo-studio' ) }
-				/>{ ' ' }
-				<TrafficLight
-					rating={ item.readability_rating }
-					label={ __( 'Readability', 'seo-studio' ) }
+				<EvidenceLights
+					verified={ !! item.presentation?.definitive }
+					seoRating={ item.seo_rating }
+					readabilityRating={ item.readability_rating }
 				/>
 			</td>
 			<td>{ mainFinding( item ) }</td>

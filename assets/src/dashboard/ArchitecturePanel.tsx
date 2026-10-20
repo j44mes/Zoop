@@ -7,10 +7,7 @@ import {
 	type ArchitecturePage,
 	type ArchitectureReport,
 } from '../shared/api';
-import {
-	CoverageActions,
-	UnverifiedLinks,
-} from './architecture-sections';
+import { CoverageActions, UnverifiedLinks } from './architecture-sections';
 import {
 	architectureStatus,
 	depthCountLabel,
@@ -157,6 +154,11 @@ export function ArchitecturePanel() {
 			{ trustError ? <p role="alert">{ trustError }</p> : null }
 			<CoverageActions
 				reasons={ report.coverage.reasons ?? null }
+				needsPublishedCheck={
+					typeof report.coverage.needs_published_check === 'number'
+						? report.coverage.needs_published_check
+						: null
+				}
 				onAudit={ runAudit }
 			/>
 			{ auditNotice ? <p role="status">{ auditNotice }</p> : null }

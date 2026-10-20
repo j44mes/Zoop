@@ -34,11 +34,14 @@ final class RulesetApplier {
 			return true;
 		}
 
-		$retired = ( new PagesRepository() )->retireIncompatibleRuleset( $target );
+		$repository = new PagesRepository();
+		UpgradeNotice::rememberDefinitive( $repository->currentDefinitiveIds() );
+		$retired = $repository->retireIncompatibleRuleset( $target );
 		if ( ! $retired ) {
 			return false;
 		}
 
+		UpgradeNotice::recordRetired( $target );
 		update_option( Ruleset::OPTION, $target, true );
 
 		return (int) get_option( Ruleset::OPTION, 0 ) === $target;

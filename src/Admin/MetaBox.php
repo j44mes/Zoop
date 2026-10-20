@@ -16,6 +16,48 @@ use SEOStudio\Output\HeadOutput;
  * Mounts the page panel below the classic editor.
  */
 final class MetaBox {
+	/**
+	 * Open the classic meta box when the editor URL asks for it.
+	 *
+	 * Browser acceptance uses this so the classic panel can be tested without another plugin.
+	 * The flag does not change stored content.
+	 *
+	 * @param mixed $block_editor Whether the block editor would be used.
+	 * @param mixed $post         Post being edited.
+	 */
+	public static function preferClassic( mixed $block_editor, mixed $post ): bool {
+		if ( self::classicRequested() && $post instanceof \WP_Post && current_user_can( 'edit_post', $post->ID ) ) {
+			return false;
+		}
+
+		return (bool) $block_editor;
+	}
+
+	/**
+	 * Same editor choice for a new post, before a post id exists.
+	 *
+	 * @param mixed  $block_editor Whether the block editor would be used.
+	 * @param string $post_type    Post type. Unused.
+	 */
+	public static function preferClassicType( mixed $block_editor, string $post_type ): bool {
+		unset( $post_type );
+		if ( self::classicRequested() && current_user_can( 'edit_posts' ) ) {
+			return false;
+		}
+
+		return (bool) $block_editor;
+	}
+
+	/**
+	 * Whether this request asked for the classic editor shell.
+	 */
+	private static function classicRequested(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display preference. It does not change stored data.
+		$raw = isset( $_GET['seostudio_editor'] ) ? wp_unslash( $_GET['seostudio_editor'] ) : '';
+
+		return 'classic' === sanitize_key( is_scalar( $raw ) ? (string) $raw : '' );
+	}
+
 	public static function register( string $post_type, \WP_Post $post ): void {
 		if ( function_exists( 'use_block_editor_for_post' ) && use_block_editor_for_post( $post ) ) {
 			return;

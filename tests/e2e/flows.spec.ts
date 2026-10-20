@@ -198,6 +198,9 @@ test( 'dashboard is available after activation', async ( { page } ) => {
 			.getByRole( 'heading', { name: 'No pages checked yet' } )
 			.or( pages.getByRole( 'table' ) )
 	).toBeVisible();
+	await expect( page.getByTestId( 'ruleset-upgrade-notice' ) ).toHaveCount(
+		0
+	);
 	if ( await firstRun.isVisible() ) {
 		await expect(
 			firstRun.getByRole( 'button', { name: 'Open a page' } )
@@ -224,8 +227,22 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
-	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
-	await expect( page.getByTestId( 'readability-light' ) ).toBeVisible();
+	await expect( page.getByTestId( 'score-presentation' ) ).toContainText(
+		'Content checked. Needs a published-page check to score.'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveAttribute(
+		'data-rating',
+		'grey'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
 	// Analysis-only mode must not present the title as something Update will print.
 	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
 		'not printing tags'
@@ -251,6 +268,122 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 		);
 	} );
 	await saveDraft( page );
+} );
+
+test( 'pages and the workspace withhold a verified SEO light', async ( {
+	page,
+} ) => {
+	const postId = new URL(
+		editedPostUrl,
+		'http://example.test'
+	).searchParams.get( 'post' );
+	expect( postId ).toBeTruthy();
+	await page.goto( '/wp-admin/admin.php?page=seostudio&section=pages', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	const table = page.getByRole( 'table' );
+	await expect( table ).toContainText(
+		'Content checked. Needs a published-page check to score.'
+	);
+	await expect( table ).toContainText( 'SEO: Not verified' );
+	await expect( table ).toContainText( 'Content check' );
+	await expect( table ).not.toContainText( 'SEO: Good' );
+	const checked = page
+		.getByRole( 'row' )
+		.filter( {
+			hasText: 'Content checked. Needs a published-page check to score.',
+		} )
+		.first();
+	await checked.getByRole( 'link', { name: 'Open analysis' } ).click();
+	await page.waitForURL( /view=page&post=\d+/ );
+	await expect(
+		page.getByText(
+			'Content checked. Needs a published-page check to score.',
+			{ exact: true }
+		)
+	).toBeVisible();
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveAttribute(
+		'data-rating',
+		'grey'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect( page.locator( '.seostudio-pill' ) ).toHaveCount( 0 );
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
+} );
+
+test( 'the classic editor withholds a verified SEO light after a content check', async ( {
+	page,
+} ) => {
+	await page.goto( '/wp-admin/post-new.php', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	await page.waitForFunction(
+		() =>
+			!! (
+				window as unknown as {
+					wp?: {
+						apiFetch?: ( options: unknown ) => Promise< unknown >;
+					};
+				}
+			 ).wp?.apiFetch
+	);
+	const postId = await page.evaluate( async () => {
+		const created = await (
+			window as unknown as {
+				wp: {
+					apiFetch: ( options: {
+						path: string;
+						method: string;
+						data: {
+							title: string;
+							content: string;
+							status: string;
+						};
+					} ) => Promise< { id: number } >;
+				};
+			}
+		 ).wp.apiFetch( {
+			path: '/wp/v2/posts',
+			method: 'POST',
+			data: {
+				title: 'Classic note',
+				content: '<p>Body copy for the page.</p>',
+				status: 'draft',
+			},
+		} );
+		return created.id;
+	} );
+	await page.goto(
+		`/wp-admin/post.php?post=${ postId }&action=edit&seostudio_editor=classic`,
+		{ waitUntil: 'domcontentloaded' }
+	);
+	await expect( page.locator( '#seostudio-metabox' ) ).toBeVisible();
+	await expect( page.locator( '.block-editor' ) ).toHaveCount( 0 );
+	await page
+		.getByLabel( 'Focus keyphrase', { exact: true } )
+		.fill( 'rank tracker' );
+	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
+	await expect( page.getByTestId( 'score-presentation' ) ).toContainText(
+		'Content checked. Needs a published-page check to score.'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
 } );
 
 test( 'editing the title updates the title assessment without a reload', async ( {

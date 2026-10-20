@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\UpgradeNotice;
 use SEOStudio\Scoring\OnPage\CheckPresentation;
 use SEOStudio\Scoring\OnPage\Ruleset;
 use SEOStudio\Scoring\OnPage\ScorePresentation;
@@ -55,7 +56,14 @@ final class PageRecord {
 			);
 		}
 
-		$presentation = ScorePresentation::fromRow( $row );
+		$scored = false;
+		foreach ( $details as $score ) {
+			if ( 'onpage' === ( $score['engine'] ?? '' ) ) {
+				$scored = true;
+				break;
+			}
+		}
+		$presentation = ContentCheckedPresentation::apply( ScorePresentation::fromRow( $row ), $row, $scored );
 		$current      = 'current' === (string) ( $row['onpage_state'] ?? '' );
 		$checks       = array();
 		foreach ( $details as $score ) {
@@ -174,7 +182,7 @@ final class PageRecord {
 	 * @param array<string, mixed> $filters List filters.
 	 */
 	public function count( array $filters ): int {
-		$stats = $this->pages->aggregate( $this->authorise( $filters ) );
+		$stats = $this->pages->aggregate( $this->authorise( $this->withRetirement( $filters ) ) );
 
 		return (int) $stats['total'];
 	}
@@ -221,19 +229,37 @@ final class PageRecord {
 	 * @return array<string, mixed>
 	 */
 	private function filtersFromRequest( WP_REST_Request $request ): array {
-		return array(
-			'search'        => $request->get_param( 'search' ),
-			'object_id'     => $request->get_param( 'object_id' ),
-			'post_type'     => $request->get_param( 'post_type' ),
-			'rating'        => $request->get_param( 'rating' ),
-			'score_min'     => $request->get_param( 'score_min' ),
-			'score_max'     => $request->get_param( 'score_max' ),
-			'orderby'       => $request->get_param( 'orderby' ),
-			'order'         => $request->get_param( 'order' ),
-			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
-			'score_state'   => $request->get_param( 'score_state' ),
-			'visibility'    => $request->get_param( 'visibility' ),
+		return $this->withRetirement(
+			array(
+				'search'        => $request->get_param( 'search' ),
+				'object_id'     => $request->get_param( 'object_id' ),
+				'post_type'     => $request->get_param( 'post_type' ),
+				'rating'        => $request->get_param( 'rating' ),
+				'score_min'     => $request->get_param( 'score_min' ),
+				'score_max'     => $request->get_param( 'score_max' ),
+				'orderby'       => $request->get_param( 'orderby' ),
+				'order'         => $request->get_param( 'order' ),
+				'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
+				'score_state'   => $request->get_param( 'score_state' ),
+				'visibility'    => $request->get_param( 'visibility' ),
+			)
 		);
+	}
+
+	/**
+	 * Limit a ruleset review to the recorded retirement, not every out-of-date page.
+	 *
+	 * @param array<string, mixed> $filters List filters.
+	 * @return array<string, mixed>
+	 */
+	private function withRetirement( array $filters ): array {
+		if ( 'ruleset_retired' !== (string) ( $filters['score_state'] ?? '' ) ) {
+			return $filters;
+		}
+
+		$filters['retirement_ids'] = UpgradeNotice::outstandingIds();
+
+		return $filters;
 	}
 
 	/**
@@ -325,7 +351,7 @@ final class PageRecord {
 		$keyphrase = (string) ( $row['focus_keyphrase'] ?? '' );
 
 		$state        = (string) ( $row['onpage_state'] ?? 'not_analysed' );
-		$presentation = ScorePresentation::fromRow( $row );
+		$presentation = ContentCheckedPresentation::apply( ScorePresentation::fromRow( $row ), $row );
 		$details      = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
 		$issue        = '';
 		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && Ruleset::matches( $details['ruleset_version'] ?? null ) && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
