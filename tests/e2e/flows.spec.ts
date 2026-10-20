@@ -7,9 +7,9 @@ let editedPostUrl = '';
 
 function versionLabel(): RegExp {
 	if ( process.env.REQUIRE_BUILD_STAMP === '1' ) {
-		return /Zoop 0\.6\.0-dev\.1 \(build [0-9a-f]{7}\)/;
+		return /Zoop 0\.6\.0-beta\.1 \(build [0-9a-f]{7}\)/;
 	}
-	return /Zoop 0\.6\.0-dev\.1(?: \(build [0-9a-f]{7}\))?/;
+	return /Zoop 0\.6\.0-beta\.1(?: \(build [0-9a-f]{7}\))?/;
 }
 
 async function editorDiagnostics( page: Page ): Promise< string > {

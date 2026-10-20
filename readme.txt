@@ -3,7 +3,7 @@ Contributors: zoop
 Tags: seo, analysis
 Requires at least: 6.4
 Tested up to: 6.4
-Stable tag: 0.6.0-dev.1
+Stable tag: 0.6.0-beta.1
 Requires PHP: 8.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -21,7 +21,7 @@ A site audit runs in the background. Yoast SEO, Rank Math, and SEOPress fields c
 1. Build from the source tree: run `composer install --no-dev --optimize-autoloader`, then `npm install` and `npm run build`, and copy the directory into `wp-content/plugins/`.
 2. Activate Zoop. Activation creates the custom tables.
 
-A release zip is produced only when a future tag runs the release workflow. This development version does not publish `seo-studio-0.6.0-dev.1.zip`, and `seo-studio-0.5.0.zip` is not the current build.
+A release zip is produced only when a future tag runs the release workflow. `0.6.0-beta.1` is a prerelease candidate. It does not publish a zip from this branch, and `seo-studio-0.5.0.zip` is not the current build.
 
 == Frequently Asked Questions ==
 
@@ -34,6 +34,9 @@ No. Activation creates Zoop's own tables. Uninstall removes them only when the s
 The two code checks need a full-page fetch. A content render leaves them unchecked and drops them from the denominator.
 
 == Changelog ==
+
+= 0.6.0-beta.1 =
+* Prerelease candidate. Regular plurals share a keyphrase, ruleset 2 retires older current scores, and the release zip is an allowlist. This is not a production release.
 
 = 0.6.0-dev.1 =
 * Development build for release identity and score currency. See CHANGELOG.md. This is not a production release.

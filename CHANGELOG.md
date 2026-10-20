@@ -4,6 +4,14 @@ Development versions advance at approved milestones. Production releases use a n
 
 The plugin header, `SEOSTUDIO_VERSION`, and the readme stable tag move together. The on-page ruleset and the evidence version stay independent of that string. A release zip is created only when a future tag runs the release workflow.
 
+## 0.6.0-beta.1
+
+Prerelease candidate. Not a production release and not a published zip.
+
+- Accept `X.Y.Z-beta.N` in the version contract. A beta build shows its checked-out commit, the same way a development build does. A stable `X.Y.Z` version does not.
+- Package the release zip from an allowlist. Development Composer packages, tests, `dist`, `.git`, and `.env` files are refused. A tag containing a hyphen is a GitHub prerelease. This branch does not create that tag.
+- On-page ruleset 2 treats a regular English plural as the same keyphrase token for URL checks and overlap grouping.
+
 ## 0.6.0-dev.1
 
 Release identity and score currency.

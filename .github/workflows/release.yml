@@ -41,21 +41,10 @@ jobs:
           php scripts/assert-build-identity.php
 
       - name: Pack the plugin
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist/seo-studio
-          rsync -a \
-            --exclude ".git" \
-            --exclude "node_modules" \
-            --exclude "tests" \
-            --exclude "docs" \
-            --exclude ".github" \
-            --exclude "coverage" \
-            --exclude ".phpunit.cache" \
-            ./ dist/seo-studio/
-          (cd dist && zip -r "seo-studio-${version}.zip" seo-studio)
+        run: php scripts/package-plugin.php
 
       - name: Attach the zip to the release
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: dist/seo-studio-*.zip

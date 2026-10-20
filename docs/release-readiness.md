@@ -1,6 +1,6 @@
 # Release readiness
 
-Zoop `0.6.0-dev.1` is a development build. Passing this branch's checks does not make it a release. Do not tag, publish a zip, or install it on a production site from this work.
+Zoop `0.6.0-beta.1` is a prerelease candidate. Passing this branch's checks does not publish a release. Do not tag, publish a zip, or install it on a production site from this work.
 
 `Zoop 0.6` in the scoring-rules notice names the product line. It does not mean that `0.6.0` has been released.
 

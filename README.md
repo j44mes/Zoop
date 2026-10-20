@@ -26,7 +26,7 @@ npm install
 npm run build
 ```
 
-A zip exists only after a future tag runs the release workflow. Do not install a `seo-studio-0.5.0.zip` or expect a `seo-studio-0.6.0-dev.1.zip` from this branch.
+A zip exists only after a future tag runs the release workflow. `0.6.0-beta.1` is a prerelease candidate. Do not install `seo-studio-0.5.0.zip` as the current build, and do not expect this branch to publish a zip.
 
 ## Commands
 
