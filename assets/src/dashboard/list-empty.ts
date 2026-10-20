@@ -9,7 +9,7 @@ import { __ } from '@wordpress/i18n';
 export function suggestionEmpty( stored: number, scored: number ): string {
 	if ( stored <= 0 ) {
 		return __(
-			'No pages are stored yet. Open a page and choose Analyse page.',
+			'No stored pages yet. Open a page and choose Analyse page.',
 			'seo-studio'
 		);
 	}
