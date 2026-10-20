@@ -2,9 +2,9 @@
 /**
  * Fail when production scoring code changes without a higher ruleset.
  *
- * The comparison uses the pull request base, not the merge commit and not the
- * default branch, so a stacked branch cannot satisfy the check by pointing at
- * an older ruleset.
+ * Pull requests compare with the pull request base. Pushes compare with the
+ * previous tip, or the parent commit when the branch is new. A missing base
+ * fails closed.
  *
  * @package SEOStudio
  */

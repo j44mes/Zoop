@@ -34,6 +34,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Require the tag to match the plugin version
+        run: php scripts/check-release-tag.php "${GITHUB_REF_NAME}"
+
       - name: Stamp the checked-out commit into the zip
         run: |
           php scripts/validate-version.php

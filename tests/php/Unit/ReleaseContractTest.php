@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once dirname( __DIR__, 3 ) . '/scripts/validate-version.php';
 require_once dirname( __DIR__, 3 ) . '/scripts/package-plugin.php';
+require_once dirname( __DIR__, 3 ) . '/scripts/check-release-tag.php';
 
 /**
  * The packager keeps development files out of the zip.
@@ -44,5 +45,14 @@ final class ReleaseContractTest extends TestCase {
 
 	public function testCheckoutVersionsMatch(): void {
 		$this->assertSame( 0, seostudio_version_main() );
+	}
+
+	public function testAMatchingBetaTagAgreesAndAMismatchFails(): void {
+		$this->assertSame( '', seostudio_release_identity_error( 'v0.6.0-beta.1', '0.6.0-beta.1', '0.6.0-beta.1', '0.6.0-beta.1' ) );
+		$this->assertNotSame( '', seostudio_release_identity_error( 'v0.6.0-beta.2', '0.6.0-beta.1', '0.6.0-beta.1', '0.6.0-beta.1' ) );
+		$this->assertNotSame( '', seostudio_release_identity_error( 'v0.6.0-beta.1', '0.6.0-dev.1', '0.6.0-beta.1', '0.6.0-beta.1' ) );
+		$this->assertNotSame( '', seostudio_release_identity_error( 'v0.6.0-beta.1', '0.6.0-beta.1', '0.6.0-beta.1', '0.6.0' ) );
+		$this->assertSame( 0, seostudio_release_tag_main( array( 'check-release-tag.php', 'v0.6.0-beta.1' ) ) );
+		$this->assertSame( 1, seostudio_release_tag_main( array( 'check-release-tag.php', 'v0.6.0-beta.2' ) ) );
 	}
 }

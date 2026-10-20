@@ -26,16 +26,16 @@ jobs:
 
       - name: Require a scoring ruleset bump
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
-          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base="${{ github.event.pull_request.base.sha }}"
-          else
-            git fetch --no-tags origin "$(gh pr view --json baseRefName --jq .baseRefName)"
-            base="$(gh pr view --json baseRefOid --jq .baseRefOid)"
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
+            git fetch --no-tags --deepen=1 origin || true
           fi
-          php scripts/check-ruleset-bump.php "$base"
+          base="$(php scripts/resolve-ruleset-base.php)"
+          git fetch --no-tags origin "${base}"
+          php scripts/check-ruleset-bump.php "${base}"
 
       - name: Check cloud-coding documentation exists
         shell: bash
