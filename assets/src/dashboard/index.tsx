@@ -12,6 +12,7 @@ import {
 	cancelAudit,
 	fetchAudit,
 	fetchPages,
+	dismissLegacyScoreNotice,
 	dismissRulesetNotice,
 	fetchCapabilities,
 	fetchSettings,
@@ -299,6 +300,18 @@ export function Dashboard() {
 		}
 	}
 
+	async function dismissLegacy() {
+		if ( ! capabilities?.legacy_notice ) {
+			return;
+		}
+		try {
+			await dismissLegacyScoreNotice();
+			setCapabilities( { ...capabilities, legacy_notice: null } );
+		} catch ( _caught ) {
+			// Leave the notice visible when dismissal does not save.
+		}
+	}
+
 	async function reanalyse() {
 		setNotice( '' );
 		try {
@@ -347,6 +360,14 @@ export function Dashboard() {
 					<UpgradeNoticeBanner
 						notice={ capabilities.upgrade_notice }
 						onDismiss={ dismissUpgrade }
+					/>
+				) : null }
+				{ capabilities?.legacy_notice ? (
+					<UpgradeNoticeBanner
+						notice={ capabilities.legacy_notice }
+						onDismiss={ dismissLegacy }
+						testId="legacy-score-notice"
+						label={ __( 'Updated page checks', 'seo-studio' ) }
 					/>
 				) : null }
 				<PageWorkspace />
@@ -406,6 +427,14 @@ export function Dashboard() {
 				<UpgradeNoticeBanner
 					notice={ capabilities.upgrade_notice }
 					onDismiss={ dismissUpgrade }
+				/>
+			) : null }
+			{ capabilities?.legacy_notice ? (
+				<UpgradeNoticeBanner
+					notice={ capabilities.legacy_notice }
+					onDismiss={ dismissLegacy }
+					testId="legacy-score-notice"
+					label={ __( 'Updated page checks', 'seo-studio' ) }
 				/>
 			) : null }
 			{ capabilities && ! capabilities.manage ? (
@@ -977,7 +1006,8 @@ function initialScoreState(): string {
 		value === 'needs_reanalysis' ||
 		value === 'unchecked' ||
 		value === 'needs_published_check' ||
-		value === 'ruleset_retired'
+		value === 'ruleset_retired' ||
+		value === 'legacy_scores'
 	) {
 		return value;
 	}

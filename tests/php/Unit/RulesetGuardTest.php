@@ -56,6 +56,53 @@ final class RulesetGuardTest extends TestCase {
 		unset( $script );
 	}
 
+	public function testAWellFormedUnknownShaFailsClosed(): void {
+		$root = $this->repository();
+		$error = seostudio_ruleset_guard_check( $root, 'deadbee' );
+
+		$this->assertStringContainsString( 'not in this repository', $error );
+		$this->assertStringNotContainsString( 'is valid', $error );
+		$this->assertSame( 1, seostudio_ruleset_guard_main( array( 'check-ruleset-bump.php', 'deadbee' ), $root ) );
+	}
+
+	public function testAMissingBaseObjectFailsClosed(): void {
+		$root  = $this->repository();
+		$error = seostudio_ruleset_guard_check( $root, str_repeat( 'f', 40 ) );
+
+		$this->assertStringContainsString( 'missing commit', $error );
+		$this->assertStringNotContainsString( 'is valid', $error );
+	}
+
+	public function testAFailedGitCommandFailsClosed(): void {
+		$root = sys_get_temp_dir() . '/zoop-not-a-repo-' . bin2hex( random_bytes( 4 ) );
+		mkdir( $root );
+		$error = seostudio_ruleset_guard_check( $root, 'deadbee' );
+
+		$this->assertStringContainsString( 'failed Git command', $error );
+		$this->assertStringNotContainsString( 'is valid', $error );
+		$this->assertSame( 1, seostudio_ruleset_guard_main( array( 'check-ruleset-bump.php', 'deadbee' ), $root ) );
+	}
+
+	public function testAResolvedBaselineWithNoScoringChangePasses(): void {
+		$root = $this->repository();
+		$base = trim( (string) shell_exec( 'git -C ' . escapeshellarg( $root ) . ' rev-parse HEAD' ) );
+
+		$this->assertSame( '', seostudio_ruleset_guard_check( $root, $base ) );
+	}
+
+	private function repository(): string {
+		$root = sys_get_temp_dir() . '/zoop-ruleset-base-' . bin2hex( random_bytes( 4 ) );
+		mkdir( $root . '/src/Scoring/OnPage', 0777, true );
+		$this->git( $root, 'init -b main' );
+		$this->git( $root, 'config user.email test@example.test' );
+		$this->git( $root, 'config user.name Test' );
+		file_put_contents( $root . '/src/Scoring/OnPage/Ruleset.php', "<?php\nclass Ruleset { public const CURRENT = 1; }\n" );
+		$this->git( $root, 'add src' );
+		$this->git( $root, 'commit -m base' );
+
+		return $root;
+	}
+
 	private function git( string $root, string $args ): void {
 		shell_exec( 'git -C ' . escapeshellarg( $root ) . ' ' . $args . ' 2>&1' );
 	}

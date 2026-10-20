@@ -31,6 +31,7 @@ final class Uninstaller {
 		delete_option( Ruleset::OPTION );
 		delete_option( UpgradeNotice::OPTION );
 		delete_option( UpgradeNotice::PENDING );
+		delete_option( LegacyScoreNotice::OPTION );
 		delete_option( 'seostudio_detected_plugins' );
 		delete_option( 'seostudio_search_import' );
 	}
@@ -53,6 +54,7 @@ final class Uninstaller {
 			delete_metadata( 'post', 0, $key, '', true );
 		}
 		delete_metadata( 'user', 0, UpgradeNotice::META, '', true );
+		delete_metadata( 'user', 0, LegacyScoreNotice::META, '', true );
 	}
 
 	/**

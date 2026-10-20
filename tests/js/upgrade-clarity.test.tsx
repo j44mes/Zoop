@@ -112,4 +112,28 @@ describe( 'upgrade clarity presentation', () => {
 		expect( html ).toContain( 'Dismiss' );
 		expect( dismissed ).toBe( false );
 	} );
+
+	it( 'links the saved-score explanation to its own review list', () => {
+		const html = renderToStaticMarkup(
+			<UpgradeNoticeBanner
+				notice={ {
+					count: 2,
+					message:
+						"Zoop's page checks have been updated. Your previous scores have been kept, but 2 pages need a new published-page check.",
+					review_url:
+						'admin.php?page=seostudio&section=pages&score_state=legacy_scores',
+				} }
+				onDismiss={ () => undefined }
+				testId="legacy-score-notice"
+				label="Updated page checks"
+			/>
+		);
+		expect( html ).toContain( 'data-testid="legacy-score-notice"' );
+		expect( html ).toContain( 'previous scores have been kept' );
+		expect( html ).toContain( 'published-page check' );
+		expect( html ).toContain( 'score_state=legacy_scores' );
+		expect( html ).not.toContain( 'score_state=ruleset_retired' );
+		expect( html ).not.toContain( 'updated scoring rules' );
+		expect( html ).toContain( 'Review pages needing checks' );
+	} );
 } );

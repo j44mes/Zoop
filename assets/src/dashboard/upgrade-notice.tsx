@@ -5,16 +5,20 @@ import type { UpgradeNoticePayload } from '../shared/api';
 export function UpgradeNoticeBanner( {
 	notice,
 	onDismiss,
+	testId = 'ruleset-upgrade-notice',
+	label,
 }: {
 	notice: UpgradeNoticePayload;
 	onDismiss: () => void;
+	testId?: string;
+	label?: string;
 } ) {
 	return (
 		<section
 			className="seostudio-upgrade-notice"
 			role="status"
-			data-testid="ruleset-upgrade-notice"
-			aria-label={ __( 'Scoring rules update', 'seo-studio' ) }
+			data-testid={ testId }
+			aria-label={ label ?? __( 'Scoring rules update', 'seo-studio' ) }
 		>
 			<p>{ notice.message }</p>
 			<p>

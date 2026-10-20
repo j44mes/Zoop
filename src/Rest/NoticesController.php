@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Rest;
 
+use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\UpgradeNotice;
 use WP_REST_Response;
 use WP_REST_Server;
@@ -29,10 +30,27 @@ final class NoticesController {
 				},
 			)
 		);
+		register_rest_route(
+			'seostudio/v1',
+			'/notices/legacy-scores/dismiss',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'dismissLegacy' ),
+				'permission_callback' => static function (): bool {
+					return current_user_can( 'edit_posts' );
+				},
+			)
+		);
 	}
 
 	public function dismiss(): WP_REST_Response {
 		UpgradeNotice::dismiss();
+
+		return Responses::json( array( 'dismissed' => true ) );
+	}
+
+	public function dismissLegacy(): WP_REST_Response {
+		LegacyScoreNotice::dismiss();
 
 		return Responses::json( array( 'dismissed' => true ) );
 	}

@@ -13,6 +13,7 @@ use SEOStudio\Content\FetchPolicy;
 use SEOStudio\Content\LoopbackFetcher;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Content\SourceFingerprint;
+use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\Plugin;
 use SEOStudio\Core\RulesetApplier;
 use SEOStudio\Core\Settings;
@@ -53,7 +54,9 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 
 	public function test_a_fresh_install_and_a_matching_ruleset_do_not_show_a_notice(): void {
 		$this->assertNull( $this->notice() );
+		$this->assertNull( $this->legacyNotice() );
 		$this->assertFalse( get_option( UpgradeNotice::OPTION ) );
+		$this->assertFalse( get_option( LegacyScoreNotice::OPTION ) );
 
 		$planted = $this->plantDefinitive( get_current_user_id(), 'Already current', Ruleset::CURRENT );
 		delete_option( Ruleset::OPTION );
@@ -64,6 +67,90 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		$this->assertFalse( get_option( UpgradeNotice::OPTION ) );
 		$this->assertSame( 'current', ( new PagesRepository() )->find( $planted['page_id'] )['onpage_state'] );
 		$this->assertSame( '1', (string) ( new PagesRepository() )->find( $planted['page_id'] )['evidence_ready'] );
+	}
+
+	public function test_a_pre_evidence_upgrade_explains_saved_scores_without_calling_them_verified(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$other  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$mine   = $this->plantHistorical( $author, 'Saved author page' );
+		$secret = $this->plantHistorical( $other, 'Saved other page' );
+		$plain  = self::factory()->post->create(
+			array(
+				'post_status' => 'publish',
+				'post_author' => $author,
+				'post_title'  => 'Never scored',
+			)
+		);
+		( new PagesRepository() )->storeModel(
+			$plain,
+			new PageModel(
+				url: 'https://example.test/?p=' . $plain,
+				titleTag: 'Never scored',
+				renderMode: 'snapshot'
+			),
+			'model-hash'
+		);
+		$history = (int) $GLOBALS['wpdb']->get_var( 'SELECT COUNT(*) FROM ' . Tables::scores() );
+		$settings = Settings::all();
+		$settings['schema_version'] = 3;
+		remove_all_actions( 'update_option_' . Settings::OPTION );
+		update_option( Settings::OPTION, $settings, true );
+		add_action( 'update_option_' . Settings::OPTION, array( PublishedFreshness::class, 'siteChanged' ) );
+		delete_option( Ruleset::OPTION );
+		delete_option( UpgradeNotice::OPTION );
+		delete_option( LegacyScoreNotice::OPTION );
+
+		Upgrader::maybeUpgrade();
+
+		$this->assertSame( 7, (int) get_option( Settings::OPTION )['schema_version'] );
+		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
+		$this->assertSame( $history, (int) $GLOBALS['wpdb']->get_var( 'SELECT COUNT(*) FROM ' . Tables::scores() ) );
+		$this->assertSame( 'needs_reanalysis', ( new PagesRepository() )->find( $mine['page_id'] )['onpage_state'] );
+		$this->assertSame( '0', (string) ( new PagesRepository() )->find( $mine['page_id'] )['evidence_ready'] );
+		$this->assertNull( $this->notice() );
+
+		$admin = $this->legacyNotice();
+		$this->assertIsArray( $admin );
+		$this->assertSame( 2, $admin['count'] );
+		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept, but 2 pages need a new published-page check.", $admin['message'] );
+		$this->assertStringContainsString( 'score_state=legacy_scores', $admin['review_url'] );
+		$this->assertStringNotContainsString( 'ruleset_retired', $admin['review_url'] );
+		$this->assertStringNotContainsString( 'updated scoring rules', $admin['message'] );
+		$list = $this->pages( 'legacy_scores' );
+		$this->assertSame( $admin['count'], $list['total'] );
+		$this->assertSame( 'Check published page', $list['items'][0]['recovery_label'] );
+		$titles = array_column( $list['items'], 'title' );
+		$this->assertNotContains( 'Never scored', $titles );
+
+		wp_set_current_user( $author );
+		$author_notice = $this->legacyNotice();
+		$this->assertIsArray( $author_notice );
+		$this->assertSame( 1, $author_notice['count'] );
+		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept, but 1 page needs a new published-page check.", $author_notice['message'] );
+		$this->assertSame( 1, $this->pages( 'legacy_scores' )['total'] );
+		$this->assertSame( 'Saved author page', $this->pages( 'legacy_scores' )['items'][0]['title'] );
+
+		$ruleset = new WP_REST_Request( 'POST', '/seostudio/v1/notices/ruleset-retirement/dismiss' );
+		$this->assertSame( 200, rest_do_request( $ruleset )->get_status() );
+		$this->assertSame( 1, $this->legacyNotice()['count'] );
+		$dismiss = new WP_REST_Request( 'POST', '/seostudio/v1/notices/legacy-scores/dismiss' );
+		$this->assertSame( 200, rest_do_request( $dismiss )->get_status() );
+		$this->assertNull( $this->legacyNotice() );
+
+		wp_set_current_user( $other );
+		$this->assertSame( 1, $this->legacyNotice()['count'] );
+		$this->assertSame( 'Saved other page', $this->pages( 'legacy_scores' )['items'][0]['title'] );
+		$GLOBALS['wpdb']->update(
+			Tables::pages(),
+			array(
+				'onpage_state'   => 'current',
+				'evidence_ready' => 1,
+			),
+			array( 'id' => $secret['page_id'] )
+		);
+		$this->assertNull( $this->legacyNotice() );
+		$this->assertSame( 0, $this->pages( 'legacy_scores' )['total'] );
+		$this->assertSame( 1, (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SELECT COUNT(*) FROM ' . Tables::scores() . ' WHERE page_id = %d', $secret['page_id'] ) ) );
 	}
 
 	public function test_notice_count_list_permissions_and_dismissal_follow_rechecks(): void {
@@ -277,12 +364,14 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		delete_option( Ruleset::OPTION );
 		RulesetApplier::synchronise();
 		$this->assertNotFalse( get_option( UpgradeNotice::OPTION ) );
+		update_option( LegacyScoreNotice::OPTION, array( 'page_ids' => array( 1 ) ), false );
 		$scores = (int) $GLOBALS['wpdb']->get_var( 'SELECT COUNT(*) FROM ' . Tables::scores() );
 
 		Uninstaller::removeOptionsAndJobs();
 
 		$this->assertFalse( get_option( UpgradeNotice::OPTION ) );
 		$this->assertFalse( get_option( UpgradeNotice::PENDING ) );
+		$this->assertFalse( get_option( LegacyScoreNotice::OPTION ) );
 		$this->assertSame( $scores, (int) $GLOBALS['wpdb']->get_var( 'SELECT COUNT(*) FROM ' . Tables::scores() ) );
 	}
 
@@ -393,10 +482,47 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 	 * @return array<string, mixed>|null
 	 */
 	private function notice(): ?array {
+		return $this->capabilityNotice( 'upgrade_notice' );
+	}
+
+	/**
+	 * Capability payload for saved scores from before evidence-ready checks.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function legacyNotice(): ?array {
+		return $this->capabilityNotice( 'legacy_notice' );
+	}
+
+	/**
+	 * @return array<string, mixed>|null
+	 */
+	private function capabilityNotice( string $key ): ?array {
 		$data   = rest_do_request( new WP_REST_Request( 'GET', '/seostudio/v1/capabilities' ) )->get_data();
-		$notice = $data['upgrade_notice'] ?? null;
+		$notice = $data[ $key ] ?? null;
 
 		return is_array( $notice ) ? $notice : null;
+	}
+
+	/**
+	 * Store a schema-3 style score that was never evidence-ready.
+	 *
+	 * @return array{post_id: int, page_id: int, score_id: int}
+	 */
+	private function plantHistorical( int $author, string $title ): array {
+		$planted = $this->plantDefinitive( $author, $title );
+		$GLOBALS['wpdb']->update(
+			Tables::pages(),
+			array(
+				'onpage_state'           => 'current',
+				'evidence_ready'         => 0,
+				'has_published_snapshot' => 0,
+				'missing_evidence'       => '',
+			),
+			array( 'id' => $planted['page_id'] )
+		);
+
+		return $planted;
 	}
 
 	/**

@@ -12,11 +12,11 @@ Zoop `0.6.0-beta.1` is a prerelease candidate on the stacked draft branches. Pas
 
 ## Ruleset notice and a 0.5.0 upgrade
 
-A direct upgrade from the released 0.5.0 package does **not** show the one-time scoring-rules notice. Those historical scores had no evidence-ready flag, so the retirement did not have a previously definitive score to count. The old score rows are kept. The cached score is cleared and the page is labelled out of date, with Check published page as the recovery.
+A direct upgrade from the released 0.5.0 package does **not** show the scoring-rules notice. Those historical scores had no evidence-ready flag, so they are not described as previously verified. The old score rows are kept. The cached score is cleared and the page is labelled out of date.
 
-The notice does appear after a later ruleset retirement that included scores already marked definitive, and only for pages that still need that check and that the current user can edit.
+When that upgrade finds saved on-page scores, Zoop shows a separate one-time explanation: "Zoop's page checks have been updated. Your previous scores have been kept, but N pages need a new published-page check." N counts only pages that user can still edit and that still need the check. The link opens that same review list. Dismissing it hides it for that user. A fresh installation, and an upgrade with no saved scores, do not show it. It does not start a batch check.
 
-This disagrees with a later request that every 0.5.0 upgrade show the notice. The implemented rule is the one covered by the tests: no notice unless a definitive score was retired. The Out of date list remains the recovery for a 0.5.0 upgrade.
+The scoring-rules notice still appears only after a later ruleset retirement that included scores already marked definitive, and only for pages that still need that check and that the current user can edit.
 
 ## Still open before a beta install
 
