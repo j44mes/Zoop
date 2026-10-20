@@ -1,0 +1,59 @@
+name: Candidate ZIP download (not a release)
+
+on:
+  push:
+    branches:
+      - cursor/beta-packaging-48fa
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate commit
+        uses: actions/checkout@v4
+
+      - name: Set up PHP and ZIP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: zip, mbstring, intl
+          tools: composer
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build production assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify version and stamp exact source commit
+        run: |
+          php scripts/validate-version.php
+          php scripts/check-release-tag.php v0.6.0-beta.1
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
+      - name: Package installable candidate ZIP
+        run: |
+          php scripts/package-plugin.php
+          unzip -t dist/seo-studio-0.6.0-beta.1.zip
+          sha256sum dist/seo-studio-0.6.0-beta.1.zip
+
+      - name: Attach ZIP for download (no GitHub Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoop-0.6.0-beta.1-test-zip
+          path: dist/seo-studio-0.6.0-beta.1.zip
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
