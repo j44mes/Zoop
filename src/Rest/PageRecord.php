@@ -58,7 +58,7 @@ final class PageRecord {
 		$current      = 'current' === (string) ( $row['onpage_state'] ?? '' );
 		$checks       = array();
 		foreach ( $details as $score ) {
-			if ( 'onpage' !== (string) ( $score['engine'] ?? '' ) ) {
+			if ( 'onpage' !== $score['engine'] ) {
 				continue;
 			}
 			if ( $current && empty( $score['current'] ) ) {

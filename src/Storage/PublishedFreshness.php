@@ -56,8 +56,8 @@ final class PublishedFreshness {
 		}
 	}
 
-	public static function savedMeta( mixed $metaId, int $postId, string $metaKey ): void {
-		unset( $metaId );
+	public static function savedMeta( mixed $metaId, int $postId, string $metaKey, mixed $metaValue = null ): void {
+		unset( $metaId, $metaValue );
 		if ( in_array( $metaKey, SourceFingerprint::metaKeys(), true ) ) {
 			self::postChanged( $postId );
 		}

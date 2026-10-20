@@ -295,7 +295,7 @@ test( 'editing the title updates the title assessment without a reload', async (
 test( 're-analyse all queues an audit', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Run website audit' } ).click();
+	await page.getByRole( 'button', { name: 'Refresh content analysis' } ).click();
 	await expect(
 		page.getByText(
 			/Audit queued\.|An audit is already running\.|An audit was started recently/
