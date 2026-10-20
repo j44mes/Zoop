@@ -146,10 +146,16 @@ export function ArchitecturePanel() {
 				pages={ report.template_only }
 			/>
 			<h3>{ __( 'Unresolved internal links', 'seo-studio' ) }</h3>
+			<p className="seostudio-muted">
+				{ __(
+					'A confirmed missing destination is separate from an address Zoop could not classify.',
+					'seo-studio'
+				) }
+			</p>
 			{ report.unresolved.length === 0 ? (
 				<p className="seostudio-muted">
 					{ __(
-						'Every internal link matches a published page in this inventory.',
+						'No address is a confirmed missing page.',
 						'seo-studio'
 					) }
 				</p>
@@ -176,6 +182,44 @@ export function ArchitecturePanel() {
 											? __( 'Template', 'seo-studio' )
 											: __( 'Contextual', 'seo-studio' ) }
 									</td>
+									<td>{ link.occurrences }</td>
+								</tr>
+							) ) }
+						</tbody>
+					</table>
+				</div>
+			) }
+			<h3>{ __( 'Unverified addresses', 'seo-studio' ) }</h3>
+			<p className="seostudio-muted">
+				{ __(
+					'These addresses are on this site and did not match a local WordPress route. They are not confirmed broken links.',
+					'seo-studio'
+				) }
+			</p>
+			{ ( report.unverified ?? [] ).length === 0 ? (
+				<p className="seostudio-muted">
+					{ __(
+						'No unverified same-site address is stored.',
+						'seo-studio'
+					) }
+				</p>
+			) : (
+				<div className="seostudio-table-wrap">
+					<table className="seostudio-table">
+						<thead>
+							<tr>
+								<th>{ __( 'From', 'seo-studio' ) }</th>
+								<th>{ __( 'Address', 'seo-studio' ) }</th>
+								<th>{ __( 'Occurrences', 'seo-studio' ) }</th>
+							</tr>
+						</thead>
+						<tbody>
+							{ ( report.unverified ?? [] ).map( ( link ) => (
+								<tr
+									key={ `${ link.from_id }-${ link.href }-${ link.kind }` }
+								>
+									<td>{ link.from_title }</td>
+									<td>{ link.href }</td>
 									<td>{ link.occurrences }</td>
 								</tr>
 							) ) }
@@ -240,6 +284,29 @@ function PageList( {
 									<td>{ page.template_referrers }</td>
 									<td>
 										{ architectureStatus( page.status ) }
+										{ page.observation ? (
+											<div className="seostudio-muted">
+												{ page.observation }
+											</div>
+										) : null }
+										{ page.evidence ? (
+											<div className="seostudio-muted">
+												{ page.evidence }
+											</div>
+										) : null }
+										{ page.confidence ? (
+											<div className="seostudio-muted">
+												{ page.confidence }
+											</div>
+										) : null }
+										{ page.action ? (
+											<div>{ page.action }</div>
+										) : null }
+										{ page.verify ? (
+											<div className="seostudio-muted">
+												{ page.verify }
+											</div>
+										) : null }
 									</td>
 								</tr>
 							) ) }

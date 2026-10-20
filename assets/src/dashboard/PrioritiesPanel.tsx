@@ -89,7 +89,33 @@ export function PrioritiesPanel() {
 					<p className="seostudio-muted">
 						{ priorityKind( item.kind ) }
 					</p>
-					{ item.observation ? (
+					{ item.evidence ? (
+						<dl className="seostudio-evidence">
+							<div>
+								<dt>{ __( 'Observation', 'seo-studio' ) }</dt>
+								<dd>{ item.observation }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Evidence', 'seo-studio' ) }</dt>
+								<dd>{ item.evidence }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Confidence', 'seo-studio' ) }</dt>
+								<dd>{ item.confidence }</dd>
+							</div>
+							<div>
+								<dt>
+									{ __( 'Suggested action', 'seo-studio' ) }
+								</dt>
+								<dd>{ item.action }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Verify', 'seo-studio' ) }</dt>
+								<dd>{ item.verify }</dd>
+							</div>
+						</dl>
+					) : null }
+					{ item.observation && ! item.evidence ? (
 						<dl className="seostudio-evidence">
 							<div>
 								<dt>{ __( 'Observation', 'seo-studio' ) }</dt>
@@ -117,8 +143,30 @@ export function PrioritiesPanel() {
 							</div>
 						</dl>
 					) : null }
-					<p>{ item.action }</p>
+					{ item.evidence ? null : <p>{ item.action }</p> }
 					<p>{ item.reason }</p>
+					{ item.candidates && item.candidates.length > 0 ? (
+						<ul>
+							{ item.candidates.map( ( candidate ) => (
+								<li key={ candidate.post_id }>
+									{ candidate.reason
+										? `${ candidate.reason } `
+										: '' }
+									{ candidate.post_id > 0 ? (
+										<a
+											href={ pageWorkspaceUrl(
+												candidate.post_id
+											) }
+										>
+											{ candidate.title || candidate.url }
+										</a>
+									) : (
+										candidate.title
+									) }
+								</li>
+							) ) }
+						</ul>
+					) : null }
 					{ item.href ? (
 						<p>
 							<a href={ item.href }>

@@ -37,7 +37,7 @@ describe( 'architecture copy', () => {
 		expect( architectureStatus( 'orphan' ) ).toBe( 'Orphan' );
 		expect( architectureStatus( 'weak' ) ).toBe( 'Weakly linked' );
 		expect( architectureStatus( 'template_only' ) ).toBe( 'Template only' );
-		expect( architectureStatus( 'unknown' ) ).toBe( 'Not enough data' );
+		expect( architectureStatus( 'unknown' ) ).toBe( 'Not yet verified' );
 		expect( depthLabel( null ) ).toBe( 'Not reached' );
 		expect( depthLabel( 2 ) ).toBe( '2' );
 	} );

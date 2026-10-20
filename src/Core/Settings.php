@@ -39,6 +39,7 @@ final class Settings {
 			'batch_pause_ms'        => 0,
 			'function_word_locale'  => 'en',
 			'uninstall_delete_data' => false,
+			'host_aliases'          => array(),
 			'local_business'        => array(
 				'enabled'   => false,
 				'name'      => '',
@@ -84,6 +85,7 @@ final class Settings {
 			? sanitize_key( (string) $input['function_word_locale'] )
 			: 'en';
 		$clean['uninstall_delete_data'] = ! empty( $input['uninstall_delete_data'] );
+		$clean['host_aliases']          = self::hostAliases( $input['host_aliases'] ?? array() );
 		$clean['schema_version']        = (int) ( self::all()['schema_version'] ?? 0 );
 		$clean['default_robots']        = self::robots( $input['default_robots'] ?? $clean['default_robots'] );
 		$clean['local_business']        = self::localBusiness( $input['local_business'] ?? array() );
@@ -133,5 +135,26 @@ final class Settings {
 			'city'      => sanitize_text_field( (string) ( $input['city'] ?? '' ) ),
 			'telephone' => sanitize_text_field( (string) ( $input['telephone'] ?? '' ) ),
 		);
+	}
+
+	/**
+	 * Hosts an administrator has explicitly trusted as this public site.
+	 *
+	 * @param mixed $input
+	 * @return string[]
+	 */
+	public static function hostAliases( mixed $input ): array {
+		if ( ! is_array( $input ) ) {
+			return array();
+		}
+		$hosts = array();
+		foreach ( $input as $host ) {
+			$host = strtolower( trim( (string) $host ) );
+			if ( '' === $host || str_contains( $host, '/' ) || str_contains( $host, ' ' ) ) {
+				continue;
+			}
+			$hosts[] = $host;
+		}
+		return array_values( array_unique( $hosts ) );
 	}
 }

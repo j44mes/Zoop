@@ -76,6 +76,9 @@ final class Priorities {
 		foreach ( $reviews as $item ) {
 			$items[] = $item;
 		}
+		foreach ( $this->rows( $architecture, 'unverified' ) as $row ) {
+			$items[] = $this->unverifiedItem( $row );
+		}
 		if ( 'absent' === $search_mode ) {
 			$items[] = array(
 				'priority'    => 4,
@@ -199,6 +202,28 @@ final class Priorities {
 			);
 		}
 		$item['pages'] = $kept;
+		if ( isset( $item['candidates'] ) && is_array( $item['candidates'] ) ) {
+			$candidates = array();
+			foreach ( $item['candidates'] as $candidate ) {
+				if ( ! is_array( $candidate ) ) {
+					continue;
+				}
+				$id = (int) ( $candidate['post_id'] ?? 0 );
+				if ( $id > 0 && $canEdit( $id ) ) {
+					$candidates[] = $candidate;
+					continue;
+				}
+				$hidden = true;
+			}
+			$item['candidates'] = $candidates;
+			if ( $hidden ) {
+				$item['action'] = $this->candidateAction( $candidates );
+			}
+		}
+		if ( $hidden ) {
+			$item['reason']   = __( 'Part of this finding refers to a page you cannot open. Its title and address are hidden. Zoop does not edit the page.', 'seo-studio' );
+			$item['evidence'] = __( 'The link count includes the whole published site. Hidden pages are not named.', 'seo-studio' );
+		}
 
 		return $item;
 	}
@@ -301,6 +326,71 @@ final class Priorities {
 	}
 
 	/**
+	 * Suggested sources the viewer can still open.
+	 *
+	 * @param list<array<string, mixed>> $candidates Remaining candidates.
+	 */
+	private function candidateAction( array $candidates ): string {
+		if ( array() === $candidates ) {
+			return __( 'No stored topic or keyphrase matches this page that you can open.', 'seo-studio' );
+		}
+		$titles = array();
+		foreach ( $candidates as $candidate ) {
+			$title = trim( (string) ( $candidate['title'] ?? '' ) );
+			if ( '' !== $title ) {
+				$titles[] = $title;
+			}
+		}
+		return sprintf(
+			/* translators: %s: comma-separated page titles that share a stored topic or keyphrase. */
+			__( 'Review these stored matches as potential link sources: %s.', 'seo-studio' ),
+			implode( ', ', $titles )
+		);
+	}
+
+	/**
+	 * One same-site address that WordPress did not classify. It is not a confirmed broken link.
+	 *
+	 * @param array<string, mixed> $row Unverified link.
+	 * @return array<string, mixed>
+	 */
+	private function unverifiedItem( array $row ): array {
+		$from        = trim( (string) ( $row['from_title'] ?? '' ) );
+		$href        = (string) ( $row['href'] ?? '' );
+		$occurrences = (int) ( $row['occurrences'] ?? 0 );
+		$source      = '' !== $from ? $from : __( 'a stored page', 'seo-studio' );
+		$evidence    = trim( (string) ( $row['reason'] ?? '' ) );
+		if ( '' === $evidence ) {
+			$evidence = __( 'No local WordPress route matched this address. It is not a confirmed broken link.', 'seo-studio' );
+		}
+
+		return array(
+			'priority'    => 4,
+			'kind'        => 'unverified',
+			'title'       => '' !== $href ? $href : __( 'Unverified address', 'seo-studio' ),
+			'action'      => __( 'Review this address. Zoop did not confirm that it is broken and does not edit the page.', 'seo-studio' ),
+			'reason'      => sprintf(
+				/* translators: 1: occurrence count, 2: source page title. */
+				__( 'This address appears %1$d times from %2$s. It is not a confirmed broken link. Zoop did not request it. Zoop does not edit the page.', 'seo-studio' ),
+				$occurrences,
+				$source
+			),
+			'observation' => __( 'Unverified destination.', 'seo-studio' ),
+			'evidence'    => $evidence,
+			'confidence'  => 'limited',
+			'verify'      => __( 'Check the published page after the address is updated.', 'seo-studio' ),
+			'pages'       => array(
+				array(
+					'post_id' => $this->postId( (string) ( $row['from_id'] ?? '' ) ),
+					'title'   => $source,
+					'url'     => $href,
+				),
+			),
+			'impressions' => 0,
+		);
+	}
+
+	/**
 	 * One internal address that matches no published page.
 	 *
 	 * @param array<string, mixed> $row Unresolved link.
@@ -312,17 +402,34 @@ final class Priorities {
 		$occurrences = (int) ( $row['occurrences'] ?? 0 );
 		$source      = '' !== $from ? $from : __( 'a stored page', 'seo-studio' );
 
+		$resolution = (string) ( $row['resolution'] ?? 'unresolved' );
+		$reason     = 'missing' === $resolution
+			? sprintf(
+				/* translators: 1: occurrence count, 2: source page title. */
+				__( 'This address appears %1$d times from %2$s and WordPress shows the destination is gone. Zoop did not request it. Zoop does not edit the page.', 'seo-studio' ),
+				$occurrences,
+				$source
+			)
+			: sprintf(
+				/* translators: 1: occurrence count, 2: source page title. */
+				__( 'This address appears %1$d times from %2$s and does not match a published page. It is not a confirmed broken link. Zoop did not request it. Zoop does not edit the page.', 'seo-studio' ),
+				$occurrences,
+				$source
+			);
 		return array(
 			'priority'    => 2,
 			'kind'        => 'unresolved',
-			'title'       => '' !== $href ? $href : __( 'Unresolved internal address', 'seo-studio' ),
-			'action'      => __( 'Review this internal address. Zoop did not request it.', 'seo-studio' ),
-			'reason'      => sprintf(
-				/* translators: 1: occurrence count, 2: source page title. */
-				__( 'This internal address appears %1$d times from %2$s and does not match a published page. Zoop did not request it. Zoop does not edit the page.', 'seo-studio' ),
-				$occurrences,
-				$source
-			),
+			'title'       => '' !== $href ? $href : __( 'Unverified internal address', 'seo-studio' ),
+			'action'      => 'missing' === $resolution
+				? __( 'Review this address. WordPress shows the destination is gone.', 'seo-studio' )
+				: __( 'Review this address. Zoop could not classify it and did not request it.', 'seo-studio' ),
+			'reason'      => $reason,
+			'observation' => 'missing' === $resolution
+				? __( 'Confirmed missing destination.', 'seo-studio' )
+				: __( 'Unverified destination.', 'seo-studio' ),
+			'evidence'    => (string) ( $row['reason'] ?? '' ),
+			'confidence'  => 'missing' === $resolution ? 'high' : 'limited',
+			'verify'      => __( 'Check the published page after the address is updated.', 'seo-studio' ),
 			'pages'       => array(
 				array(
 					'post_id' => $this->postId( (string) ( $row['from_id'] ?? '' ) ),
@@ -381,12 +488,17 @@ final class Priorities {
 			$priority = 3;
 		}
 
-		return array(
+		$item = array(
 			'priority'    => $priority,
 			'kind'        => 'page',
 			'title'       => $title,
-			'action'      => $action,
+			'action'      => '' !== (string) ( $row['action'] ?? '' ) ? (string) $row['action'] : $action,
 			'reason'      => $reason,
+			'observation' => (string) ( $row['observation'] ?? '' ),
+			'evidence'    => (string) ( $row['evidence'] ?? '' ),
+			'confidence'  => (string) ( $row['confidence'] ?? '' ),
+			'verify'      => (string) ( $row['verify'] ?? '' ),
+			'candidates'  => is_array( $row['candidates'] ?? null ) ? $row['candidates'] : array(),
 			'pages'       => array(
 				array(
 					'post_id' => (int) ( $row['post_id'] ?? 0 ),
@@ -396,6 +508,7 @@ final class Priorities {
 			),
 			'impressions' => $count,
 		);
+		return $item;
 	}
 
 	/**

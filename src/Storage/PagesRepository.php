@@ -345,13 +345,17 @@ final class PagesRepository {
 		}
 
 		$existing = $this->findByObject( 'post', $postId );
-		$id       = $this->save(
+		$model    = $merged->toArray();
+		if ( 'live' === $merged->renderMode && function_exists( 'get_post' ) ) {
+			$model['link_source_hash'] = \SEOStudio\Architecture\LinkSource::current( $postId );
+		}
+		$id = $this->save(
 			array(
 				'object_type'      => 'post',
 				'object_id'        => $postId,
 				'url'              => $merged->url,
 				'input_hash'       => $inputHash,
-				'page_model'       => $merged->toArray(),
+				'page_model'       => $model,
 				'render_mode'      => $merged->renderMode,
 				'content_selector' => $merged->contentSelectorUsed,
 				'is_indexable'     => Indexability::forPost( $postId, $merged ),
@@ -619,7 +623,7 @@ final class PagesRepository {
 	 *
 	 * A row with a page model counts as analysed. The graph reads links only, not the body text.
 	 *
-	 * @return array<int, array{render_mode: string, analysed: bool, h1: string, links: array<int, array{href: string, anchor: string, kind: string}>}>
+	 * @return array<int, array{render_mode: string, analysed: bool, h1: string, links: array<int, array{href: string, anchor: string, kind: string}>, model: array<string, mixed>}>
 	 */
 	public function storedLinks(): array {
 		global $wpdb;
@@ -662,6 +666,7 @@ final class PagesRepository {
 				'analysed'    => is_array( $decoded ),
 				'h1'          => $h1,
 				'links'       => $links,
+				'model'       => is_array( $decoded ) ? $decoded : array(),
 			);
 		}
 

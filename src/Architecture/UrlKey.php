@@ -81,14 +81,62 @@ final class UrlKey {
 		return $host . $port . $path . self::query( (string) ( $parts['query'] ?? '' ) );
 	}
 
-	public static function sameSite( string $identity, string $homeAbsolute ): bool {
+	/**
+	 * Same public host and path prefix. Optional aliases are explicit host:port values.
+	 *
+	 * @param string[] $aliases
+	 */
+	public static function sameSite( string $identity, string $homeAbsolute, array $aliases = array() ): bool {
 		$home = self::identity( self::absolute( $homeAbsolute, $homeAbsolute ) );
 		if ( '' === $identity || '' === $home ) {
 			return false;
 		}
-		$home_host = preg_replace( '#/.*$#', '', $home );
-		$page_host = preg_replace( '#/.*$#', '', $identity );
-		return is_string( $home_host ) && $home_host === $page_host;
+		$home_part = self::splitIdentity( $home );
+		$page_part = self::splitIdentity( $identity );
+		$hosts     = array( $home_part['host'] );
+		foreach ( $aliases as $alias ) {
+			$alias = strtolower( trim( (string) $alias ) );
+			if ( '' !== $alias ) {
+				$hosts[] = $alias;
+			}
+		}
+		if ( ! in_array( $page_part['host'], $hosts, true ) ) {
+			return false;
+		}
+		return self::pathWithin( $page_part['path'], $home_part['path'] );
+	}
+
+	/**
+	 * Split a normalised identity into its host and path.
+	 *
+	 * @return array{host: string, path: string}
+	 */
+	private static function splitIdentity( string $identity ): array {
+		$query = strpos( $identity, '?' );
+		$path  = false === $query ? $identity : substr( $identity, 0, $query );
+		$slash = strpos( $path, '/' );
+		if ( false === $slash ) {
+			return array(
+				'host' => $path,
+				'path' => '/',
+			);
+		}
+		return array(
+			'host' => substr( $path, 0, $slash ),
+			'path' => substr( $path, $slash ),
+		);
+	}
+
+	private static function pathWithin( string $path, string $homePath ): bool {
+		$path     = '/' . trim( $path, '/' );
+		$homePath = '/' . trim( $homePath, '/' );
+		if ( '/' === $path ) {
+			$path = '/';
+		}
+		if ( '/' === $homePath ) {
+			return true;
+		}
+		return $path === $homePath || str_starts_with( $path, $homePath . '/' );
 	}
 
 	/**

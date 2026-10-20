@@ -54,7 +54,8 @@ final class PageModel {
 		public readonly string $titleEvidence = 'observed',
 		public readonly string $descriptionEvidence = 'observed',
 		public readonly string $robotsMeta = '',
-		public readonly string $robotsHttp = ''
+		public readonly string $robotsHttp = '',
+		public readonly string $linkSourceHash = ''
 	) {}
 
 	/**
@@ -105,7 +106,8 @@ final class PageModel {
 			titleEvidence: $this->titleEvidence,
 			descriptionEvidence: $this->descriptionEvidence,
 			robotsMeta: $this->robotsMeta,
-			robotsHttp: $this->robotsHttp
+			robotsHttp: $this->robotsHttp,
+			linkSourceHash: $this->linkSourceHash
 		);
 	}
 
@@ -215,7 +217,8 @@ final class PageModel {
 			titleEvidence: MetadataEvidence::known( array_key_exists( 'title_evidence', $data ) ? (string) $data['title_evidence'] : null, MetadataEvidence::OBSERVED ),
 			descriptionEvidence: MetadataEvidence::known( array_key_exists( 'description_evidence', $data ) ? (string) $data['description_evidence'] : null, MetadataEvidence::OBSERVED ),
 			robotsMeta: (string) ( $data['robots_meta'] ?? '' ),
-			robotsHttp: (string) ( $data['robots_http'] ?? '' )
+			robotsHttp: (string) ( $data['robots_http'] ?? '' ),
+			linkSourceHash: (string) ( $data['link_source_hash'] ?? '' )
 		);
 	}
 
@@ -256,6 +259,7 @@ final class PageModel {
 			'description_evidence'  => $this->descriptionEvidence,
 			'robots_meta'           => $this->robotsMeta,
 			'robots_http'           => $this->robotsHttp,
+			'link_source_hash'      => $this->linkSourceHash,
 		);
 	}
 
@@ -264,7 +268,7 @@ final class PageModel {
 	 */
 	public function inputHash(): string {
 		$data = $this->toArray();
-		unset( $data['rendered_at'] );
+		unset( $data['rendered_at'], $data['link_source_hash'] );
 		if ( function_exists( 'wp_json_encode' ) ) {
 			$encoded = wp_json_encode( $data );
 		} else {

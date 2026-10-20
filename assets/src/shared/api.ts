@@ -447,6 +447,17 @@ export interface ArchitecturePage {
 	contextual_occurrences: number;
 	template_occurrences: number;
 	status: string;
+	observation?: string;
+	evidence?: string;
+	confidence?: string;
+	action?: string;
+	verify?: string;
+	candidates?: Array< {
+		post_id: number;
+		title: string;
+		url: string;
+		reason?: string;
+	} >;
 }
 
 export interface ArchitectureReport {
@@ -467,6 +478,7 @@ export interface ArchitectureReport {
 		unresolved: number;
 		unreachable: number;
 		navigation: number;
+		unverified?: number;
 	};
 	deepest: ArchitecturePage | null;
 	orphans: ArchitecturePage[];
@@ -479,6 +491,17 @@ export interface ArchitectureReport {
 		kind: string;
 		anchor: string;
 		occurrences: number;
+		resolution?: string;
+		reason?: string;
+	} >;
+	unverified?: Array< {
+		from_id: string;
+		from_title: string;
+		href: string;
+		kind: string;
+		anchor: string;
+		occurrences: number;
+		reason?: string;
 	} >;
 	limited: boolean;
 	notes: string[];
@@ -603,6 +626,15 @@ export interface RecommendationItem {
 	observation_confidence?: string;
 	conclusion?: string;
 	conclusion_confidence?: string;
+	evidence?: string;
+	confidence?: string;
+	verify?: string;
+	candidates?: Array< {
+		post_id: number;
+		title: string;
+		url: string;
+		reason?: string;
+	} >;
 	pages: RecommendationPage[];
 	href?: string;
 }

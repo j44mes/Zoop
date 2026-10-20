@@ -16,7 +16,7 @@ export function architectureStatus( status: string ): string {
 		case 'template_only':
 			return __( 'Template only', 'seo-studio' );
 		case 'unknown':
-			return __( 'Not enough data', 'seo-studio' );
+			return __( 'Not yet verified', 'seo-studio' );
 		default:
 			return __( 'Linked', 'seo-studio' );
 	}

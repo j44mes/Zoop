@@ -4,6 +4,7 @@ export function priorityKind( kind: string ): string {
 	const labels: Record< string, string > = {
 		overlap: __( 'Overlap', 'seo-studio' ),
 		unresolved: __( 'Unresolved link', 'seo-studio' ),
+		unverified: __( 'Unverified address', 'seo-studio' ),
 		page: __( 'Link graph', 'seo-studio' ),
 		search: __( 'Search evidence', 'seo-studio' ),
 		visibility: __( 'Search visibility', 'seo-studio' ),
