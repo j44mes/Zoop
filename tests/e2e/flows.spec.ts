@@ -232,6 +232,27 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
 		'saved but not printed'
 	);
+	// Analyse does not write SEO fields. The native save stores the phrase for the next load.
+	await page.waitForFunction( () => {
+		const select = (
+			window as unknown as {
+				wp: {
+					data: {
+						select: ( store: string ) => {
+							getEditedPostAttribute: ( key: string ) => {
+								_seostudio_focus_keyphrase?: string;
+							};
+						};
+					};
+				};
+			}
+		 ).wp.data.select( 'core/editor' );
+		return (
+			select.getEditedPostAttribute( 'meta' )
+				?._seostudio_focus_keyphrase === 'rank tracker'
+		);
+	} );
+	await saveDraft( page );
 } );
 
 test( 'editing the title updates the title assessment without a reload', async ( {
