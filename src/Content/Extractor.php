@@ -13,6 +13,8 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMXPath;
+use SEOStudio\Architecture\SiteBoundary;
+use SEOStudio\Architecture\UrlKey;
 
 /**
  * Extracts the fields both scoring engines read.
@@ -380,14 +382,12 @@ final class Extractor {
 	 * @return array<int, array{href: string, anchor: string, internal: bool, nofollow: bool, kind: string}>
 	 */
 	private function links( DOMDocument $document, DOMNode $root, string $pageUrl ): array {
-		$links     = array();
-		$host_part = Urls::component( $pageUrl, PHP_URL_HOST );
-		$host      = is_string( $host_part ) ? $host_part : '';
-		$body      = $document->getElementsByTagName( 'body' )->item( 0 );
-		$scope     = $body instanceof DOMNode ? $body : $document;
+		$links = array();
+		$body  = $document->getElementsByTagName( 'body' )->item( 0 );
+		$scope = $body instanceof DOMNode ? $body : $document;
 		$this->walk(
 			$scope,
-			function ( DOMNode $node ) use ( &$links, $host, $root ): void {
+			function ( DOMNode $node ) use ( &$links, $root, $pageUrl ): void {
 				if ( ! $node instanceof DOMElement || 'a' !== strtolower( $node->tagName ) ) {
 					return;
 				}
@@ -395,19 +395,99 @@ final class Extractor {
 				if ( '' === $href ) {
 					return;
 				}
-				$link_part = Urls::component( $href, PHP_URL_HOST );
-				$link_host = is_string( $link_part ) ? $link_part : '';
-				$rel       = strtolower( $node->getAttribute( 'rel' ) );
-				$links[]   = array(
+				$rel     = strtolower( $node->getAttribute( 'rel' ) );
+				$links[] = array(
 					'href'     => $href,
 					'anchor'   => $this->textOf( $node ),
-					'internal' => '' === $link_host || ( '' !== $host && 0 === strcasecmp( $link_host, $host ) ),
-					'kind'     => $this->contains( $root, $node ) ? 'contextual' : 'template',
-					'nofollow' => str_contains( $rel, 'nofollow' ),
+					'internal' => $this->linkIsInternal( $href, $pageUrl ),
+					'kind'     => $this->linkKind( $node, $root ),
+					'nofollow' => $this->relHas( $rel, 'nofollow' ),
 				);
 			}
 		);
 		return $links;
+	}
+
+	/**
+	 * Relative links stay internal. Absolute links use the public boundary and trusted aliases.
+	 */
+	private function linkIsInternal( string $href, string $pageUrl ): bool {
+		if ( str_starts_with( $href, '#' ) || preg_match( '#^(mailto|tel|javascript|data):#i', $href ) ) {
+			return false;
+		}
+		$link_part = Urls::component( $href, PHP_URL_HOST );
+		$link_host = is_string( $link_part ) ? $link_part : '';
+		$scheme    = 1 === preg_match( '#^[a-z][a-z0-9+.-]*:#i', $href );
+		if ( '' === $link_host && ! $scheme ) {
+			return true;
+		}
+		$home     = $this->linkHome( $pageUrl );
+		$absolute = UrlKey::absolute( $href, '' !== $pageUrl ? $pageUrl : $home );
+		return '' !== $absolute && SiteBoundary::contains( $absolute, $home );
+	}
+
+	/**
+	 * Public site root. Without WordPress, the page address supplies the host and port.
+	 */
+	private function linkHome( string $pageUrl ): string {
+		if ( function_exists( 'home_url' ) ) {
+			return (string) home_url( '/' );
+		}
+		$parts = Urls::parts( $pageUrl );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return $pageUrl;
+		}
+		$origin = strtolower( (string) $parts['scheme'] ) . '://' . strtolower( (string) $parts['host'] );
+		if ( isset( $parts['port'] ) ) {
+			$origin .= ':' . (int) $parts['port'];
+		}
+		return $origin . '/';
+	}
+
+	/**
+	 * Content links are contextual, except WordPress previous/next post navigation.
+	 */
+	private function linkKind( DOMElement $node, DOMNode $root ): string {
+		if ( ! $this->contains( $root, $node ) || $this->postNavigationLink( $node ) ) {
+			return 'template';
+		}
+		return 'contextual';
+	}
+
+	/**
+	 * Post-navigation blocks and previous/next links inside those containers.
+	 *
+	 * An editorial link that merely says rel="next" stays contextual.
+	 */
+	private function postNavigationLink( DOMElement $node ): bool {
+		$rel     = strtolower( $node->getAttribute( 'rel' ) );
+		$in_nav  = false;
+		$current = $node;
+		while ( $current instanceof DOMElement ) {
+			if ( $this->hasClassToken( $current, 'wp-block-post-navigation-link' ) ) {
+				return true;
+			}
+			if ( $this->hasClassToken( $current, 'post-navigation' ) ) {
+				$in_nav = true;
+			}
+			$label = strtolower( trim( $current->getAttribute( 'aria-label' ) ) );
+			if ( 'nav' === strtolower( $current->tagName ) && str_contains( $label, 'post navigation' ) ) {
+				$in_nav = true;
+			}
+			$parent  = $current->parentNode;
+			$current = $parent instanceof DOMElement ? $parent : null;
+		}
+		return $in_nav && ( $this->relHas( $rel, 'prev' ) || $this->relHas( $rel, 'next' ) );
+	}
+
+	private function relHas( string $rel, string $token ): bool {
+		$parts = preg_split( '/\s+/', trim( $rel ) );
+		return is_array( $parts ) && in_array( $token, $parts, true );
+	}
+
+	private function hasClassToken( DOMElement $node, string $token ): bool {
+		$classes = preg_split( '/\s+/', trim( $node->getAttribute( 'class' ) ) );
+		return is_array( $classes ) && in_array( $token, $classes, true );
 	}
 
 	/**

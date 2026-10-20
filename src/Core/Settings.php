@@ -150,11 +150,58 @@ final class Settings {
 		$hosts = array();
 		foreach ( $input as $host ) {
 			$host = strtolower( trim( (string) $host ) );
-			if ( '' === $host || str_contains( $host, '/' ) || str_contains( $host, ' ' ) ) {
+			if ( ! self::isHostAlias( $host ) ) {
 				continue;
 			}
 			$hosts[] = $host;
 		}
 		return array_values( array_unique( $hosts ) );
+	}
+
+	/**
+	 * A hostname, optionally with a numeric port. Schemes and paths are rejected.
+	 */
+	public static function isHostAlias( string $host ): bool {
+		$host = strtolower( trim( $host ) );
+		if ( '' === $host || strlen( $host ) > 253 || str_contains( $host, '/' ) || str_contains( $host, ' ' ) || str_contains( $host, '@' ) ) {
+			return false;
+		}
+		$name = $host;
+		$mark = strrpos( $host, ':' );
+		if ( false !== $mark && ctype_digit( substr( $host, $mark + 1 ) ) ) {
+			$name = substr( $host, 0, $mark );
+			$port = (int) substr( $host, $mark + 1 );
+			if ( $port < 1 || $port > 65535 || '' === $name ) {
+				return false;
+			}
+		}
+		return 1 === preg_match( '/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/', $name );
+	}
+
+	/**
+	 * Add or remove one trusted hostname. The caller must already have manage_options.
+	 */
+	public static function trustHost( string $host, bool $trust ): bool {
+		$host = strtolower( trim( $host ) );
+		if ( ! self::isHostAlias( $host ) || ! function_exists( 'update_option' ) ) {
+			return false;
+		}
+		$settings = self::all();
+		$aliases  = self::hostAliases( $settings['host_aliases'] ?? array() );
+		if ( $trust ) {
+			$aliases[] = $host;
+		} else {
+			$aliases = array_values(
+				array_filter(
+					$aliases,
+					static function ( string $item ) use ( $host ): bool {
+						return $item !== $host;
+					}
+				)
+			);
+		}
+		$settings['host_aliases'] = self::hostAliases( $aliases );
+		update_option( self::OPTION, $settings, true );
+		return true;
 	}
 }

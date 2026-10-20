@@ -22,7 +22,7 @@ final class SiteBoundary {
 	 * @return string[]
 	 */
 	public static function aliases(): array {
-		if ( ! class_exists( Settings::class ) || ! method_exists( Settings::class, 'all' ) ) {
+		if ( ! function_exists( 'get_option' ) || ! class_exists( Settings::class ) || ! method_exists( Settings::class, 'all' ) ) {
 			return array();
 		}
 		$settings = Settings::all();

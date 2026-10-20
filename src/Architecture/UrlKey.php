@@ -107,6 +107,75 @@ final class UrlKey {
 	}
 
 	/**
+	 * Inventory identity for a trusted alias.
+	 *
+	 * Matching uses the public home host. The original path and query are preserved.
+	 *
+	 * @param string[] $aliases Explicit host:port aliases.
+	 */
+	public static function primaryIdentity( string $identity, string $homeAbsolute, array $aliases = array() ): string {
+		if ( ! self::sameSite( $identity, $homeAbsolute, $aliases ) ) {
+			return '';
+		}
+		$home = self::identity( self::absolute( $homeAbsolute, $homeAbsolute ) );
+		if ( '' === $home ) {
+			return '';
+		}
+		$home_part = self::splitIdentity( $home );
+		$page_part = self::splitIdentity( $identity );
+		$query     = '';
+		$position  = strpos( $identity, '?' );
+		if ( false !== $position ) {
+			$query = substr( $identity, $position );
+		}
+		return $home_part['host'] . $page_part['path'] . $query;
+	}
+
+	/**
+	 * Host of an untrusted www or non-www twin whose path is inside the public site.
+	 *
+	 * A name such as blog.example.com is not a twin of example.com. A different port is not a twin.
+	 */
+	public static function wwwTwinHost( string $identity, string $homeAbsolute ): string {
+		$home = self::identity( self::absolute( $homeAbsolute, $homeAbsolute ) );
+		if ( '' === $identity || '' === $home ) {
+			return '';
+		}
+		$home_part = self::splitIdentity( $home );
+		$page_part = self::splitIdentity( $identity );
+		if ( ! self::pathWithin( $page_part['path'], $home_part['path'] ) ) {
+			return '';
+		}
+		if ( $page_part['host'] === $home_part['host'] ) {
+			return '';
+		}
+		$twin = self::twinHostPort( $home_part['host'] );
+		return $page_part['host'] === $twin ? $page_part['host'] : '';
+	}
+
+	/**
+	 * The other www form of a host, keeping an explicit port.
+	 */
+	private static function twinHostPort( string $hostPort ): string {
+		$name = $hostPort;
+		$port = '';
+		$mark = strrpos( $hostPort, ':' );
+		if ( false !== $mark && ctype_digit( substr( $hostPort, $mark + 1 ) ) ) {
+			$name = substr( $hostPort, 0, $mark );
+			$port = substr( $hostPort, $mark );
+		}
+		if ( str_starts_with( $name, 'www.' ) ) {
+			$name = substr( $name, 4 );
+		} else {
+			$name = 'www.' . $name;
+		}
+		if ( '' === $name || ! str_contains( $name, '.' ) ) {
+			return '';
+		}
+		return $name . $port;
+	}
+
+	/**
 	 * Split a normalised identity into its host and path.
 	 *
 	 * @return array{host: string, path: string}

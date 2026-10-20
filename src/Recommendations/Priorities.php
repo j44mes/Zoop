@@ -459,31 +459,32 @@ final class Priorities {
 		if ( '' === $title ) {
 			$title = __( 'Untitled', 'seo-studio' );
 		}
-		$graph = 'orphan' === $status
+		$graph     = 'orphan' === $status
 			? __( 'This page has no contextual referring page in the stored crawl.', 'seo-studio' )
 			: __( 'This page has one contextual referring page.', 'seo-studio' );
+		$explained = '' !== (string) ( $row['observation'] ?? '' ) && '' !== (string) ( $row['evidence'] ?? '' );
 
 		if ( $count > 0 && is_array( $hit ) ) {
-			$queries = array() !== $hit['queries'] ? implode( ', ', $hit['queries'] ) : __( 'this address', 'seo-studio' );
-			$reason  = sprintf(
-				/* translators: 1: link-graph sentence, 2: impression count, 3: query list. */
-				__( '%1$s The imported file records %2$d impressions for %3$s. The file has no reporting dates or country and device split, so this count is not verified commercial value and not evidence of lost traffic. Zoop is not connected to Search Console. Zoop does not edit the page.', 'seo-studio' ),
-				$graph,
+			$queries       = array() !== $hit['queries'] ? implode( ', ', $hit['queries'] ) : __( 'this address', 'seo-studio' );
+			$demand_reason = sprintf(
+				/* translators: 1: impression count, 2: query list. */
+				__( 'The imported file records %1$d impressions for %2$s. The file has no reporting dates or country and device split, so this count is not verified commercial value and not evidence of lost traffic. Zoop is not connected to Search Console. Zoop does not edit the page.', 'seo-studio' ),
 				$count,
 				$queries
 			);
+			$reason   = $explained ? $demand_reason : $graph . ' ' . $demand_reason;
 			$action   = __( 'Review this page. An imported impression count can help choose what to examine. It does not measure commercial value.', 'seo-studio' );
 			$priority = 2;
 		} elseif ( 'absent' === $search_mode ) {
-			$reason   = $graph . ' ' . __( 'Demand is not known until a Search Console file is imported. Zoop does not edit the page.', 'seo-studio' );
+			$reason   = ( $explained ? '' : $graph . ' ' ) . __( 'Demand is not known until a Search Console file is imported. Zoop does not edit the page.', 'seo-studio' );
 			$action   = __( 'Review the link graph. Do not treat missing impressions as evidence.', 'seo-studio' );
 			$priority = 3;
 		} elseif ( 'query_only' === $search_mode ) {
-			$reason   = $graph . ' ' . __( 'The imported file has queries and no page addresses, so Zoop cannot attach impressions to this URL. That is not zero demand and not lost traffic. Zoop does not edit the page.', 'seo-studio' );
+			$reason   = ( $explained ? '' : $graph . ' ' ) . __( 'The imported file has queries and no page addresses, so Zoop cannot attach impressions to this URL. That is not zero demand and not lost traffic. Zoop does not edit the page.', 'seo-studio' );
 			$action   = __( 'Review the link graph. A query-only file cannot rank this page by demand.', 'seo-studio' );
 			$priority = 3;
 		} else {
-			$reason   = $graph . ' ' . __( 'No imported row names this address. A missing row is not zero demand, and the file has no dates or segmentation. Zoop does not edit the page.', 'seo-studio' );
+			$reason   = ( $explained ? '' : $graph . ' ' ) . __( 'No imported row names this address. A missing row is not zero demand, and the file has no dates or segmentation. Zoop does not edit the page.', 'seo-studio' );
 			$action   = __( 'Review the link graph before looking for more referring pages.', 'seo-studio' );
 			$priority = 3;
 		}

@@ -28,11 +28,12 @@ final class SiteSurvey {
 	 * @return array<string, mixed>
 	 */
 	public function report(): array {
-		$collected       = $this->collect();
-		$evaluated       = ( new Graph() )->evaluate( $collected['pages'], $collected['navigation'], $collected['context'] );
-		$report          = $evaluated['report'];
-		$report['notes'] = array_merge( $collected['notes'], $report['notes'] );
-		$report          = $this->describe( $report, $collected['pages'] );
+		$collected                 = $this->collect();
+		$evaluated                 = ( new Graph() )->evaluate( $collected['pages'], $collected['navigation'], $collected['context'] );
+		$report                    = $evaluated['report'];
+		$report['notes']           = array_merge( $collected['notes'], $report['notes'] );
+		$report                    = $this->describe( $report, $collected['pages'] );
+		$report['trusted_aliases'] = SiteBoundary::aliases();
 		if ( function_exists( 'current_user_can' ) && ! current_user_can( 'manage_options' ) ) {
 			return $this->redact( $report );
 		}
@@ -351,7 +352,8 @@ final class SiteSurvey {
 		$report['unverified'] = $this->redactLinks( is_array( $report['unverified'] ?? null ) ? $report['unverified'] : array() );
 		$report['deepest']    = $this->redactDeepest( $report['deepest'] ?? null );
 		$report['front']      = $this->redactFront( is_array( $report['front'] ?? null ) ? $report['front'] : array() );
-		$report['notes']      = array(
+		unset( $report['possible_aliases'], $report['trusted_aliases'] );
+		$report['notes'] = array(
 			__( 'This list includes published pages you can edit. Details of other pages are omitted.', 'seo-studio' ),
 			__( 'Link counts were calculated for the whole published site before this list was filtered.', 'seo-studio' ),
 		);

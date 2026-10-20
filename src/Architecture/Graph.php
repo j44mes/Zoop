@@ -128,6 +128,20 @@ final class Graph {
 	private string $coverageGap = '';
 
 	/**
+	 * Untrusted www or non-www hosts and how many links point at them.
+	 *
+	 * @var array<string, int>
+	 */
+	private array $possibleAliases = array();
+
+	/**
+	 * Inventory pages whose path is also linked from an untrusted twin host.
+	 *
+	 * @var array<string, string>
+	 */
+	private array $aliasUncertain = array();
+
+	/**
 	 * Build the public report and the per-page stats used by later reports.
 	 *
 	 * @param list<array<string, mixed>> $pages
@@ -178,6 +192,8 @@ final class Graph {
 		$this->aliases             = array();
 		$this->classifier          = null;
 		$this->coverageGap         = '';
+		$this->possibleAliases     = array();
+		$this->aliasUncertain      = array();
 		$this->frontId             = '';
 		$this->collisions          = 0;
 	}
@@ -198,8 +214,8 @@ final class Graph {
 			}
 			$url      = (string) ( $page['url'] ?? '' );
 			$absolute = UrlKey::absolute( $url, $url );
-			$identity = UrlKey::identity( $absolute );
-			if ( '' !== $identity && UrlKey::sameSite( $identity, $this->home ) ) {
+			$identity = UrlKey::primaryIdentity( UrlKey::identity( $absolute ), $this->home, $this->aliases );
+			if ( '' !== $identity ) {
 				if ( isset( $this->byIdentity[ $identity ] ) ) {
 					++$this->collisions;
 					$identity = '';
@@ -248,6 +264,11 @@ final class Graph {
 			}
 			$identity = UrlKey::identity( $absolute );
 			if ( ! UrlKey::sameSite( $identity, $this->home, $this->aliases ) ) {
+				$this->rememberPossibleAlias( $identity );
+				continue;
+			}
+			$identity = UrlKey::primaryIdentity( $identity, $this->home, $this->aliases );
+			if ( '' === $identity ) {
 				continue;
 			}
 			$link_kind = (string) ( $link['kind'] ?? '' );
@@ -292,6 +313,22 @@ final class Graph {
 				$this->nodes[ $sourceId ]['contextual_targets'][ $target ] = true;
 				$this->nodes[ $sourceId ]['contextual_out']                = count( $this->nodes[ $sourceId ]['contextual_targets'] );
 			}
+		}
+	}
+
+	/**
+	 * An untrusted www twin is not an incoming link. A matching path withholds an orphan claim.
+	 */
+	private function rememberPossibleAlias( string $identity ): void {
+		$twin = UrlKey::wwwTwinHost( $identity, $this->home );
+		if ( '' === $twin ) {
+			return;
+		}
+		$this->possibleAliases[ $twin ] = ( $this->possibleAliases[ $twin ] ?? 0 ) + 1;
+		$primary                        = UrlKey::primaryIdentity( $identity, $this->home, array( $twin ) );
+		$target                         = '' !== $primary ? ( $this->byIdentity[ $primary ] ?? '' ) : '';
+		if ( '' !== $target ) {
+			$this->aliasUncertain[ $target ] = $twin;
 		}
 	}
 
@@ -428,6 +465,8 @@ final class Graph {
 			$referrers = $item['referring_pages'];
 			if ( $id === $this->frontId ) {
 				$status = 'front';
+			} elseif ( 0 === $referrers && isset( $this->aliasUncertain[ $id ] ) ) {
+				$status = 'unknown';
 			} elseif ( ! $this->complete && 0 === $referrers ) {
 				$status = 'unknown';
 			} elseif ( $this->complete && 0 === $referrers ) {
@@ -462,7 +501,15 @@ final class Graph {
 				$row['confidence']  = 'high';
 				$row['verify']      = __( 'Check the published pages again after updating links.', 'seo-studio' );
 			} elseif ( 'unknown' === $status ) {
-				$evidence = __( 'Published-link coverage is incomplete, so this page is not called an orphan.', 'seo-studio' );
+				if ( isset( $this->aliasUncertain[ $id ] ) ) {
+					$evidence = sprintf(
+						/* translators: %s: hostname that may belong to this site. */
+						__( 'A link uses the same path on %s, and that hostname is not trusted as this site. This page is not called an orphan.', 'seo-studio' ),
+						$this->aliasUncertain[ $id ]
+					);
+				} else {
+					$evidence = __( 'Published-link coverage is incomplete, so this page is not called an orphan.', 'seo-studio' );
+				}
 				if ( '' !== $this->coverageGap ) {
 					$evidence .= ' ' . $this->coverageGap;
 				}
@@ -523,20 +570,20 @@ final class Graph {
 		}
 
 		return array(
-			'coverage'      => array(
+			'coverage'         => array(
 				'complete'  => $this->complete,
 				'inventory' => count( $rows ),
 				'analysed'  => $analysed,
 				'missing'   => $this->missing,
 				'withheld'  => $this->withheld,
 			),
-			'front'         => array(
+			'front'            => array(
 				'id'    => $this->frontId,
 				'title' => '' !== $this->frontId ? (string) ( $rows[ $this->frontId ]['title'] ?? '' ) : '',
 				'url'   => UrlKey::absolute( $this->home, $this->home ),
 				'kind'  => '' !== $this->frontId ? 'page' : 'blog',
 			),
-			'counts'        => array(
+			'counts'           => array(
 				'inventory'       => count( $rows ),
 				'analysed'        => $analysed,
 				'orphans'         => $this->complete ? count( $orphans ) : null,
@@ -549,15 +596,16 @@ final class Graph {
 				'navigation'      => $navigationLinks,
 				'address_clashes' => $this->collisions,
 			),
-			'depth'         => $histogram,
-			'deepest'       => null === $deepest ? null : $this->brief( $deepest ),
-			'orphans'       => $this->complete ? $this->limit( $orphans ) : array(),
-			'weak'          => $this->limit( $weak ),
-			'template_only' => $this->limit( $template_only ),
-			'unresolved'    => $this->limit( $unresolved ),
-			'unverified'    => $this->limit( array_values( $this->unknownDestinations ) ),
-			'limited'       => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT || count( $this->unknownDestinations ) > self::LIST_LIMIT,
-			'notes'         => $this->notes(),
+			'depth'            => $histogram,
+			'deepest'          => null === $deepest ? null : $this->brief( $deepest ),
+			'orphans'          => $this->complete ? $this->limit( $orphans ) : array(),
+			'weak'             => $this->limit( $weak ),
+			'template_only'    => $this->limit( $template_only ),
+			'unresolved'       => $this->limit( $unresolved ),
+			'unverified'       => $this->limit( array_values( $this->unknownDestinations ) ),
+			'possible_aliases' => $this->aliasNotices(),
+			'limited'          => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT || count( $this->unknownDestinations ) > self::LIST_LIMIT,
+			'notes'            => $this->notes(),
 		);
 	}
 
@@ -622,6 +670,55 @@ final class Graph {
 	}
 
 	/**
+	 * One notice per untrusted www or non-www hostname.
+	 *
+	 * @return list<array{host: string, count: int, pages: int, message: string}>
+	 */
+	private function aliasNotices(): array {
+		$notices = array();
+		foreach ( $this->possibleAliases as $host => $count ) {
+			$host  = (string) $host;
+			$count = (int) $count;
+			$pages = 0;
+			foreach ( $this->aliasUncertain as $uncertain ) {
+				if ( $uncertain === $host ) {
+					++$pages;
+				}
+			}
+			$message = sprintf(
+				/* translators: 1: number of links, 2: hostname. */
+				_n(
+					'%1$d link points to %2$s, which may be this site.',
+					'%1$d links point to %2$s, which may be this site.',
+					$count,
+					'seo-studio'
+				),
+				$count,
+				$host
+			);
+			if ( $pages > 0 ) {
+				$message .= ' ' . sprintf(
+					/* translators: %d: number of pages that are not called orphans. */
+					_n(
+						'%d page is not called an orphan until that hostname is trusted.',
+						'%d pages are not called orphans until that hostname is trusted.',
+						$pages,
+						'seo-studio'
+					),
+					$pages
+				);
+			}
+			$notices[] = array(
+				'host'    => $host,
+				'count'   => $count,
+				'pages'   => $pages,
+				'message' => $message,
+			);
+		}
+		return $notices;
+	}
+
+	/**
 	 * Sentences that explain how the counts were produced.
 	 *
 	 * @return string[]
@@ -647,6 +744,9 @@ final class Graph {
 		}
 		if ( '' === $this->frontId ) {
 			$notes[] = __( 'The front page is the blog index, so depth starts at the site address and at navigation targets.', 'seo-studio' );
+		}
+		foreach ( $this->aliasNotices() as $notice ) {
+			$notes[] = (string) $notice['message'];
 		}
 		if ( array() !== $this->unknownDestinations ) {
 			$notes[] = __( 'Some same-site addresses did not match a local WordPress route. They are unverified, not confirmed broken links.', 'seo-studio' );

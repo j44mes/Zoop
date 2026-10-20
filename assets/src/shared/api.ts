@@ -503,12 +503,30 @@ export interface ArchitectureReport {
 		occurrences: number;
 		reason?: string;
 	} >;
+	possible_aliases?: Array< {
+		host: string;
+		count: number;
+		pages: number;
+		message: string;
+	} >;
+	trusted_aliases?: string[];
 	limited: boolean;
 	notes: string[];
 }
 
 export function fetchArchitecture(): Promise< ArchitectureReport > {
 	return apiFetch( { path: '/seostudio/v1/architecture' } );
+}
+
+export function trustAlias(
+	host: string,
+	trust: boolean
+): Promise< ArchitectureReport > {
+	return apiFetch( {
+		path: '/seostudio/v1/architecture/aliases',
+		method: 'POST',
+		data: { host, trust },
+	} );
 }
 
 export interface TopicField {

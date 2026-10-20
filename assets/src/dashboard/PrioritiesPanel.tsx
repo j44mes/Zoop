@@ -11,7 +11,7 @@ import {
 	overlapObservation,
 } from './overlap-copy';
 import { pageWorkspaceUrl } from './PageWorkspace';
-import { priorityKind } from './priorities-copy';
+import { candidateLabel, priorityKind } from './priorities-copy';
 
 export function PrioritiesPanel() {
 	const [ report, setReport ] = useState< {
@@ -146,26 +146,39 @@ export function PrioritiesPanel() {
 					{ item.evidence ? null : <p>{ item.action }</p> }
 					<p>{ item.reason }</p>
 					{ item.candidates && item.candidates.length > 0 ? (
-						<ul>
-							{ item.candidates.map( ( candidate ) => (
-								<li key={ candidate.post_id }>
-									{ candidate.reason
-										? `${ candidate.reason } `
-										: '' }
-									{ candidate.post_id > 0 ? (
-										<a
-											href={ pageWorkspaceUrl(
-												candidate.post_id
-											) }
+						<>
+							<p>
+								{ __(
+									'Pages that could link here:',
+									'seo-studio'
+								) }
+							</p>
+							<ul className="seostudio-candidates">
+								{ item.candidates.map( ( candidate ) => {
+									const label = candidateLabel( candidate );
+									if ( ! label ) {
+										return null;
+									}
+									return (
+										<li
+											key={ `${ candidate.post_id }-${ candidate.url }` }
 										>
-											{ candidate.title || candidate.url }
-										</a>
-									) : (
-										candidate.title
-									) }
-								</li>
-							) ) }
-						</ul>
+											{ candidate.post_id > 0 ? (
+												<a
+													href={ pageWorkspaceUrl(
+														candidate.post_id
+													) }
+												>
+													{ label }
+												</a>
+											) : (
+												label
+											) }
+										</li>
+									);
+								} ) }
+							</ul>
+						</>
 					) : null }
 					{ item.href ? (
 						<p>

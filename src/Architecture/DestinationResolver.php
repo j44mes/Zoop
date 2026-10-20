@@ -57,7 +57,7 @@ final class DestinationResolver {
 			}
 		}
 
-		$historical = $this->historicalSlug( $absolute );
+		$historical = $this->historicalSlug( $absolute, $home );
 		if ( null !== $historical ) {
 			return $historical;
 		}
@@ -146,43 +146,146 @@ final class DestinationResolver {
 	}
 
 	/**
-	 * A previous slug stored by WordPress for a post that moved.
+	 * A previous slug whose full route still matches this post type and permalink shape.
+	 *
+	 * A shared basename on an unrelated path is not a redirect and not a confirmed missing page.
 	 *
 	 * @return array{status: string, reason: string}|null
 	 */
-	private function historicalSlug( string $absolute ): ?array {
+	private function historicalSlug( string $absolute, string $home ): ?array {
 		global $wpdb;
 		if ( ! $wpdb instanceof \wpdb ) {
 			return null;
 		}
-		$path = Urls::component( $absolute, PHP_URL_PATH );
-		$slug = is_string( $path ) ? basename( trim( $path, '/' ) ) : '';
+		$relative = $this->relativePath( $absolute, $home );
+		$slug     = '' !== $relative ? basename( $relative ) : '';
 		if ( '' === $slug ) {
 			return null;
 		}
-		$post_id = (int) $wpdb->get_var(
+		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_old_slug' AND meta_value = %s LIMIT 1",
+				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_old_slug' AND meta_value = %s LIMIT 20",
 				$slug
 			)
 		);
-		if ( $post_id < 1 ) {
+		if ( ! is_array( $ids ) ) {
 			return null;
 		}
-		$post = get_post( $post_id );
-		if ( ! $post instanceof \WP_Post ) {
-			return array(
-				'status' => 'missing',
-				'reason' => __( 'The historical slug has no post.', 'seo-studio' ),
-			);
+		$matched = null;
+		foreach ( $ids as $raw_id ) {
+			$post = get_post( (int) $raw_id );
+			if ( ! $post instanceof \WP_Post || ! $this->historicalPathMatches( $post, $relative, $slug ) ) {
+				continue;
+			}
+			$matched = $post;
+			if ( 'publish' === $post->post_status ) {
+				break;
+			}
 		}
-		if ( 'publish' === $post->post_status ) {
+		if ( ! $matched instanceof \WP_Post ) {
+			return null;
+		}
+		if ( 'publish' === $matched->post_status ) {
 			return array(
 				'status' => 'redirect',
 				'reason' => __( 'Known historical slug for a published post.', 'seo-studio' ),
 			);
 		}
-		return $this->fromPost( $post, false );
+		return $this->fromPost( $matched, false );
+	}
+
+	/**
+	 * Whether this path is the route WordPress would have used for the old slug.
+	 */
+	private function historicalPathMatches( \WP_Post $post, string $relative, string $oldSlug ): bool {
+		$expected = $this->expectedHistoricalPath( $post, $oldSlug );
+		return '' !== $expected && trim( $relative, '/' ) === $expected;
+	}
+
+	/**
+	 * Permalink path for this post when its slug was the stored historical value.
+	 */
+	private function expectedHistoricalPath( \WP_Post $post, string $oldSlug ): string {
+		if ( is_post_type_hierarchical( $post->post_type ) ) {
+			$parts  = array( $oldSlug );
+			$parent = (int) $post->post_parent;
+			$guard  = 0;
+			while ( $parent > 0 && $guard < 20 ) {
+				$ancestor = get_post( $parent );
+				if ( ! $ancestor instanceof \WP_Post || '' === (string) $ancestor->post_name ) {
+					return '';
+				}
+				array_unshift( $parts, (string) $ancestor->post_name );
+				$parent = (int) $ancestor->post_parent;
+				++$guard;
+			}
+			if ( 'page' !== $post->post_type ) {
+				$prefix = $this->rewriteSlug( $post->post_type );
+				if ( '' !== $prefix ) {
+					array_unshift( $parts, $prefix );
+				}
+			}
+			return implode( '/', $parts );
+		}
+
+		$structure = trim( (string) get_option( 'permalink_structure', '' ), '/' );
+		if ( '' === $structure || ! str_contains( $structure, '%postname%' ) ) {
+			return '';
+		}
+		$stamp    = strtotime( (string) $post->post_date );
+		$stamp    = false === $stamp ? time() : $stamp;
+		$category = 'uncategorized';
+		if ( function_exists( 'get_the_category' ) ) {
+			$terms = get_the_category( $post->ID );
+			if ( is_array( $terms ) && isset( $terms[0] ) && $terms[0] instanceof \WP_Term && '' !== (string) $terms[0]->slug ) {
+				$category = (string) $terms[0]->slug;
+			}
+		}
+		$author = '';
+		if ( function_exists( 'get_userdata' ) ) {
+			$user   = get_userdata( (int) $post->post_author );
+			$author = $user instanceof \WP_User ? (string) $user->user_nicename : '';
+		}
+		$path = strtr(
+			$structure,
+			array(
+				'%year%'     => gmdate( 'Y', $stamp ),
+				'%monthnum%' => gmdate( 'm', $stamp ),
+				'%day%'      => gmdate( 'd', $stamp ),
+				'%hour%'     => gmdate( 'H', $stamp ),
+				'%minute%'   => gmdate( 'i', $stamp ),
+				'%second%'   => gmdate( 's', $stamp ),
+				'%post_id%'  => (string) $post->ID,
+				'%postname%' => $oldSlug,
+				'%category%' => $category,
+				'%author%'   => $author,
+			)
+		);
+		if ( str_contains( $path, '%' ) ) {
+			return '';
+		}
+		if ( 'post' !== $post->post_type ) {
+			$prefix = $this->rewriteSlug( $post->post_type );
+			if ( '' !== $prefix && ! str_starts_with( trim( $path, '/' ), $prefix . '/' ) && trim( $path, '/' ) !== $prefix ) {
+				$path = $prefix . '/' . trim( $path, '/' );
+			}
+		}
+		return trim( $path, '/' );
+	}
+
+	private function rewriteSlug( string $postType ): string {
+		if ( ! function_exists( 'get_post_type_object' ) ) {
+			return '';
+		}
+		$object = get_post_type_object( $postType );
+		if ( ! is_object( $object ) ) {
+			return '';
+		}
+		$rewrite = $object->rewrite;
+		if ( ! is_array( $rewrite ) || ! isset( $rewrite['slug'] ) ) {
+			return '';
+		}
+		return trim( (string) $rewrite['slug'], '/' );
 	}
 
 	/**

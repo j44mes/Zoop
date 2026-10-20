@@ -14,11 +14,13 @@ use SEOStudio\Architecture\LinkSource;
 use SEOStudio\Architecture\NavigationSurvey;
 use SEOStudio\Architecture\SiteSurvey;
 use SEOStudio\Architecture\UrlKey;
+use SEOStudio\Content\Extractor;
+use SEOStudio\Content\PageModel;
 use SEOStudio\Core\Plugin;
 use SEOStudio\Core\Settings;
 use SEOStudio\Recommendations\PrioritiesReport;
 use SEOStudio\Storage\PagesRepository;
-use SEOStudio\Content\PageModel;
+use WP_REST_Request;
 use WP_UnitTestCase;
 
 /**
@@ -854,6 +856,257 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 		$custom = (string) wp_json_encode( ( new SiteSurvey() )->report() );
 		remove_filter( 'map_meta_cap', $blocked, 10 );
 		$this->assertStringNotContainsString( 'Secret other title', $custom );
+	}
+
+	public function test_l7_twenty_twenty_five_post_navigation_is_template_only(): void {
+		$theme = get_stylesheet();
+		switch_theme( 'twentytwentyfive' );
+		try {
+			$older   = self::factory()->post->create(
+				array(
+					'post_title' => 'Older dispatch',
+					'post_name'  => 'older-dispatch',
+					'post_date'  => '2020-01-01 00:00:00',
+					'post_status' => 'publish',
+				)
+			);
+			$current = self::factory()->post->create(
+				array(
+					'post_title'  => 'Current dispatch',
+					'post_name'   => 'current-dispatch',
+					'post_date'   => '2020-06-01 00:00:00',
+					'post_status' => 'publish',
+					'post_content' => '<p><a href="' . esc_url( (string) get_permalink( $older ) ) . '">Mentioned in the essay</a></p>',
+				)
+			);
+			self::factory()->post->create(
+				array(
+					'post_title' => 'Newer dispatch',
+					'post_name'  => 'newer-dispatch',
+					'post_date'  => '2020-12-01 00:00:00',
+					'post_status' => 'publish',
+				)
+			);
+			global $wp_query, $post;
+			$wp_query = new \WP_Query(
+				array(
+					'p'         => $current,
+					'post_type' => 'post',
+				)
+			);
+			$post     = get_post( $current );
+			setup_postdata( $post );
+			$this->assertTrue( is_singular() );
+			$pattern = get_template_directory() . '/patterns/post-navigation.php';
+			$this->assertFileExists( $pattern );
+			ob_start();
+			include $pattern;
+			$markup   = (string) ob_get_clean();
+			$rendered = do_blocks( $markup );
+			$this->assertStringContainsString( 'wp-block-post-navigation-link', $rendered );
+			$this->assertMatchesRegularExpression( '/rel="(?:prev|next)"/', $rendered );
+
+			$html  = '<html><body><main>' . $rendered . '<p><a href="' . esc_url( (string) get_permalink( $older ) ) . '">Mentioned in the essay</a></p></main></body></html>';
+			$model = ( new Extractor() )->extract( $html, array( 'url' => (string) get_permalink( $current ), 'render_mode' => 'live' ) );
+			$kinds = array();
+			foreach ( $model->links as $link ) {
+				$kinds[ (string) $link['href'] ][] = $link['kind'];
+			}
+			$older_url = (string) get_permalink( $older );
+			$this->assertContains( 'template', $kinds[ $older_url ] ?? array() );
+			$this->assertContains( 'contextual', $kinds[ $older_url ] ?? array() );
+
+			$this->stamp( $current, $model->links );
+			$this->stamp( $older, array() );
+			$row = $this->pageRow( $older );
+			$this->assertGreaterThan( 0, $row['template_referrers'] );
+			$this->assertSame( 1, $row['contextual_referrers'] );
+			$this->assertSame( 'weak', $row['status'] );
+
+			$only = self::factory()->post->create( array( 'post_title' => 'Navigation only', 'post_name' => 'navigation-only', 'post_status' => 'publish' ) );
+			$this->stamp(
+				$current,
+				array(
+					array(
+						'href'   => (string) get_permalink( $only ),
+						'anchor' => 'Navigation only',
+						'kind'   => 'template',
+					),
+				)
+			);
+			$this->stamp( $only, array() );
+			$template = $this->pageRow( $only );
+			$this->assertSame( 'template_only', $template['status'] );
+			$this->assertSame( 0, $template['contextual_referrers'] );
+			$this->assertNotSame( 'orphan', $template['status'] );
+			$this->assertNotSame( 'weak', $template['status'] );
+		} finally {
+			switch_theme( $theme );
+		}
+	}
+
+	public function test_l9_www_twin_is_not_trusted_until_an_administrator_says_so(): void {
+		do_action( 'rest_api_init' );
+		$about  = self::factory()->post->create( array( 'post_title' => 'Alias about', 'post_name' => 'alias-about', 'post_status' => 'publish' ) );
+		$source = self::factory()->post->create( array( 'post_title' => 'Alias source', 'post_name' => 'alias-source', 'post_status' => 'publish' ) );
+		$twin   = $this->twinUrl( (string) get_permalink( $about ) );
+		$this->stamp( $about, array() );
+		$this->stamp(
+			$source,
+			array(
+				array(
+					'href'   => $twin,
+					'anchor' => 'Alias about',
+					'kind'   => 'contextual',
+				),
+			)
+		);
+
+		$before = ( new SiteSurvey() )->report();
+		$orphan_ids = array_map(
+			static function ( $row ): int {
+				return is_array( $row ) ? (int) ( $row['post_id'] ?? 0 ) : 0;
+			},
+			is_array( $before['orphans'] ?? null ) ? $before['orphans'] : array()
+		);
+		$this->assertNotContains( $about, $orphan_ids );
+		$row = $this->pageRow( $about );
+		$this->assertSame( 'unknown', $row['status'] );
+		$this->assertSame( 0, $row['contextual_referrers'] );
+		$this->assertNotSame( 'orphan', $row['status'] );
+		$notice = $before['possible_aliases'][0] ?? null;
+		$this->assertIsArray( $notice );
+		$this->assertStringContainsString( 'may be this site', (string) $notice['message'] );
+		$this->assertGreaterThan( 0, (int) $notice['pages'] );
+		$this->assertSame( 'external', ( new DestinationResolver() )->classify( $twin, home_url( '/' ) )['status'] );
+		$html  = '<html><body><main><a href="' . esc_url( $twin ) . '">Alias about</a></main></body></html>';
+		$model = ( new Extractor() )->extract( $html, array( 'url' => (string) get_permalink( $source ) ) );
+		$this->assertFalse( $model->links[0]['internal'] );
+
+		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		wp_set_current_user( $editor );
+		$this->assertSame( 403, $this->aliasRequest( (string) $notice['host'], true )->get_status() );
+		wp_set_current_user( $author );
+		$this->assertSame( 403, $this->aliasRequest( (string) $notice['host'], true )->get_status() );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$missing_nonce = new WP_REST_Request( 'POST', '/seostudio/v1/architecture/aliases' );
+		$missing_nonce->set_param( 'host', (string) $notice['host'] );
+		$missing_nonce->set_param( 'trust', true );
+		$this->assertSame( 403, rest_do_request( $missing_nonce )->get_status() );
+
+		$trusted = $this->aliasRequest( (string) $notice['host'], true );
+		$this->assertSame( 200, $trusted->get_status() );
+		$after = $trusted->get_data();
+		$this->assertIsArray( $after );
+		$linked = $this->pageRow( $about );
+		$this->assertSame( 1, $linked['contextual_referrers'] );
+		$this->assertSame( 'weak', $linked['status'] );
+		$this->assertSame( array(), $after['possible_aliases'] );
+		$this->assertContains( (string) $notice['host'], $after['trusted_aliases'] );
+		$this->assertSame( 'published', ( new DestinationResolver() )->classify( $twin, home_url( '/' ) )['status'] );
+		$trusted_model = ( new Extractor() )->extract( $html, array( 'url' => (string) get_permalink( $source ) ) );
+		$this->assertTrue( $trusted_model->links[0]['internal'] );
+		$priorities = (string) wp_json_encode( ( new PrioritiesReport() )->report() );
+		$this->assertStringContainsString( 'Alias about', $priorities );
+
+		$removed = $this->aliasRequest( (string) $notice['host'], false );
+		$this->assertSame( 200, $removed->get_status() );
+		$this->assertSame( 'unknown', $this->pageRow( $about )['status'] );
+		$this->assertNotContains( (string) $notice['host'], Settings::all()['host_aliases'] );
+
+		$unrelated = self::factory()->post->create( array( 'post_title' => 'Unrelated target', 'post_name' => 'unrelated-target', 'post_status' => 'publish' ) );
+		$host      = (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+		$this->stamp( $unrelated, array() );
+		$this->stamp(
+			$source,
+			array(
+				array(
+					'href'   => 'https://blog.' . $host . '/unrelated-target/',
+					'anchor' => 'Blog',
+					'kind'   => 'contextual',
+				),
+			)
+		);
+		$unrelated_report = ( new SiteSurvey() )->report();
+		$this->assertSame( array(), $unrelated_report['possible_aliases'] );
+		$this->assertSame( 'orphan', $this->pageRow( $unrelated )['status'] );
+	}
+
+	public function test_historical_slugs_follow_the_permalink_path(): void {
+		$parent = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_title'  => 'Desk',
+				'post_name'   => 'desk',
+				'post_status' => 'publish',
+			)
+		);
+		$page   = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_title'  => 'Lamp',
+				'post_name'   => 'light',
+				'post_parent' => $parent,
+				'post_status' => 'publish',
+			)
+		);
+		$post   = self::factory()->post->create(
+			array(
+				'post_title'  => 'Shared guide',
+				'post_name'   => 'current-guide',
+				'post_status' => 'publish',
+			)
+		);
+		update_post_meta( $page, '_wp_old_slug', 'shared-name' );
+		update_post_meta( $post, '_wp_old_slug', 'shared-name' );
+		$home     = home_url( '/' );
+		$resolver = new DestinationResolver();
+		$this->assertSame( 'redirect', $resolver->classify( home_url( '/shared-name/' ), $home )['status'] );
+		$this->assertSame( 'redirect', $resolver->classify( home_url( '/desk/shared-name/' ), $home )['status'] );
+		$this->assertSame( 'unknown', $resolver->classify( home_url( '/other/shared-name/' ), $home )['status'] );
+		$this->assertSame( 'unknown', $resolver->classify( home_url( '/shared-name/extra/' ), $home )['status'] );
+
+		$trashed = self::factory()->post->create( array( 'post_title' => 'Gone page', 'post_name' => 'kept-name', 'post_status' => 'publish' ) );
+		update_post_meta( $trashed, '_wp_old_slug', 'trashed-historical' );
+		global $wpdb;
+		$wpdb->update( $wpdb->posts, array( 'post_status' => 'trash' ), array( 'ID' => $trashed ) );
+		clean_post_cache( $trashed );
+		$this->assertSame( 'missing', $resolver->classify( home_url( '/trashed-historical/' ), $home )['status'] );
+
+		$wpdb->insert(
+			$wpdb->postmeta,
+			array(
+				'post_id'    => 999999,
+				'meta_key'   => '_wp_old_slug',
+				'meta_value' => 'deleted-historical',
+			)
+		);
+		$this->assertSame( 'unknown', $resolver->classify( home_url( '/deleted-historical/' ), $home )['status'] );
+	}
+
+	private function twinUrl( string $url ): string {
+		$parts = wp_parse_url( $url );
+		$this->assertIsArray( $parts );
+		$host = (string) ( $parts['host'] ?? '' );
+		$twin = str_starts_with( $host, 'www.' ) ? substr( $host, 4 ) : 'www.' . $host;
+		if ( isset( $parts['port'] ) ) {
+			$twin .= ':' . (int) $parts['port'];
+		}
+		$scheme = (string) ( $parts['scheme'] ?? 'http' );
+		$path   = (string) ( $parts['path'] ?? '/' );
+		return $scheme . '://' . $twin . $path;
+	}
+
+	private function aliasRequest( string $host, bool $trust ): \WP_REST_Response {
+		$request = new WP_REST_Request( 'POST', '/seostudio/v1/architecture/aliases' );
+		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+		$request->set_param( 'host', $host );
+		$request->set_param( 'trust', $trust );
+		$response = rest_do_request( $request );
+		$this->assertInstanceOf( \WP_REST_Response::class, $response );
+		return $response;
 	}
 
 	/**

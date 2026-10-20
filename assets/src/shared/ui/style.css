@@ -382,6 +382,31 @@
 	padding: 4px 0;
 }
 
+.seostudio-why {
+	margin: 4px 0 0;
+	border-top: 0;
+	padding-top: 0;
+}
+
+.seostudio-why summary {
+	font-weight: 600;
+}
+
+.seostudio-candidates {
+	margin: 0 0 12px;
+	padding-left: 18px;
+}
+
+.seostudio-candidates a,
+.seostudio-table a,
+.seostudio-alias {
+	overflow-wrap: anywhere;
+}
+
+.seostudio-alias {
+	margin: 0 0 12px;
+}
+
 .seostudio-workspace {
 	display: grid;
 	gap: 16px;
