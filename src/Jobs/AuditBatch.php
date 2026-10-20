@@ -51,6 +51,7 @@ final class AuditBatch {
 		$report   = json_decode( (string) ( $run['report'] ?? '' ), true );
 		$report   = is_array( $report ) ? $report : array();
 		$failures = isset( $report['failures'] ) && is_array( $report['failures'] ) ? $report['failures'] : array();
+		$outcomes = isset( $report['outcomes'] ) && is_array( $report['outcomes'] ) ? $report['outcomes'] : array();
 
 		$processed = (int) $run['processed'];
 		$failed    = (int) $run['failed'];
@@ -58,7 +59,16 @@ final class AuditBatch {
 		$worker    = new AnalysePost();
 		foreach ( $ids as $post_id ) {
 			if ( $this->cancelled( $runs, $runId ) ) {
-				$runs->advance( $runId, $processed, $failed, $last, array( 'failures' => $failures ) );
+				$runs->advance(
+					$runId,
+					$processed,
+					$failed,
+					$last,
+					array(
+						'failures' => $failures,
+						'outcomes' => $outcomes,
+					)
+				);
 				return;
 			}
 			$last = $post_id;
@@ -70,6 +80,10 @@ final class AuditBatch {
 					'message' => 'The post could not be rendered.',
 				);
 			}
+			$outcomes[] = array(
+				'post_id' => $post_id,
+				'outcome' => '' !== $worker->lastOutcome ? $worker->lastOutcome : 'failed',
+			);
 			do_action( 'seostudio_audit_after_item', $runId, $post_id );
 			$pause = (int) $settings['batch_pause_ms'];
 			if ( $pause > 0 && ! Scheduler::inline() ) {
@@ -82,7 +96,10 @@ final class AuditBatch {
 			$processed,
 			$failed,
 			$last,
-			array( 'failures' => $failures )
+			array(
+				'failures' => $failures,
+				'outcomes' => $outcomes,
+			)
 		);
 
 		if ( $this->cancelled( $runs, $runId ) ) {

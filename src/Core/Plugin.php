@@ -33,6 +33,7 @@ use SEOStudio\Rest\SettingsController;
 use SEOStudio\Rest\ToolsController;
 use SEOStudio\Rest\TopicController;
 use SEOStudio\Storage\KeyphraseHooks;
+use SEOStudio\Storage\PublishedFreshness;
 
 /**
  * Wires hooks that do not depend on the admin UI.
@@ -52,6 +53,7 @@ final class Plugin {
 		EditorMeta::register();
 		self::registerMeta();
 		KeyphraseHooks::register();
+		PublishedFreshness::register();
 		Commands::register();
 		Menu::register();
 		Notices::register();

@@ -24,6 +24,7 @@ import {
 	saveContentScores,
 	type OnPageScore,
 	type PageModelResponse,
+	type PageRecord,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
@@ -116,6 +117,8 @@ export function Panel( {
 	const [ ogTitle, setOgTitle ] = useState( '' );
 	const [ ogDescription, setOgDescription ] = useState( '' );
 	const [ onpage, setOnpage ] = useState< OnPageScore | null >( null );
+	const [ presentation, setPresentation ] =
+		useState< PageRecord[ 'presentation' ] >( undefined );
 	const [ analysis, setAnalysis ] = useState< ContentAnalysis | null >(
 		null
 	);
@@ -340,6 +343,7 @@ export function Panel( {
 				( row ) => row.engine === 'onpage'
 			);
 			setOnpage( ( score?.details as OnPageScore ) || null );
+			setPresentation( record.presentation );
 			setModel( record.page_model );
 			setMode( record.render_mode || nextMode );
 			setSelector( record.content_selector || '' );
@@ -450,9 +454,40 @@ export function Panel( {
 				<article className="seostudio-card">
 					<h2>{ __( 'On-page', 'seo-studio' ) }</h2>
 					<ScoreRing
-						value={ onpage ? onpage.earned : null }
-						denominator={ onpage ? onpage.denominator : null }
+						value={
+							preview || ! presentation?.definitive
+								? null
+								: onpage
+								? onpage.earned
+								: null
+						}
+						denominator={
+							preview || ! presentation?.definitive
+								? null
+								: onpage
+								? onpage.denominator
+								: null
+						}
 					/>
+					{ presentation && ! preview ? (
+						<p data-testid="score-presentation">
+							{ presentation.headline }
+							{ presentation.explanation
+								? ` ${ presentation.explanation }`
+								: '' }
+						</p>
+					) : null }
+					{ presentation?.verified_label && ! preview ? (
+						<p className="seostudio-muted">
+							{ presentation.verified_label }
+						</p>
+					) : null }
+					{ presentation?.search_status === 'noindex' && ! preview ? (
+						<p data-testid="hidden-from-search">
+							<strong>{ presentation.search_label }</strong>{ ' ' }
+							{ presentation.search_explanation }
+						</p>
+					) : null }
 				</article>
 				<article className="seostudio-card">
 					<h2>{ __( 'Content analysis', 'seo-studio' ) }</h2>

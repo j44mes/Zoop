@@ -67,6 +67,10 @@ final class Extractor {
 					: $this->metaContent( $document, 'robots' ) ) . ', ' . (string) ( $context['http_robots'] ?? '' ),
 					', '
 				),
+				'robots_meta'           => $live
+					? ( array_key_exists( 'robots', $context ) ? (string) $context['robots'] : $this->metaContent( $document, 'robots' ) )
+					: '',
+				'robots_http'           => $live ? (string) ( $context['http_robots'] ?? '' ) : '',
 				'h1'                    => $h1,
 				'document_h1'           => $document_h1,
 				'document_h1_evidence'  => $document_evidence,

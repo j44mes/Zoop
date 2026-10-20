@@ -511,24 +511,43 @@ export function PageWorkspace() {
 										className="seostudio-score-figure"
 										data-testid="onpage-score"
 									>
-										{ onpage?.score }{ ' ' }
-										<span>
-											{ sprintf(
-												/* translators: %d: points available for this page. */
-												__( 'of %d', 'seo-studio' ),
-												onpage?.denominator || 0
-											) }
-										</span>
+										{ record.presentation?.headline ||
+											( onpage?.score ?? '' ) }{ ' ' }
+										{ record.presentation?.explanation ? (
+											<span>
+												{ record.presentation.explanation }
+											</span>
+										) : (
+											<span>
+												{ sprintf(
+													/* translators: %d: points available for this page. */
+													__( 'of %d', 'seo-studio' ),
+													onpage?.denominator || 0
+												) }
+											</span>
+										) }
+										{ record.presentation?.verified_label ? (
+											<span className="seostudio-muted">
+												{ record.presentation.verified_label }
+											</span>
+										) : null }
+										{ record.presentation?.search_status ===
+										'noindex' ? (
+											<strong data-testid="hidden-from-search">
+												{ record.presentation.search_label }
+											</strong>
+										) : null }
 										<span className="screen-reader-text">
-											{ sprintf(
-												/* translators: 1: points earned, 2: points available. */
-												__(
-													'%1$d of %2$d',
-													'seo-studio'
-												),
-												onpage?.score || 0,
-												onpage?.denominator || 0
-											) }
+											{ record.presentation?.headline ||
+												sprintf(
+													/* translators: 1: points earned, 2: points available. */
+													__(
+														'%1$d of %2$d',
+														'seo-studio'
+													),
+													onpage?.score || 0,
+													onpage?.denominator || 0
+												) }
 										</span>
 									</p>
 									<p

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Scoring\OnPage\CheckPresentation;
+use SEOStudio\Scoring\OnPage\ScorePresentation;
 use SEOStudio\Storage\PagesRepository;
 use SEOStudio\Storage\ScoresRepository;
 use WP_REST_Request;
@@ -52,6 +54,36 @@ final class PageRecord {
 			);
 		}
 
+		$presentation = ScorePresentation::fromRow( $row );
+		$current      = 'current' === (string) ( $row['onpage_state'] ?? '' );
+		$checks       = array();
+		foreach ( $details as $score ) {
+			if ( 'onpage' !== (string) ( $score['engine'] ?? '' ) ) {
+				continue;
+			}
+			if ( $current && empty( $score['current'] ) ) {
+				continue;
+			}
+			if ( ! $current && ! empty( $score['current'] ) ) {
+				continue;
+			}
+			$payload = isset( $score['details']['assessments'] ) && is_array( $score['details']['assessments'] ) ? $score['details']['assessments'] : array();
+			foreach ( $payload as $assessment ) {
+				if ( is_array( $assessment ) ) {
+					$checks[] = CheckPresentation::fromAssessment( $assessment, $current );
+				}
+			}
+			break;
+		}
+		$presentation['checks'] = $checks;
+		if ( is_array( $decoded ) ) {
+			$canonical = (string) ( $decoded['canonical'] ?? '' );
+			$url       = (string) ( $row['url'] ?? '' );
+			if ( '' !== $canonical && '' !== $url && untrailingslashit( $canonical ) !== untrailingslashit( $url ) ) {
+				$presentation['canonical_note'] = __( 'The canonical address is different. That is not a noindex directive.', 'seo-studio' );
+			}
+		}
+
 		return array(
 			'page_id'          => (int) $row['id'],
 			'object_type'      => (string) $row['object_type'],
@@ -64,6 +96,7 @@ final class PageRecord {
 			'is_indexable'     => isset( $row['is_indexable'] ) ? (bool) $row['is_indexable'] : null,
 			'page_model'       => is_array( $decoded ) ? $decoded : array(),
 			'scores'           => $details,
+			'presentation'     => $presentation,
 		);
 	}
 
@@ -191,10 +224,11 @@ final class PageRecord {
 		$object_id = (int) $row['object_id'];
 		$keyphrase = (string) ( $row['focus_keyphrase'] ?? '' );
 
-		$state   = (string) ( $row['onpage_state'] ?? 'not_analysed' );
-		$details = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
-		$issue   = '';
-		if ( 'current' === $state && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
+		$state        = (string) ( $row['onpage_state'] ?? 'not_analysed' );
+		$presentation = ScorePresentation::fromRow( $row );
+		$details      = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+		$issue        = '';
+		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
 			foreach ( $details['assessments'] as $assessment ) {
 				if ( ! is_array( $assessment ) || ! isset( $assessment['status'] ) ) {
 					continue;
@@ -206,7 +240,7 @@ final class PageRecord {
 				break;
 			}
 		}
-		if ( 'current' !== $state ) {
+		if ( ! $presentation['definitive'] ) {
 			$row['onpage_score']       = null;
 			$row['onpage_denominator'] = null;
 		}
@@ -229,6 +263,7 @@ final class PageRecord {
 			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
 			'top_issue'          => $issue,
 			'score_state'        => $state,
+			'presentation'       => $presentation,
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,
 		);

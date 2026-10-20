@@ -52,7 +52,9 @@ final class PageModel {
 		public readonly string $pageType = '',
 		public readonly string $metadataStatus = 'estimated',
 		public readonly string $titleEvidence = 'observed',
-		public readonly string $descriptionEvidence = 'observed'
+		public readonly string $descriptionEvidence = 'observed',
+		public readonly string $robotsMeta = '',
+		public readonly string $robotsHttp = ''
 	) {}
 
 	/**
@@ -101,7 +103,9 @@ final class PageModel {
 			pageType: $this->pageType,
 			metadataStatus: $this->metadataStatus,
 			titleEvidence: $this->titleEvidence,
-			descriptionEvidence: $this->descriptionEvidence
+			descriptionEvidence: $this->descriptionEvidence,
+			robotsMeta: $this->robotsMeta,
+			robotsHttp: $this->robotsHttp
 		);
 	}
 
@@ -209,7 +213,9 @@ final class PageModel {
 			pageType: (string) ( $data['page_type'] ?? '' ),
 			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' ),
 			titleEvidence: MetadataEvidence::known( array_key_exists( 'title_evidence', $data ) ? (string) $data['title_evidence'] : null, MetadataEvidence::OBSERVED ),
-			descriptionEvidence: MetadataEvidence::known( array_key_exists( 'description_evidence', $data ) ? (string) $data['description_evidence'] : null, MetadataEvidence::OBSERVED )
+			descriptionEvidence: MetadataEvidence::known( array_key_exists( 'description_evidence', $data ) ? (string) $data['description_evidence'] : null, MetadataEvidence::OBSERVED ),
+			robotsMeta: (string) ( $data['robots_meta'] ?? '' ),
+			robotsHttp: (string) ( $data['robots_http'] ?? '' )
 		);
 	}
 
@@ -248,6 +254,8 @@ final class PageModel {
 			'page_type'             => $this->pageType,
 			'title_evidence'        => $this->titleEvidence,
 			'description_evidence'  => $this->descriptionEvidence,
+			'robots_meta'           => $this->robotsMeta,
+			'robots_http'           => $this->robotsHttp,
 		);
 	}
 

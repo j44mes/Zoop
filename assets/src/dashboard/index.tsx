@@ -68,14 +68,25 @@ export function Dashboard() {
 		fetchCapabilities()
 			.then( ( next ) => {
 				setCapabilities( next );
+				if ( ! next.manage && isRestricted( view ) ) {
+					setView( 'overview' );
+				}
 				if ( next.manage ) {
 					fetchSettings()
 						.then( setSettings )
 						.catch( () => undefined );
 				}
 			} )
-			.catch( () => undefined );
-	}, [] );
+			.catch( () => {
+				setCapabilities( null );
+				setError(
+					__(
+						'Zoop could not confirm what you can open.',
+						'seo-studio'
+					)
+				);
+			} );
+	}, [ view ] );
 
 	useEffect( () => {
 		let cancelled = false;
@@ -227,6 +238,14 @@ export function Dashboard() {
 				allowSite={ !! capabilities?.manage }
 				onNavigate={ setView }
 			/>
+			{ capabilities && ! capabilities.manage ? (
+				<p className="seostudio-muted">
+					{ __(
+						'Site-wide reports are available to administrators.',
+						'seo-studio'
+					) }
+				</p>
+			) : null }
 			{ capabilities?.manage && visibleView === 'settings' ? (
 				<SettingsPanel />
 			) : null }
@@ -263,6 +282,16 @@ export function Dashboard() {
 									{ __( 'Needs reanalysis', 'seo-studio' ) }
 								</h2>
 								<p>{ summary.needs_reanalysis ?? 0 }</p>
+								<p className="seostudio-muted">
+									{ sprintf(
+										/* translators: %d: pages whose published check is out of date. */
+										__(
+											'%d pages need re-analysis since the scoring update.',
+											'seo-studio'
+										),
+										summary.needs_reanalysis ?? 0
+									) }
+								</p>
 							</article>
 							<article>
 								<h2>{ __( 'Not scored', 'seo-studio' ) }</h2>
@@ -365,7 +394,7 @@ export function Dashboard() {
 					{ capabilities?.manage ? (
 						<p className="seostudio-actions">
 							<Button variant="primary" onClick={ reanalyse }>
-								{ __( 'Run website audit', 'seo-studio' ) }
+								{ __( 'Refresh content analysis', 'seo-studio' ) }
 							</Button>
 							{ run &&
 							( run.status === 'queued' ||
@@ -378,7 +407,7 @@ export function Dashboard() {
 					) : null }
 					<p className="seostudio-muted">
 						{ __(
-							'A website audit saves on-page scores. SEO and readability scores are saved when you analyse a page in the editor.',
+							'Refresh content analysis updates saved content only. It does not fetch published pages or restore a definitive score. Use Check published page on a page to verify its HTML.',
 							'seo-studio'
 						) }
 					</p>
@@ -601,6 +630,16 @@ export function Dashboard() {
 	);
 }
 
+function isRestricted( section: string ): boolean {
+	return (
+		section === 'settings' ||
+		section === 'architecture' ||
+		section === 'overlap' ||
+		section === 'search-console' ||
+		section === 'priorities'
+	);
+}
+
 function sectionView():
 	| 'overview'
 	| 'pages'
@@ -782,11 +821,13 @@ function auditMessage( run: AuditRun ): string {
 }
 
 function DashboardRow( { item }: { item: PageListItem } ) {
-	const score = scoreStateLabel(
-		item.score_state,
-		item.onpage.score,
-		item.onpage.denominator
-	);
+	const score =
+		item.presentation?.headline ||
+		scoreStateLabel(
+			item.score_state,
+			item.onpage.score,
+			item.onpage.denominator
+		);
 	return (
 		<tr>
 			<td>

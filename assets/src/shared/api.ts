@@ -48,6 +48,35 @@ export interface SeoFields {
 	resolved_description?: string;
 }
 
+export interface ScorePresentation {
+	definitive: boolean;
+	historical: boolean;
+	headline: string;
+	explanation: string;
+	checks_evaluated: number;
+	checks_applicable: number;
+	missing: Array< {
+		id: string;
+		label: string;
+		action: string;
+		action_label: string;
+	} >;
+	verified_label: string;
+	search_status: string;
+	search_label: string;
+	search_explanation: string;
+	content_rating?: string;
+	canonical_note?: string;
+	checks?: Array< {
+		id: string;
+		state: string;
+		label: string;
+		reason: string;
+		action: string;
+		action_label: string;
+	} >;
+}
+
 export interface PageListItem {
 	page_id: number;
 	object_id: number;
@@ -60,6 +89,7 @@ export interface PageListItem {
 	readability_rating: string | null;
 	top_issue: string;
 	score_state?: 'current' | 'needs_reanalysis' | 'unscored' | 'not_analysed';
+	presentation?: ScorePresentation;
 	last_rendered_at: string | null;
 	last_error: string | null;
 }
@@ -99,6 +129,7 @@ export interface PageRecord {
 	render_mode?: string;
 	content_selector?: string;
 	last_error?: string | null;
+	presentation?: ScorePresentation;
 }
 
 export interface ContentScoreBody {

@@ -19,13 +19,27 @@ use SEOStudio\Storage\ScoresRepository;
  * Content-render analysis for a single post. A missing keyphrase still stores the page.
  */
 final class AnalysePost {
+	/**
+	 * Last audit outcome for this post.
+	 *
+	 * @var string
+	 */
+	public string $lastOutcome = '';
+
 	public function handle( int $postId ): bool {
 		if ( $postId <= 0 || ! get_post( $postId ) ) {
+			$this->lastOutcome = 'failed';
 			return false;
 		}
 
 		try {
-			$pages   = new PagesRepository();
+			$pages    = new PagesRepository();
+			$existing = $pages->findByObject( 'post', $postId );
+			if ( is_array( $existing ) && 'live' === (string) ( $existing['render_mode'] ?? '' ) && 1 === (int) ( $existing['has_published_snapshot'] ?? 0 ) ) {
+				$pages->withholdIfSourceChanged( $postId );
+				$this->lastOutcome = 'published_evidence_kept';
+				return true;
+			}
 			$model   = $pages->mergeMeasurements( $postId, ( new Renderer() )->renderPost( $postId ) );
 			$page_id = $pages->storeModel( $postId, $model, $model->inputHash() );
 			$stored  = $pages->loadModel( $postId );
@@ -37,8 +51,11 @@ final class AnalysePost {
 				$score = ( new Scorer() )->score( $model, $phrase );
 				( new ScoresRepository() )->insert( $page_id, $phrase, $score, SEOSTUDIO_VERSION, $model->inputHash() );
 			}
+			unset( $phrase );
+			$this->lastOutcome = 'content_refreshed';
 			return true;
 		} catch ( \Throwable $exception ) {
+			$this->lastOutcome = 'failed';
 			( new PagesRepository() )->recordError( $postId, $exception->getMessage() );
 			return false;
 		}

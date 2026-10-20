@@ -138,6 +138,7 @@ final class DashboardPerformanceTest extends WP_UnitTestCase {
 			$wpdb->query( "INSERT INTO {$wpdb->posts} (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_status, post_name, post_type, post_excerpt) VALUES " . implode( ',', $posts ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Each row is prepared above.
 			$wpdb->query( "INSERT INTO {$wpdb->postmeta} (post_id, meta_key, meta_value) VALUES " . implode( ',', $meta ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- As above.
 			$wpdb->query( 'INSERT INTO ' . Tables::pages() . ' (object_type, object_id, url, url_hash, input_hash, page_model, render_mode, content_selector, last_rendered_at) VALUES ' . implode( ',', $pages ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- As above.
+			$wpdb->query( 'UPDATE ' . Tables::pages() . " SET evidence_ready = 1, checks_evaluated = 22, checks_applicable = 22, index_status = 'indexable'" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table. The benchmark population is already scored.
 		}
 
 		$hash = md5( 'rank tracker' );
