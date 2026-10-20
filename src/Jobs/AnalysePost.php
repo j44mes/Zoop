@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Jobs;
 
+use SEOStudio\Content\PageModel;
 use SEOStudio\Content\Renderer;
 use SEOStudio\Scoring\OnPage\Scorer;
 use SEOStudio\Storage\PagesRepository;
@@ -27,10 +28,14 @@ final class AnalysePost {
 			$pages   = new PagesRepository();
 			$model   = $pages->mergeMeasurements( $postId, ( new Renderer() )->renderPost( $postId ) );
 			$page_id = $pages->storeModel( $postId, $model, $model->inputHash() );
-			$phrase  = get_post_meta( $postId, '_seostudio_focus_keyphrase', true );
+			$stored  = $pages->loadModel( $postId );
+			if ( $stored instanceof PageModel ) {
+				$model = $stored;
+			}
+			$phrase = get_post_meta( $postId, '_seostudio_focus_keyphrase', true );
 			if ( is_string( $phrase ) && '' !== trim( $phrase ) ) {
 				$score = ( new Scorer() )->score( $model, $phrase );
-				( new ScoresRepository() )->insert( $page_id, $phrase, $score, SEOSTUDIO_VERSION );
+				( new ScoresRepository() )->insert( $page_id, $phrase, $score, SEOSTUDIO_VERSION, $model->inputHash() );
 			}
 			return true;
 		} catch ( \Throwable $exception ) {

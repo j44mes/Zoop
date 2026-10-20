@@ -71,12 +71,14 @@ final class Tables {
 				onpage_score smallint(6) NULL,
 				onpage_denominator smallint(6) NULL,
 				onpage_rating varchar(20) NULL,
+				onpage_state varchar(20) NOT NULL DEFAULT 'not_analysed',
 				PRIMARY KEY  (id),
 				UNIQUE KEY url_hash (url_hash),
 				KEY object_lookup (object_type, object_id),
 				KEY last_rendered_at (last_rendered_at),
 				KEY list_score (object_type, onpage_score),
-				KEY list_rating (object_type, onpage_rating)
+				KEY list_rating (object_type, onpage_rating),
+				KEY list_state (object_type, onpage_state)
 			) {$charset};",
 			"CREATE TABLE {$scores} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,

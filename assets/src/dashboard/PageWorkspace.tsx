@@ -16,6 +16,7 @@ import {
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
+import { historicalScoreLabel } from './score-state';
 import type { ListedAssessment } from '../shared/ui/AssessmentList';
 import { SocialPreview } from '../shared/ui/SocialPreview';
 import { TrafficLight } from '../shared/ui/TrafficLight';
@@ -338,14 +339,22 @@ export function PageWorkspace() {
 		}
 	}
 
-	const onpage = record?.scores.find( ( row ) => row.engine === 'onpage' );
+	const onpageScores = ( record?.scores || [] ).filter(
+		( row ) => row.engine === 'onpage'
+	);
+	const onpage = onpageScores.find( ( row ) => row.current === true ) ?? null;
+	const historical =
+		onpageScores.find( ( row ) => row.current === false ) ?? null;
 	const analysed = !! onpage && onpage.denominator > 0;
 	const details = onpage?.details as
 		| { assessments?: ListedAssessment[] }
 		| undefined;
 	const assessments = details?.assessments || [];
 	const findings = assessments.filter(
-		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+		( row ) =>
+			row.status !== 'pass' &&
+			row.status !== 'not_checked' &&
+			row.status !== 'not_applicable'
 	);
 	const cards = findings.slice( 0, 3 );
 	const model = record?.page_model;
@@ -767,11 +776,19 @@ export function PageWorkspace() {
 									'seo-studio'
 								) }
 							</p>
-							<p className="seostudio-muted">
-								{ __(
-									'This page has not been analysed yet. Add a target phrase, then choose Analyse page.',
-									'seo-studio'
-								) }
+							<p
+								className="seostudio-muted"
+								data-testid="score-freshness"
+							>
+								{ historical
+									? historicalScoreLabel(
+											historical.score,
+											historical.denominator
+									  )
+									: __(
+											'This page has not been analysed yet. Add a target phrase, then choose Analyse page.',
+											'seo-studio'
+									  ) }
 							</p>
 						</section>
 					) }

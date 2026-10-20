@@ -35,16 +35,17 @@ final class Score {
 	 */
 	public function toArray(): array {
 		return array(
-			'earned'      => $this->earned,
-			'denominator' => $this->denominator,
-			'categories'  => $this->categories,
-			'assessments' => array_map(
+			'earned'           => $this->earned,
+			'denominator'      => $this->denominator,
+			'evidence_version' => 2,
+			'categories'       => $this->categories,
+			'assessments'      => array_map(
 				static function ( AssessmentResult $result ): array {
 					return $result->toArray();
 				},
 				$this->assessments
 			),
-			'advisories'  => $this->advisories,
+			'advisories'       => $this->advisories,
 		);
 	}
 }

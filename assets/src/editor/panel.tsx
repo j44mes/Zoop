@@ -368,7 +368,10 @@ export function Panel( {
 	const previewUrl = home?.canonical || model?.url || permalink;
 
 	const findings = ( onpage?.assessments || [] ).filter(
-		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+		( row ) =>
+			row.status !== 'pass' &&
+			row.status !== 'not_checked' &&
+			row.status !== 'not_applicable'
 	);
 	const analysisState = analysisStateOf( preview, mode, onpage );
 	const analysisLabel = analysisLabelOf( analysisState );

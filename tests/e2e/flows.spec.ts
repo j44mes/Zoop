@@ -273,14 +273,23 @@ test( 'editing the title updates the title assessment without a reload', async (
 	);
 	await titleCheck.locator( 'summary' ).click();
 	await expect(
-		titleCheck.getByText( 'Include the full keyphrase in the title.' )
+		titleCheck.getByText(
+			'This check did not run because the value was not observed.'
+		)
 	).toBeVisible();
-	// Analysis-only mode prints the post title, so that is the title the score must follow.
+	// Analysis-only mode has not observed the published title. Editing the post
+	// title must not make Zoop treat that text as the published title.
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'rank tracker welcome' );
+	await expect( canvas.getByText( 'rank tracker welcome' ) ).toBeVisible();
+	await expect(
+		titleCheck.getByText(
+			'This check did not run because the value was not observed.'
+		)
+	).toBeVisible();
 	await expect(
 		page.getByText( 'The full keyphrase is in the title.' )
-	).toBeVisible();
+	).toHaveCount( 0 );
 } );
 
 test( 're-analyse all queues an audit', async ( { page } ) => {

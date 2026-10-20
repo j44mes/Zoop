@@ -27,7 +27,7 @@ final class DashboardPerformanceTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
@@ -144,7 +144,7 @@ final class DashboardPerformanceTest extends WP_UnitTestCase {
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				'INSERT INTO ' . Tables::scores() . " (page_id, keyphrase, keyphrase_hash, engine, score, denominator, rating, details, plugin_version, created_at)
-				SELECT id, 'rank tracker', %s, 'onpage', FLOOR(RAND() * 100), 100, 'orange', '[]', 'perf', %s FROM " . Tables::pages(), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names.
+				SELECT id, 'rank tracker', %s, 'onpage', FLOOR(RAND() * 100), 100, 'orange', '{\"evidence_version\":2,\"input_hash\":\"\"}', 'perf', %s FROM " . Tables::pages(), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names.
 				$hash,
 				$now
 			)

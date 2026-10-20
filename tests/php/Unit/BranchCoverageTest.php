@@ -154,21 +154,25 @@ final class BranchCoverageTest extends TestCase {
 	 * @param array<string, mixed> $overrides
 	 */
 	private function page( array $overrides ): PageModel {
-		return PageModel::fromArray(
-			array_merge(
-				array(
-					'url'              => 'https://example.test/page',
-					'title_tag'        => 'Rank tracker',
-					'meta_description' => str_repeat( 'A', 130 ),
-					'h1'               => array( 'Rank tracker' ),
-					'body_text'        => $this->words( 600 ),
-					'page_type'        => 'post',
-					'images'           => array(),
-					'headings'         => array(),
-				),
-				$overrides
-			)
+		$data = array_merge(
+			array(
+				'url'              => 'https://example.test/page',
+				'title_tag'        => 'Rank tracker',
+				'meta_description' => str_repeat( 'A', 130 ),
+				'h1'               => array( 'Rank tracker' ),
+				'body_text'        => $this->words( 600 ),
+				'page_type'        => 'post',
+				'images'           => array(),
+				'headings'         => array(),
+			),
+			$overrides
 		);
+		if ( ! array_key_exists( 'document_h1_evidence', $data ) ) {
+			$data['document_h1']          = $data['h1'];
+			$data['document_h1_evidence'] = 'observed';
+		}
+
+		return PageModel::fromArray( $data );
 	}
 
 	private function words( int $count ): string {

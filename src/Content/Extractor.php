@@ -32,13 +32,9 @@ final class Extractor {
 		$root     = $this->selectRoot( $document, $render_mode, $selector );
 		$body     = $this->textOf( $root['node'] );
 		$url      = (string) ( $context['url'] ?? '' );
-		$title    = array_key_exists( 'title_tag', $context )
-			? (string) $context['title_tag']
-			: $this->textOfFirst( $document, '//title' );
-		$meta     = array_key_exists( 'meta_description', $context )
-			? (string) $context['meta_description']
-			: $this->metaContent( $document, 'description' );
-
+		$live     = 'live' === $render_mode;
+		$title    = $this->titled( $document, $context, $live );
+		$meta     = $this->described( $document, $context, $live );
 		$headings = $this->headings( $root['node'] );
 		$h1       = array();
 		foreach ( $headings as $heading ) {
@@ -46,8 +42,12 @@ final class Extractor {
 				$h1[] = $heading['text'];
 			}
 		}
-
-		$live      = 'live' === $render_mode;
+		$document_h1       = array();
+		$document_evidence = MetadataEvidence::NOT_OBSERVED;
+		if ( $live ) {
+			$document_h1       = $this->documentH1s( $document );
+			$document_evidence = MetadataEvidence::OBSERVED;
+		}
 		$path      = Urls::component( $url, PHP_URL_PATH );
 		$pieces    = preg_split( '/\s+/', trim( $body ) );
 		$lang_attr = $document->documentElement?->getAttribute( 'lang' );
@@ -56,8 +56,8 @@ final class Extractor {
 			array(
 				'url'                   => $url,
 				'slug'                  => trim( is_string( $path ) ? $path : '', '/' ),
-				'title_tag'             => $title,
-				'meta_description'      => $meta,
+				'title_tag'             => $title['value'],
+				'meta_description'      => $meta['value'],
 				'canonical'             => array_key_exists( 'canonical', $context )
 					? (string) $context['canonical']
 					: $this->attributeOfFirst( $document, '//link[contains(@rel, "canonical")]', 'href' ),
@@ -68,6 +68,10 @@ final class Extractor {
 					', '
 				),
 				'h1'                    => $h1,
+				'document_h1'           => $document_h1,
+				'document_h1_evidence'  => $document_evidence,
+				'title_evidence'        => $title['evidence'],
+				'description_evidence'  => $meta['evidence'],
 				'headings'              => $headings,
 				'body_text'             => $body,
 				'word_count'            => '' === trim( $body ) ? 0 : count( is_array( $pieces ) ? $pieces : array() ),
@@ -625,10 +629,107 @@ final class Extractor {
 		return trim( is_string( $text ) ? $text : '' );
 	}
 
-	private function textOfFirst( DOMDocument $document, string $query ): string {
-		$nodes = ( new DOMXPath( $document ) )->query( $query );
+	/**
+	 * Title text and the evidence for it.
+	 *
+	 * @param array<string, mixed> $context
+	 * @return array{value: string, evidence: string}
+	 */
+	private function titled( DOMDocument $document, array $context, bool $live ): array {
+		if ( array_key_exists( 'title_tag', $context ) ) {
+			return array(
+				'value'    => (string) $context['title_tag'],
+				'evidence' => MetadataEvidence::known(
+					isset( $context['title_evidence'] ) ? (string) $context['title_evidence'] : null,
+					MetadataEvidence::CALCULATED
+				),
+			);
+		}
+
+		$found = $this->titleText( $document );
+		if ( null === $found ) {
+			return array(
+				'value'    => '',
+				'evidence' => $live ? MetadataEvidence::OBSERVED_ABSENT : MetadataEvidence::NOT_OBSERVED,
+			);
+		}
+
+		return array(
+			'value'    => $found,
+			'evidence' => MetadataEvidence::OBSERVED,
+		);
+	}
+
+	/**
+	 * Description text and the evidence for it.
+	 *
+	 * @param array<string, mixed> $context
+	 * @return array{value: string, evidence: string}
+	 */
+	private function described( DOMDocument $document, array $context, bool $live ): array {
+		if ( array_key_exists( 'meta_description', $context ) ) {
+			return array(
+				'value'    => (string) $context['meta_description'],
+				'evidence' => MetadataEvidence::known(
+					isset( $context['description_evidence'] ) ? (string) $context['description_evidence'] : null,
+					MetadataEvidence::CALCULATED
+				),
+			);
+		}
+
+		$found = $this->descriptionTag( $document );
+		if ( null === $found ) {
+			return array(
+				'value'    => '',
+				'evidence' => $live ? MetadataEvidence::OBSERVED_ABSENT : MetadataEvidence::NOT_OBSERVED,
+			);
+		}
+
+		return array(
+			'value'    => $found,
+			'evidence' => MetadataEvidence::OBSERVED,
+		);
+	}
+
+	private function titleText( DOMDocument $document ): ?string {
+		$nodes = ( new DOMXPath( $document ) )->query( '//title' );
 		$node  = false !== $nodes ? $nodes->item( 0 ) : null;
-		return $node instanceof DOMNode ? $this->textOf( $node ) : '';
+		if ( ! $node instanceof DOMNode ) {
+			return null;
+		}
+
+		return $this->textOf( $node );
+	}
+
+	private function descriptionTag( DOMDocument $document ): ?string {
+		foreach ( $document->getElementsByTagName( 'meta' ) as $meta ) {
+			if ( $meta instanceof DOMElement && 0 === strcasecmp( $meta->getAttribute( 'name' ), 'description' ) ) {
+				return $meta->getAttribute( 'content' );
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Every H1 in the document, including those outside the content root.
+	 *
+	 * @return string[]
+	 */
+	private function documentH1s( DOMDocument $document ): array {
+		$nodes = ( new DOMXPath( $document ) )->query( '//h1' );
+		$texts = array();
+		if ( false === $nodes ) {
+			return $texts;
+		}
+
+		foreach ( $nodes as $node ) {
+			if ( $node instanceof DOMNode ) {
+				$texts[] = $this->textOf( $node );
+			}
+		}
+
+		return $texts;
 	}
 
 	private function metaContent( DOMDocument $document, string $name ): string {

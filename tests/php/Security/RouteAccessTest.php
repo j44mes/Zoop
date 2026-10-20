@@ -37,7 +37,7 @@ final class RouteAccessTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 
 		$author       = self::factory()->user->create( array( 'role' => 'author' ) );

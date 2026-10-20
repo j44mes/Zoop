@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -31,7 +32,12 @@ final class HeadingPartialKeyphrase implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
-		$h1    = $page->firstH1();
+		$withheld = EvidenceGate::documentH1( $this, $page );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
+		$h1    = $page->firstDocumentH1();
 		$match = $normaliser->matchField( $h1, $keyphrase );
 
 		return AssessmentResult::score(

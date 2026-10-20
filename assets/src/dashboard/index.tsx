@@ -21,6 +21,7 @@ import {
 	type StudioSettings,
 } from '../shared/api';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
+import { scoreStateLabel, suggestionForState } from './score-state';
 import { RunProgress } from '../shared/ui/RunProgress';
 import { TrafficLight } from '../shared/ui/TrafficLight';
 import '../shared/ui/style.css';
@@ -259,9 +260,19 @@ export function Dashboard() {
 							</article>
 							<article>
 								<h2>
+									{ __( 'Needs reanalysis', 'seo-studio' ) }
+								</h2>
+								<p>{ summary.needs_reanalysis ?? 0 }</p>
+							</article>
+							<article>
+								<h2>{ __( 'Not scored', 'seo-studio' ) }</h2>
+								<p>{ summary.unscored ?? 0 }</p>
+							</article>
+							<article>
+								<h2>
 									{ __( 'Not analysed yet', 'seo-studio' ) }
 								</h2>
-								<p>{ summary.unscored ?? 0 }</p>
+								<p>{ summary.not_analysed ?? 0 }</p>
 							</article>
 							<article>
 								<h2>{ __( 'Errors', 'seo-studio' ) }</h2>
@@ -738,13 +749,11 @@ function metadataModeLine( settings: StudioSettings | null ): string {
 }
 
 function suggestionText( item: PageListItem ): string {
-	if ( item.top_issue ) {
-		return assessmentTitle( item.top_issue );
-	}
-	if ( item.onpage.score === null ) {
-		return __( 'This page has not been analysed yet.', 'seo-studio' );
-	}
-	return __( 'No outstanding on-page finding was stored.', 'seo-studio' );
+	return suggestionForState(
+		item.score_state,
+		item.top_issue,
+		item.top_issue ? assessmentTitle( item.top_issue ) : ''
+	);
 }
 
 function mainFinding( item: PageListItem ): string {
@@ -773,10 +782,11 @@ function auditMessage( run: AuditRun ): string {
 }
 
 function DashboardRow( { item }: { item: PageListItem } ) {
-	const score =
-		item.onpage.score === null || item.onpage.denominator === null
-			? __( 'Not analysed yet', 'seo-studio' )
-			: `${ item.onpage.score } / ${ item.onpage.denominator }`;
+	const score = scoreStateLabel(
+		item.score_state,
+		item.onpage.score,
+		item.onpage.denominator
+	);
 	return (
 		<tr>
 			<td>

@@ -59,6 +59,7 @@ export interface PageListItem {
 	seo_rating: string | null;
 	readability_rating: string | null;
 	top_issue: string;
+	score_state?: 'current' | 'needs_reanalysis' | 'unscored' | 'not_analysed';
 	last_rendered_at: string | null;
 	last_error: string | null;
 }
@@ -71,6 +72,8 @@ export interface PageList {
 		analysed: number;
 		scored?: number;
 		unscored?: number;
+		needs_reanalysis?: number;
+		not_analysed?: number;
 		failed?: number;
 		average: number | null;
 		red: number;
@@ -89,6 +92,8 @@ export interface PageRecord {
 		score: number;
 		denominator: number;
 		rating: string;
+		current?: boolean;
+		evidence_version?: number;
 		details: OnPageScore | { assessments?: ListedAssessment[] };
 	} >;
 	render_mode?: string;

@@ -20,7 +20,7 @@ final class ImportExportTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}

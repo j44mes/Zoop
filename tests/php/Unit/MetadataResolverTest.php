@@ -63,7 +63,7 @@ final class MetadataResolverTest extends TestCase {
 		);
 
 		$this->assertSame( 'Garden tools - Example', $head->title );
-		$this->assertSame( 'A short excerpt', $head->description );
+		$this->assertSame( '', $head->description );
 		$this->assertSame( 'https://example.test/garden', $head->canonical );
 	}
 

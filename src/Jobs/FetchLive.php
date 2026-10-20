@@ -126,7 +126,8 @@ final class FetchLive {
 			}
 			$page_id = $pages->storeModel( $postId, $model, $model->inputHash() );
 			$pages->markFetched( $page_id );
-			$this->score( $postId, $page_id, $model );
+			$stored = $pages->loadModel( $postId );
+			$this->score( $postId, $page_id, $stored instanceof PageModel ? $stored : $model );
 		} catch ( \Throwable $exception ) {
 			$pages->recordError( $postId, $exception->getMessage() );
 		}
@@ -142,6 +143,6 @@ final class FetchLive {
 		}
 
 		$score = ( new Scorer() )->score( $model, $phrase );
-		( new ScoresRepository() )->insert( $pageId, $phrase, $score, SEOSTUDIO_VERSION );
+		( new ScoresRepository() )->insert( $pageId, $phrase, $score, SEOSTUDIO_VERSION, $model->inputHash() );
 	}
 }

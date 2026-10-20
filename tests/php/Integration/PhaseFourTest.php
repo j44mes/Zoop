@@ -30,7 +30,7 @@ final class PhaseFourTest extends WP_UnitTestCase {
 		parent::set_up();
 		Detector::clearForce();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 	}
 

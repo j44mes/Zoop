@@ -15,6 +15,11 @@
             "Rank tracker",
             "Site overview"
         ],
+        "document_h1": [
+            "Rank tracker",
+            "Site overview"
+        ],
+        "document_h1_evidence": "observed",
         "headings": [
             {
                 "level": 1,

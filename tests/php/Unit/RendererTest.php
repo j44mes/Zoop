@@ -69,9 +69,11 @@ final class RendererTest extends TestCase {
 		);
 
 		$this->assertSame( 'live', $model->renderMode );
-		$this->assertSame( 'Post title', $model->titleTag );
+		$this->assertSame( '', $model->titleTag );
+		$this->assertSame( 'not_observed', $model->titleEvidence );
 		$this->assertSame( 'estimated', $model->metadataStatus );
-		$this->assertSame( 'Excerpt', $model->metaDescription );
+		$this->assertSame( '', $model->metaDescription );
+		$this->assertSame( 'not_observed', $model->descriptionEvidence );
 	}
 
 	public function testRenderPostExpandsOwnerMetadataAndPrefersThePostSelector(): void {
