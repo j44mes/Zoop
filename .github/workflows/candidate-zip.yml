@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - cursor/beta-packaging-48fa
+  pull_request:
+    branches:
+      - cursor/keyphrase-equivalence-48fa
 
 permissions:
   contents: read
