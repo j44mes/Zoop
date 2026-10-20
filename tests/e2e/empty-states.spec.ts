@@ -1,20 +1,50 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 async function login( page: Page ): Promise< void > {
+	// WebKit can drop a password fill into the username field. A lost session also
+	// returns as wp-login.php?reauth=1, so confirm the values and try once more.
 	const target =
 		'/wp-login.php?redirect_to=' +
 		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
-	await page.goto( target, { waitUntil: 'domcontentloaded' } );
-	if ( page.url().includes( '/wp-admin/' ) ) {
-		return;
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
+		await page.goto( target, { waitUntil: 'domcontentloaded' } );
+		if ( page.url().includes( '/wp-admin/' ) ) {
+			return;
+		}
+		const user = page.locator( '#user_login' );
+		const pass = page.locator( '#user_pass' );
+		await user.click();
+		await user.fill( 'admin' );
+		await pass.click();
+		await pass.fill( 'password' );
+		if (
+			( await user.inputValue() ) !== 'admin' ||
+			( await pass.inputValue() ) !== 'password'
+		) {
+			await page.locator( '#loginform' ).evaluate( ( form ) => {
+				const loginField = form.querySelector( '#user_login' );
+				const passwordField = form.querySelector( '#user_pass' );
+				if ( loginField instanceof HTMLInputElement ) {
+					loginField.value = 'admin';
+				}
+				if ( passwordField instanceof HTMLInputElement ) {
+					passwordField.value = 'password';
+				}
+			} );
+		}
+		await page.locator( '#wp-submit' ).click();
+		try {
+			await page.waitForURL( '**/wp-admin/**', {
+				timeout: 20000,
+				waitUntil: 'commit',
+			} );
+			return;
+		} catch ( error ) {
+			if ( attempt === 1 ) {
+				throw error;
+			}
+		}
 	}
-	await page.locator( '#user_login' ).fill( 'admin' );
-	await page.locator( '#user_pass' ).fill( 'password' );
-	await page.locator( '#wp-submit' ).click();
-	await page.waitForURL( '**/wp-admin/**', {
-		timeout: 20000,
-		waitUntil: 'commit',
-	} );
 }
 
 function summary(
