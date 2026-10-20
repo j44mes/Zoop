@@ -34,6 +34,7 @@ phpunit-9.phar
 .phpcs.cache/
 test-results/
 playwright-report/
+tests/e2e/.auth/
 .mypy_cache/
 .ruff_cache/
 

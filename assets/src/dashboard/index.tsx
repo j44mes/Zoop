@@ -500,8 +500,12 @@ export function Dashboard() {
 											'seo-studio'
 										) }
 									</p>
-									<div
+									<section
 										className="seostudio-suggestions"
+										aria-label={ __(
+											'Suggested next steps',
+											'seo-studio'
+										) }
 										aria-live="polite"
 									>
 										{ suggestionCopy ? (
@@ -547,7 +551,7 @@ export function Dashboard() {
 												</article>
 											) )
 										) }
-									</div>
+									</section>
 								</>
 							) : null }
 							<section

@@ -1,51 +1,11 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
-
-async function login( page: Page ): Promise< void > {
-	// WebKit can drop a password fill into the username field. A lost session also
-	// returns as wp-login.php?reauth=1, so confirm the values and try once more.
-	const target =
-		'/wp-login.php?redirect_to=' +
-		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
-	for ( let attempt = 0; attempt < 2; attempt++ ) {
-		await page.goto( target, { waitUntil: 'domcontentloaded' } );
-		if ( page.url().includes( '/wp-admin/' ) ) {
-			return;
-		}
-		const user = page.locator( '#user_login' );
-		const pass = page.locator( '#user_pass' );
-		await user.click();
-		await user.fill( 'admin' );
-		await pass.click();
-		await pass.fill( 'password' );
-		if (
-			( await user.inputValue() ) !== 'admin' ||
-			( await pass.inputValue() ) !== 'password'
-		) {
-			await page.locator( '#loginform' ).evaluate( ( form ) => {
-				const loginField = form.querySelector( '#user_login' );
-				const passwordField = form.querySelector( '#user_pass' );
-				if ( loginField instanceof HTMLInputElement ) {
-					loginField.value = 'admin';
-				}
-				if ( passwordField instanceof HTMLInputElement ) {
-					passwordField.value = 'password';
-				}
-			} );
-		}
-		await page.locator( '#wp-submit' ).click();
-		try {
-			await page.waitForURL( '**/wp-admin/**', {
-				timeout: 20000,
-				waitUntil: 'commit',
-			} );
-			return;
-		} catch ( error ) {
-			if ( attempt === 1 ) {
-				throw error;
-			}
-		}
-	}
-}
+import type { Page, Route } from '@playwright/test';
+import {
+	expect,
+	expectRendered,
+	openDashboard,
+	test,
+	waitForPageSearch,
+} from './fixtures';
 
 function summary(
 	overrides: Record< string, unknown > = {}
@@ -108,6 +68,17 @@ async function fulfillPages(
 	await route.fulfill( { json: list } );
 }
 
+function suggestionsRegion( page: Page ) {
+	return page.getByRole( 'region', {
+		name: 'Suggested next steps',
+		exact: true,
+	} );
+}
+
+function pagesRegion( page: Page ) {
+	return page.getByRole( 'region', { name: 'Pages', exact: true } );
+}
+
 test( 'a filtered list stays distinct from a fresh site', async ( {
 	page,
 } ) => {
@@ -143,22 +114,27 @@ test( 'a filtered list stays distinct from a fresh site', async ( {
 			},
 		} );
 	} );
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	const pages = page.getByRole( 'region', { name: 'Pages', exact: true } );
-	await expect( pages.getByRole( 'table' ) ).toBeVisible();
+	await openDashboard( page );
+	const pages = pagesRegion( page );
+	await expectRendered( page, async () => {
+		await expect( pages.getByRole( 'table' ) ).toBeVisible();
+	} );
+	const searched = waitForPageSearch( page, 'missing-page' );
 	await pages.getByLabel( 'Search' ).fill( 'missing-page' );
-	await expect(
-		pages.getByText( 'No stored pages match these filters.' )
-	).toBeVisible();
-	await expect(
-		pages.getByText(
-			'No pages are stored yet. Open a page and choose Analyse page.'
-		)
-	).toHaveCount( 0 );
-	await expect(
-		page.getByRole( 'region', { name: 'No pages checked yet' } )
-	).toHaveCount( 0 );
+	await searched;
+	await expectRendered( page, async () => {
+		await expect(
+			pages.getByText( 'No stored pages match these filters.' )
+		).toBeVisible();
+		await expect(
+			pages.getByText(
+				'No pages are stored yet. Open a page and choose Analyse page.'
+			)
+		).toHaveCount( 0 );
+		await expect(
+			page.getByRole( 'region', { name: 'No pages checked yet' } )
+		).toHaveCount( 0 );
+	} );
 } );
 
 test( 'a fresh site shows one first-run card', async ( { page } ) => {
@@ -179,27 +155,27 @@ test( 'a fresh site shows one first-run card', async ( { page } ) => {
 			}
 		)
 	);
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
+	await openDashboard( page );
 	const firstRun = page.getByRole( 'region', {
 		name: 'No pages checked yet',
 	} );
-	await expect(
-		firstRun.getByRole( 'heading', { name: 'No pages checked yet' } )
-	).toBeVisible();
-	await expect(
-		firstRun.getByRole( 'button', { name: 'Open a page' } )
-	).toBeVisible();
-	await expect(
-		page.getByRole( 'heading', { name: 'Suggested next steps' } )
-	).toHaveCount( 0 );
-	await expect(
-		page.getByRole( 'region', { name: 'Pages', exact: true } )
-	).toHaveCount( 0 );
-	await expect( page.getByRole( 'table' ) ).toHaveCount( 0 );
-	await expect( page.getByText( 'Nothing to fix right now.' ) ).toHaveCount(
-		0
-	);
+	await expectRendered( page, async () => {
+		await expect(
+			firstRun.getByRole( 'heading', { name: 'No pages checked yet' } )
+		).toBeVisible();
+		await expect(
+			firstRun.getByRole( 'button', { name: 'Open a page' } )
+		).toBeVisible();
+		await expect(
+			page.getByRole( 'heading', { name: 'Suggested next steps' } )
+		).toHaveCount( 0 );
+		await expect( suggestionsRegion( page ) ).toHaveCount( 0 );
+		await expect( pagesRegion( page ) ).toHaveCount( 0 );
+		await expect( page.getByRole( 'table' ) ).toHaveCount( 0 );
+		await expect(
+			page.getByText( 'Nothing to fix right now.' )
+		).toHaveCount( 0 );
+	} );
 } );
 
 test( 'stored pages without a definitive score do not look finished', async ( {
@@ -229,22 +205,26 @@ test( 'stored pages without a definitive score do not look finished', async ( {
 			}
 		)
 	);
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	const pages = page.getByRole( 'region', { name: 'Pages', exact: true } );
-	await expect( pages.getByRole( 'table' ) ).toBeVisible();
-	await expect(
-		pages.getByRole( 'cell', { name: /Stored unscored page/ } )
-	).toBeVisible();
-	await expect(
-		page.getByText( 'No suggestions yet. Check a page to get some.' )
-	).toBeVisible();
-	await expect( page.getByText( 'Nothing to fix right now.' ) ).toHaveCount(
-		0
-	);
-	await expect(
-		page.getByRole( 'region', { name: 'No pages checked yet' } )
-	).toHaveCount( 0 );
+	await openDashboard( page );
+	const pages = pagesRegion( page );
+	const suggestions = suggestionsRegion( page );
+	await expectRendered( page, async () => {
+		await expect( pages.getByRole( 'table' ) ).toBeVisible();
+		await expect(
+			pages.getByRole( 'cell', { name: /Stored unscored page/ } )
+		).toBeVisible();
+		await expect(
+			suggestions.getByText(
+				'No suggestions yet. Check a page to get some.'
+			)
+		).toBeVisible();
+		await expect(
+			suggestions.getByText( 'Nothing to fix right now.' )
+		).toHaveCount( 0 );
+		await expect(
+			page.getByRole( 'region', { name: 'No pages checked yet' } )
+		).toHaveCount( 0 );
+	} );
 } );
 
 test( 'a clear suggestion state is explicit and a failed load is not all-clear', async ( {
@@ -273,9 +253,12 @@ test( 'a clear suggestion state is explicit and a failed load is not all-clear',
 			}
 		)
 	);
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await expect( page.getByText( 'Nothing to fix right now.' ) ).toBeVisible();
+	await openDashboard( page );
+	await expectRendered( page, async () => {
+		await expect(
+			suggestionsRegion( page ).getByText( 'Nothing to fix right now.' )
+		).toBeVisible();
+	} );
 
 	await page.unroute( pagesApi );
 	await page.route( pagesApi, ( route ) =>
@@ -290,13 +273,17 @@ test( 'a clear suggestion state is explicit and a failed load is not all-clear',
 			'fail'
 		)
 	);
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await expect(
-		page.getByText( 'Suggestions could not be loaded.' )
-	).toBeVisible();
-	await expect( page.getByText( 'Nothing to fix right now.' ) ).toHaveCount(
-		0
-	);
+	await openDashboard( page, 'failed' );
+	await expectRendered( page, async () => {
+		await expect(
+			suggestionsRegion( page ).getByRole( 'alert' ).filter( {
+				hasText: 'Suggestions could not be loaded.',
+			} )
+		).toBeVisible();
+		await expect(
+			suggestionsRegion( page ).getByText( 'Nothing to fix right now.' )
+		).toHaveCount( 0 );
+	} );
 } );
 
 test( 'an empty suggestion response without a server state is an error', async ( {
@@ -320,14 +307,15 @@ test( 'an empty suggestion response without a server state is an error', async (
 			}
 		)
 	);
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await expect(
-		page.getByRole( 'alert' ).filter( {
-			hasText: 'Suggestions could not be loaded.',
-		} )
-	).toBeVisible();
-	await expect( page.getByText( 'Nothing to fix right now.' ) ).toHaveCount(
-		0
-	);
+	await openDashboard( page );
+	await expectRendered( page, async () => {
+		await expect(
+			suggestionsRegion( page ).getByRole( 'alert' ).filter( {
+				hasText: 'Suggestions could not be loaded.',
+			} )
+		).toBeVisible();
+		await expect(
+			suggestionsRegion( page ).getByText( 'Nothing to fix right now.' )
+		).toHaveCount( 0 );
+	} );
 } );
