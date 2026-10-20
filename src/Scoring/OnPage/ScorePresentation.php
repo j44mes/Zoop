@@ -24,10 +24,10 @@ final class ScorePresentation {
 	 */
 	public static function gate( PageModel $page, Score $score, string $keyphrase, array $index ): array {
 		$missing = array();
-		if ( ! in_array( $index['status'], array( 'indexable', 'noindex' ), true ) ) {
+		if ( ! in_array( $index['status'], array( 'indexable', 'noindex', 'not_public', 'site_discouraged' ), true ) ) {
 			$missing[] = 'indexability';
 		}
-		if ( MetadataEvidence::OBSERVED !== $page->titleEvidence || '' === trim( $page->titleTag ) ) {
+		if ( ! in_array( $page->titleEvidence, array( MetadataEvidence::OBSERVED, MetadataEvidence::OBSERVED_ABSENT ), true ) ) {
 			$missing[] = 'title';
 		}
 		if ( MetadataEvidence::OBSERVED !== $page->documentH1Evidence ) {
@@ -40,7 +40,7 @@ final class ScorePresentation {
 				$evaluated = true;
 			}
 		}
-		if ( '' === trim( $keyphrase ) || ! $evaluated || MetadataEvidence::OBSERVED !== $page->titleEvidence ) {
+		if ( '' === trim( $keyphrase ) || ! $evaluated ) {
 			$missing[] = 'keyphrase';
 		}
 
@@ -144,6 +144,24 @@ final class ScorePresentation {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * Plural sentence for pages whose published check is out of date.
+	 */
+	public static function reanalysisNotice( int $count ): string {
+		$count = max( 0, $count );
+
+		return sprintf(
+			/* translators: %d: number of pages that need another published-page check. */
+			_n(
+				'%d page needs re-analysis since the scoring update.',
+				'%d pages need re-analysis since the scoring update.',
+				$count,
+				'seo-studio'
+			),
+			$count
+		);
 	}
 
 	public static function searchLabel( string $status ): string {

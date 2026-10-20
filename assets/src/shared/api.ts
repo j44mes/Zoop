@@ -74,6 +74,9 @@ export interface ScorePresentation {
 		reason: string;
 		action: string;
 		action_label: string;
+		category?: string;
+		measured?: string;
+		recommendation?: string;
 	} >;
 }
 
@@ -109,6 +112,7 @@ export interface PageList {
 		red: number;
 		orange: number;
 		green: number;
+		reanalysis_notice?: string;
 	};
 }
 
@@ -581,6 +585,7 @@ export interface RecommendationPage {
 	post_id: number;
 	title: string;
 	url: string;
+	redacted?: boolean;
 }
 
 export interface RecommendationItem {

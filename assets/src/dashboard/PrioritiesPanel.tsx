@@ -1,6 +1,10 @@
 import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { fetchRecommendations, type RecommendationItem } from '../shared/api';
+import {
+	fetchRecommendations,
+	type RecommendationItem,
+	type RecommendationPage,
+} from '../shared/api';
 import {
 	overlapConclusion,
 	overlapConfidence,
@@ -118,19 +122,12 @@ export function PrioritiesPanel() {
 					{ item.pages.length > 0 ? (
 						<ul>
 							{ item.pages.map( ( page ) => (
-								<li key={ `${ page.post_id }-${ page.url }` }>
-									{ page.post_id > 0 ? (
-										<a
-											href={ pageWorkspaceUrl(
-												page.post_id
-											) }
-										>
-											{ page.title ||
-												__( 'Untitled', 'seo-studio' ) }
-										</a>
-									) : (
-										page.title
-									) }
+								<li
+									key={ `${ page.post_id }-${ page.url }-${
+										page.redacted ? 'hidden' : 'open'
+									}` }
+								>
+									<PriorityPage page={ page } />
 								</li>
 							) ) }
 						</ul>
@@ -139,4 +136,25 @@ export function PrioritiesPanel() {
 			) ) }
 		</div>
 	);
+}
+
+function PriorityPage( { page }: { page: RecommendationPage } ) {
+	if ( page.redacted ) {
+		return (
+			<>
+				{ __(
+					'Another page is part of this finding. Its details are hidden.',
+					'seo-studio'
+				) }
+			</>
+		);
+	}
+	if ( page.post_id > 0 ) {
+		return (
+			<a href={ pageWorkspaceUrl( page.post_id ) }>
+				{ page.title || __( 'Untitled', 'seo-studio' ) }
+			</a>
+		);
+	}
+	return <>{ page.title }</>;
 }

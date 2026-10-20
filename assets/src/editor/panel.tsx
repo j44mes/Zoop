@@ -29,6 +29,10 @@ import {
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { CategoryBar } from '../shared/ui/CategoryBar';
+import {
+	EvidenceReadiness,
+	readinessText,
+} from '../shared/ui/EvidenceReadiness';
 import { ScoreRing } from '../shared/ui/ScoreRing';
 import { SnippetPreview } from '../shared/ui/SnippetPreview';
 import { SocialPreview } from '../shared/ui/SocialPreview';
@@ -321,6 +325,15 @@ export function Panel( {
 		runWorker,
 	] );
 
+	function focusKeyphrase() {
+		const field = document.getElementById( 'seostudio-focus-keyphrase' );
+		if ( field instanceof HTMLInputElement ) {
+			field.focus();
+			return;
+		}
+		field?.querySelector( 'input' )?.focus();
+	}
+
 	async function persist( nextMode: 'content' | 'live' ) {
 		if ( ! id ) {
 			setError(
@@ -419,6 +432,7 @@ export function Panel( {
 				/>
 			) : null }
 			<TextControl
+				id="seostudio-focus-keyphrase"
 				label={ __( 'Target phrase', 'seo-studio' ) }
 				value={ keyphrase }
 				onChange={ setKeyphrase }
@@ -453,41 +467,47 @@ export function Panel( {
 			<div className="seostudio-summary">
 				<article className="seostudio-card">
 					<h2>{ __( 'On-page', 'seo-studio' ) }</h2>
-					<ScoreRing
-						value={
-							preview || ! presentation?.definitive
-								? null
-								: onpage
-								? onpage.earned
-								: null
+					<EvidenceReadiness
+						presentation={ presentation }
+						provisional={ preview }
+						busy={ busy }
+						editorUrl={
+							id ? `post.php?post=${ id }&action=edit` : ''
 						}
-						denominator={
-							preview || ! presentation?.definitive
-								? null
-								: onpage
-								? onpage.denominator
-								: null
-						}
-					/>
-					{ presentation && ! preview ? (
-						<p data-testid="score-presentation">
-							{ presentation.headline }
-							{ presentation.explanation
-								? ` ${ presentation.explanation }`
-								: '' }
-						</p>
-					) : null }
-					{ presentation?.verified_label && ! preview ? (
-						<p className="seostudio-muted">
-							{ presentation.verified_label }
-						</p>
-					) : null }
-					{ presentation?.search_status === 'noindex' && ! preview ? (
-						<p data-testid="hidden-from-search">
-							<strong>{ presentation.search_label }</strong>{ ' ' }
-							{ presentation.search_explanation }
-						</p>
-					) : null }
+						onCheckPublished={ () => persist( 'live' ) }
+						onAddKeyphrase={ focusKeyphrase }
+					>
+						<ScoreRing
+							value={
+								preview ||
+								! presentation?.definitive ||
+								! onpage
+									? null
+									: onpage.earned
+							}
+							denominator={
+								preview ||
+								! presentation?.definitive ||
+								! onpage
+									? null
+									: onpage.denominator
+							}
+							label={ readinessText( presentation ) }
+						/>
+						{ presentation && ! preview ? (
+							<p data-testid="score-presentation">
+								{ presentation.headline }
+								{ presentation.explanation
+									? ` ${ presentation.explanation }`
+									: '' }
+							</p>
+						) : null }
+						{ presentation?.verified_label && ! preview ? (
+							<p className="seostudio-muted">
+								{ presentation.verified_label }
+							</p>
+						) : null }
+					</EvidenceReadiness>
 				</article>
 				<article className="seostudio-card">
 					<h2>{ __( 'Content analysis', 'seo-studio' ) }</h2>

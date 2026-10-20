@@ -8,6 +8,7 @@ import {
 import { createRoot, useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	analysePost,
 	cancelAudit,
 	fetchAudit,
 	fetchPages,
@@ -63,12 +64,19 @@ export function Dashboard() {
 		| 'priorities'
 	>( sectionView );
 	const [ run, setRun ] = useState< AuditRun | null >( null );
+	const [ listTick, setListTick ] = useState( 0 );
 
 	useEffect( () => {
 		fetchCapabilities()
 			.then( ( next ) => {
 				setCapabilities( next );
-				if ( ! next.manage && isRestricted( view ) ) {
+				if ( ! next.manage && isAdminOnly( view ) ) {
+					setView( 'overview' );
+				} else if (
+					view === 'priorities' &&
+					! next.edit_posts &&
+					! next.manage
+				) {
 					setView( 'overview' );
 				}
 				if ( next.manage ) {
@@ -143,6 +151,7 @@ export function Dashboard() {
 		order,
 		page,
 		run?.status,
+		listTick,
 	] );
 
 	useEffect( () => {
@@ -171,6 +180,27 @@ export function Dashboard() {
 		}, 2000 );
 		return () => window.clearInterval( timer );
 	}, [ run?.run_id, run?.status ] );
+
+	async function checkPublished( item: PageListItem ) {
+		setNotice( __( 'Checking the published page.', 'seo-studio' ) );
+		try {
+			await analysePost( item.object_id, {
+				mode: 'live',
+				...( item.keyphrase ? { keyphrase: item.keyphrase } : {} ),
+			} );
+			setNotice( __( 'The published page was checked.', 'seo-studio' ) );
+			setListTick( ( current ) => current + 1 );
+		} catch ( caught ) {
+			const message =
+				caught && typeof caught === 'object' && 'message' in caught
+					? String( ( caught as { message: string } ).message )
+					: __(
+							'The published page could not be checked.',
+							'seo-studio'
+					  );
+			setNotice( message );
+		}
+	}
 
 	async function reanalyse() {
 		setNotice( '' );
@@ -210,6 +240,9 @@ export function Dashboard() {
 					current="pages"
 					mode={ shortMode( settings, capabilities ) }
 					allowSite={ !! capabilities?.manage }
+					allowPriorities={
+						!! capabilities?.edit_posts || !! capabilities?.manage
+					}
 					onNavigate={ () => undefined }
 				/>
 				<PageWorkspace />
@@ -219,13 +252,17 @@ export function Dashboard() {
 
 	const summary = list?.summary;
 	const items = list?.items ?? [];
-	const visibleView =
+	let visibleView = view;
+	if ( capabilities && ! capabilities.manage && isAdminOnly( view ) ) {
+		visibleView = 'overview';
+	} else if (
 		capabilities &&
-		! capabilities.manage &&
-		view !== 'overview' &&
-		view !== 'pages'
-			? 'overview'
-			: view;
+		view === 'priorities' &&
+		! capabilities.edit_posts &&
+		! capabilities.manage
+	) {
+		visibleView = 'overview';
+	}
 	const modeLine = settings
 		? metadataModeLine( settings )
 		: shortMode( null, capabilities );
@@ -236,6 +273,9 @@ export function Dashboard() {
 				current={ visibleView }
 				mode={ modeLine }
 				allowSite={ !! capabilities?.manage }
+				allowPriorities={
+					!! capabilities?.edit_posts || !! capabilities?.manage
+				}
 				onNavigate={ setView }
 			/>
 			{ capabilities && ! capabilities.manage ? (
@@ -258,7 +298,8 @@ export function Dashboard() {
 			{ capabilities?.manage && visibleView === 'search-console' ? (
 				<SearchConsolePanel />
 			) : null }
-			{ capabilities?.manage && visibleView === 'priorities' ? (
+			{ ( capabilities?.manage || capabilities?.edit_posts ) &&
+			visibleView === 'priorities' ? (
 				<PrioritiesPanel />
 			) : null }
 			{ visibleView !== 'settings' &&
@@ -278,20 +319,13 @@ export function Dashboard() {
 								<p>{ summary.scored ?? 0 }</p>
 							</article>
 							<article>
-								<h2>
-									{ __( 'Needs reanalysis', 'seo-studio' ) }
-								</h2>
+								<h2>{ __( 'Out of date', 'seo-studio' ) }</h2>
 								<p>{ summary.needs_reanalysis ?? 0 }</p>
-								<p className="seostudio-muted">
-									{ sprintf(
-										/* translators: %d: pages whose published check is out of date. */
-										__(
-											'%d pages need re-analysis since the scoring update.',
-											'seo-studio'
-										),
-										summary.needs_reanalysis ?? 0
-									) }
-								</p>
+								{ summary.reanalysis_notice ? (
+									<p className="seostudio-muted">
+										{ summary.reanalysis_notice }
+									</p>
+								) : null }
 							</article>
 							<article>
 								<h2>{ __( 'Not scored', 'seo-studio' ) }</h2>
@@ -394,7 +428,10 @@ export function Dashboard() {
 					{ capabilities?.manage ? (
 						<p className="seostudio-actions">
 							<Button variant="primary" onClick={ reanalyse }>
-								{ __( 'Refresh content analysis', 'seo-studio' ) }
+								{ __(
+									'Refresh content analysis',
+									'seo-studio'
+								) }
 							</Button>
 							{ run &&
 							( run.status === 'queued' ||
@@ -600,6 +637,7 @@ export function Dashboard() {
 										<DashboardRow
 											key={ item.page_id }
 											item={ item }
+											onCheck={ checkPublished }
 										/>
 									) ) }
 								</tbody>
@@ -630,13 +668,12 @@ export function Dashboard() {
 	);
 }
 
-function isRestricted( section: string ): boolean {
+function isAdminOnly( section: string ): boolean {
 	return (
 		section === 'settings' ||
 		section === 'architecture' ||
 		section === 'overlap' ||
-		section === 'search-console' ||
-		section === 'priorities'
+		section === 'search-console'
 	);
 }
 
@@ -668,6 +705,7 @@ function AppBar( {
 	current,
 	mode,
 	allowSite,
+	allowPriorities,
 	onNavigate,
 }: {
 	current:
@@ -680,6 +718,7 @@ function AppBar( {
 		| 'priorities';
 	mode: string;
 	allowSite: boolean;
+	allowPriorities: boolean;
 	onNavigate: (
 		next:
 			| 'overview'
@@ -713,9 +752,15 @@ function AppBar( {
 		{ id: 'priorities', label: __( 'Priorities', 'seo-studio' ) },
 		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
 	];
-	const items = sections.filter(
-		( item ) => allowSite || item.id === 'overview' || item.id === 'pages'
-	);
+	const items = sections.filter( ( item ) => {
+		if ( item.id === 'overview' || item.id === 'pages' ) {
+			return true;
+		}
+		if ( item.id === 'priorities' ) {
+			return allowPriorities;
+		}
+		return allowSite;
+	} );
 	return (
 		<div className="seostudio-appbar">
 			<h1>{ __( 'Zoop', 'seo-studio' ) }</h1>
@@ -820,7 +865,13 @@ function auditMessage( run: AuditRun ): string {
 	return labels[ status ] || status;
 }
 
-function DashboardRow( { item }: { item: PageListItem } ) {
+function DashboardRow( {
+	item,
+	onCheck,
+}: {
+	item: PageListItem;
+	onCheck: ( item: PageListItem ) => void;
+} ) {
 	const score =
 		item.presentation?.headline ||
 		scoreStateLabel(
@@ -853,6 +904,9 @@ function DashboardRow( { item }: { item: PageListItem } ) {
 			</td>
 			<td>{ mainFinding( item ) }</td>
 			<td>
+				<Button variant="secondary" onClick={ () => onCheck( item ) }>
+					{ __( 'Check published page', 'seo-studio' ) }
+				</Button>{ ' ' }
 				<a href={ pageWorkspaceUrl( item.object_id ) }>
 					{ __( 'Open analysis', 'seo-studio' ) }
 				</a>

@@ -136,6 +136,31 @@ final class EvidenceReadinessTest extends WP_UnitTestCase {
 		$this->assertNotSame( 'noindex', $data['presentation']['search_status'] );
 	}
 
+	public function test_a_fetched_page_without_a_title_or_heading_scores_the_absence(): void {
+		$post = $this->post( 'Rank tracker title' );
+		$data = $this->live(
+			$post,
+			'<html><head><meta name="robots" content="index, max-image-preview:none" /></head><body><main><p>Rank tracker body copy for the page.</p></main></body></html>'
+		);
+		$this->assertSame( 'indexable', $data['presentation']['search_status'] );
+		$this->assertNotSame( 'Hidden from search', $data['presentation']['search_label'] );
+		$this->assertTrue( $data['presentation']['definitive'] );
+		$this->assertSame( array(), $data['presentation']['missing'] );
+		$checks = array();
+		foreach ( $data['presentation']['checks'] as $check ) {
+			$checks[ $check['id'] ] = $check;
+		}
+		$this->assertSame( 'needs_work', $checks['title.exists']['state'] );
+		$this->assertSame( 'needs_work', $checks['title.entire_keyphrase']['state'] );
+		$this->assertNotSame( 'not_applicable', $checks['title.entire_keyphrase']['state'] );
+		$this->assertSame( 'needs_work', $checks['headings.h1_count']['state'] );
+		$this->assertSame( 'title', $checks['title.exists']['category'] );
+		$this->assertArrayHasKey( 'measured', $checks['title.exists'] );
+		$this->assertNotSame( '', $checks['title.exists']['recommendation'] );
+		$this->assertGreaterThan( 0, $data['scores'][0]['denominator'] );
+		$this->assertLessThan( $data['scores'][0]['denominator'], $data['scores'][0]['score'] );
+	}
+
 	public function test_explicit_noindex_does_not_change_the_content_points(): void {
 		$post = $this->post( 'Rank tracker title' );
 		$open = $this->live( $post, $this->html( 'Rank tracker title', 'Theme heading' ) );

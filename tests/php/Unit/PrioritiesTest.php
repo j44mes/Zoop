@@ -259,6 +259,143 @@ final class PrioritiesTest extends TestCase {
 		$this->assertStringNotContainsString( '900', $result['items'][1]['reason'] );
 	}
 
+	public function testAFreshNoindexPageBecomesAVisibilityBlocker(): void {
+		$result = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 4,
+						'title'   => 'Quiet page',
+						'url'     => 'https://example.test/quiet/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(
+				array(
+					'query'       => 'rank tracker',
+					'page'        => 'https://example.test/quiet/',
+					'clicks'      => 1,
+					'impressions' => 10,
+				),
+			),
+			array(
+				array(
+					'post_id' => 9,
+					'title'   => 'Hidden guide',
+					'url'     => 'https://example.test/hidden-guide/',
+					'fresh'   => true,
+				),
+				array(
+					'post_id' => 10,
+					'title'   => 'Stale hidden',
+					'url'     => 'https://example.test/stale/',
+					'fresh'   => false,
+				),
+			)
+		);
+
+		$this->assertSame( 'Hidden guide', $result['items'][0]['title'] );
+		$this->assertSame( 1, $result['items'][0]['priority'] );
+		$this->assertSame( 'visibility', $result['items'][0]['kind'] );
+		$this->assertStringContainsString( 'intentional', $result['items'][0]['action'] );
+		$this->assertStringNotContainsString( 'remove noindex', strtolower( $result['items'][0]['action'] . ' ' . $result['items'][0]['reason'] ) );
+		$this->assertStringContainsString( 'content score is separate', $result['items'][0]['reason'] );
+		$this->assertNotContains( 'Stale hidden', array_column( $result['items'], 'title' ) );
+		$this->assertSame( 'Quiet page', $result['items'][1]['title'] );
+	}
+
+	public function testPermittedFindingsAreChosenBeforeTheDisplayLimit(): void {
+		$items = array();
+		for ( $index = 1; $index <= 45; $index++ ) {
+			$items[] = array(
+				'priority' => 3,
+				'kind'     => 'page',
+				'title'    => 'Other ' . $index,
+				'action'   => 'Review the link graph.',
+				'reason'   => 'Stored graph.',
+				'pages'    => array(
+					array(
+						'post_id' => 1000 + $index,
+						'title'   => 'Other ' . $index,
+						'url'     => 'https://example.test/other/' . $index . '/',
+					),
+				),
+			);
+		}
+		$items[] = array(
+			'priority' => 4,
+			'kind'     => 'overlap',
+			'title'    => 'shared phrase',
+			'action'   => 'Compare what these pages are for.',
+			'reason'   => 'These pages use the same target phrase.',
+			'pages'    => array(
+				array(
+					'post_id' => 7,
+					'title'   => 'Mine',
+					'url'     => 'https://example.test/mine/',
+				),
+				array(
+					'post_id' => 8,
+					'title'   => 'Secret other title',
+					'url'     => 'https://example.test/secret/',
+				),
+			),
+		);
+		$items[] = array(
+			'priority' => 2,
+			'kind'     => 'unresolved',
+			'title'    => 'https://example.test/from-other/',
+			'action'   => 'Review this internal address.',
+			'reason'   => 'This internal address appears from Secret other title.',
+			'pages'    => array(
+				array(
+					'post_id' => 8,
+					'title'   => 'Secret other title',
+					'url'     => 'https://example.test/secret/',
+				),
+			),
+		);
+		$items[] = array(
+			'priority' => 4,
+			'kind'     => 'search',
+			'title'    => 'Import a Search Console file',
+			'action'   => 'Import a performance export.',
+			'reason'   => 'No file.',
+			'pages'    => array(),
+		);
+
+		$priorities = new Priorities();
+		$visible    = $priorities->actionable(
+			$items,
+			false,
+			static function ( int $id ): bool {
+				return 7 === $id;
+			}
+		);
+		$this->assertCount( 1, $visible );
+		$this->assertSame( 'shared phrase', $visible[0]['title'] );
+		$this->assertSame( 'Mine', $visible[0]['pages'][0]['title'] );
+		$this->assertTrue( $visible[0]['pages'][1]['redacted'] );
+		$this->assertSame( '', $visible[0]['pages'][1]['url'] );
+		$encoded = (string) json_encode( $visible );
+		$this->assertStringNotContainsString( 'Secret other title', $encoded );
+		$this->assertStringNotContainsString( 'example.test/secret', $encoded );
+		$this->assertStringNotContainsString( 'from-other', $encoded );
+		$this->assertStringNotContainsString( 'Import a Search Console', $encoded );
+		$this->assertSame( 'shared phrase', array_slice( $visible, 0, 40 )[0]['title'] );
+
+		$everything = $priorities->actionable(
+			$items,
+			true,
+			static function (): bool {
+				return false;
+			}
+		);
+		$this->assertGreaterThan( 40, count( $everything ) );
+		$this->assertStringContainsString( 'Secret other title', (string) json_encode( $everything ) );
+	}
+
 	/**
 	 * Architecture fixture with a complete crawl.
 	 *

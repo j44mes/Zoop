@@ -17,43 +17,89 @@ final class CheckPresentation {
 	 * One check in the five user-facing states.
 	 *
 	 * @param array<string, mixed> $assessment Stored assessment.
-	 * @return array{id: string, state: string, label: string, reason: string, action: string, action_label: string}
+	 * @return array{id: string, state: string, label: string, reason: string, action: string, action_label: string, category: string, measured: string, recommendation: string}
 	 */
 	public static function fromAssessment( array $assessment, bool $current ): array {
 		$id     = (string) ( $assessment['id'] ?? '' );
 		$status = (string) ( $assessment['status'] ?? '' );
 		$reason = (string) ( $assessment['explanation'] ?? '' );
 		if ( ! $current ) {
-			return self::row( $id, 'out_of_date', __( 'Out of date', 'seo-studio' ), $reason, 'check_published' );
+			return self::row( $assessment, $id, 'out_of_date', __( 'Out of date', 'seo-studio' ), $reason, 'check_published' );
 		}
 		if ( 'pass' === $status ) {
-			return self::row( $id, 'passed', __( 'Passed', 'seo-studio' ), $reason, 'view_evidence' );
+			return self::row( $assessment, $id, 'passed', __( 'Passed', 'seo-studio' ), $reason, 'view_evidence' );
 		}
 		if ( 'partial' === $status || 'fail' === $status ) {
-			return self::row( $id, 'needs_work', __( 'Needs work', 'seo-studio' ), $reason, 'view_fix' );
+			return self::row( $assessment, $id, 'needs_work', __( 'Needs work', 'seo-studio' ), $reason, 'view_fix' );
 		}
 		if ( 'not_applicable' === $status ) {
-			return self::row( $id, 'not_applicable', __( "Doesn't apply", 'seo-studio' ), $reason, 'view_explanation' );
+			return self::row( $assessment, $id, 'not_applicable', __( "Doesn't apply", 'seo-studio' ), $reason, 'view_explanation' );
 		}
 
 		$action = str_contains( strtolower( $reason ), 'keyphrase' ) ? 'add_keyphrase' : 'check_published';
-		return self::row( $id, 'not_checked', __( 'Not checked', 'seo-studio' ), $reason, $action );
+		return self::row( $assessment, $id, 'not_checked', __( 'Not checked', 'seo-studio' ), $reason, $action );
 	}
 
 	/**
-	 * Assemble one presented check.
+	 * Assemble one presented check. PHP chooses the state; the screen does not.
 	 *
-	 * @return array{id: string, state: string, label: string, reason: string, action: string, action_label: string}
+	 * @param array<string, mixed> $assessment Stored assessment.
+	 * @return array{id: string, state: string, label: string, reason: string, action: string, action_label: string, category: string, measured: string, recommendation: string}
 	 */
-	private static function row( string $id, string $state, string $label, string $reason, string $action ): array {
+	private static function row( array $assessment, string $id, string $state, string $label, string $reason, string $action ): array {
 		return array(
-			'id'           => $id,
-			'state'        => $state,
-			'label'        => $label,
-			'reason'       => $reason,
-			'action'       => $action,
-			'action_label' => self::actionLabel( $action ),
+			'id'             => $id,
+			'state'          => $state,
+			'label'          => $label,
+			'reason'         => $reason,
+			'action'         => $action,
+			'action_label'   => self::actionLabel( $action ),
+			'category'       => (string) ( $assessment['category'] ?? '' ),
+			'measured'       => self::measured( $assessment ),
+			'recommendation' => (string) ( $assessment['recommendation'] ?? '' ),
 		);
+	}
+
+	/**
+	 * The value Zoop measured, without turning it into a new conclusion.
+	 *
+	 * @param array<string, mixed> $assessment Stored assessment.
+	 */
+	private static function measured( array $assessment ): string {
+		$evidence = trim( (string) ( $assessment['evidence'] ?? '' ) );
+		if ( '' !== $evidence ) {
+			return $evidence;
+		}
+
+		$observed = $assessment['observed'] ?? null;
+		if ( ! is_array( $observed ) || array() === $observed ) {
+			return '';
+		}
+
+		$parts = array();
+		foreach ( $observed as $key => $value ) {
+			$shown = self::scalar( $value );
+			if ( '' === $shown && ! is_bool( $value ) ) {
+				continue;
+			}
+			$parts[] = (string) $key . ': ' . $shown;
+		}
+
+		return implode( ', ', $parts );
+	}
+
+	private static function scalar( mixed $value ): string {
+		if ( is_bool( $value ) ) {
+			return $value ? 'true' : 'false';
+		}
+		if ( null === $value ) {
+			return 'none';
+		}
+		if ( is_scalar( $value ) ) {
+			return (string) $value;
+		}
+
+		return '';
 	}
 
 	public static function actionLabel( string $action ): string {

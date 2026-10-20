@@ -23,9 +23,10 @@ final class Priorities {
 	 * @param array<string, mixed>       $architecture Public architecture report.
 	 * @param array<string, mixed>       $overlap      Overlap groups and notes.
 	 * @param list<array<string, mixed>> $search_rows  Imported query rows.
+	 * @param list<array<string, mixed>> $visibility   Fresh verified noindex pages.
 	 * @return array{items: list<array<string, mixed>>, notes: string[], limited: bool}
 	 */
-	public function rank( array $architecture, array $overlap, array $search_rows ): array {
+	public function rank( array $architecture, array $overlap, array $search_rows, array $visibility = array() ): array {
 		$demand       = $this->demand( $search_rows );
 		$coverage     = $this->searchCoverage( $search_rows );
 		$search_mode  = $coverage['mode'];
@@ -97,6 +98,15 @@ final class Priorities {
 			);
 		}
 
+		$items   = array_merge( $this->visibilityItems( $visibility ), $items );
+		$see_all = ! function_exists( 'current_user_can' ) || current_user_can( 'manage_options' );
+		$items   = $this->actionable(
+			$items,
+			$see_all,
+			static function ( int $id ): bool {
+				return function_exists( 'current_user_can' ) && current_user_can( 'edit_post', $id );
+			}
+		);
 		$limited = count( $items ) > self::LIST_LIMIT;
 		$items   = array_slice( $items, 0, self::LIST_LIMIT );
 		$public  = array();
@@ -110,6 +120,119 @@ final class Priorities {
 			'limited' => $limited,
 			'notes'   => $this->notes( $architecture, $coverage, $limited ),
 		);
+	}
+
+	/**
+	 * Keep findings the current user can act on, before the display limit.
+	 *
+	 * Whole-site evidence is already reflected in the items. This only removes
+	 * or redacts pages the user cannot edit. Administrators receive the list unchanged.
+	 *
+	 * @param list<array<string, mixed>> $items   Ranked items, before the display limit.
+	 * @param callable(int): bool        $canEdit Whether the user can edit one post.
+	 * @return list<array<string, mixed>>
+	 */
+	public function actionable( array $items, bool $seeAll, callable $canEdit ): array {
+		if ( $seeAll ) {
+			return $items;
+		}
+
+		$visible = array();
+		foreach ( $items as $item ) {
+			$next = $this->redactItem( $item, $canEdit );
+			if ( null !== $next ) {
+				$visible[] = $next;
+			}
+		}
+
+		return $visible;
+	}
+
+	/**
+	 * Drop site-wide actions and pages this user cannot edit.
+	 *
+	 * @param array<string, mixed> $item    One ranked item.
+	 * @param callable(int): bool  $canEdit Whether the user can edit one post.
+	 * @return array<string, mixed>|null
+	 */
+	private function redactItem( array $item, callable $canEdit ): ?array {
+		if ( 'search' === (string) ( $item['kind'] ?? '' ) ) {
+			return null;
+		}
+
+		$pages = is_array( $item['pages'] ?? null ) ? $item['pages'] : array();
+		if ( array() === $pages ) {
+			return null;
+		}
+
+		$kept   = array();
+		$hidden = false;
+		foreach ( $pages as $page ) {
+			if ( ! is_array( $page ) ) {
+				continue;
+			}
+			$id = (int) ( $page['post_id'] ?? 0 );
+			if ( $id > 0 && $canEdit( $id ) ) {
+				$kept[] = array(
+					'post_id' => $id,
+					'title'   => (string) ( $page['title'] ?? '' ),
+					'url'     => (string) ( $page['url'] ?? '' ),
+				);
+				continue;
+			}
+			$hidden = true;
+		}
+
+		if ( array() === $kept ) {
+			return null;
+		}
+		if ( $hidden ) {
+			$kept[] = array(
+				'post_id'  => 0,
+				'title'    => '',
+				'url'      => '',
+				'redacted' => true,
+			);
+		}
+		$item['pages'] = $kept;
+
+		return $item;
+	}
+
+	/**
+	 * High-priority review items for fresh, verified noindex pages.
+	 *
+	 * @param list<array<string, mixed>> $rows Pages already limited to a current verified noindex.
+	 * @return list<array<string, mixed>>
+	 */
+	private function visibilityItems( array $rows ): array {
+		$items = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) || empty( $row['fresh'] ) ) {
+				continue;
+			}
+			$title = trim( (string) ( $row['title'] ?? '' ) );
+			if ( '' === $title ) {
+				$title = __( 'Untitled', 'seo-studio' );
+			}
+			$items[] = array(
+				'priority'    => 1,
+				'kind'        => 'visibility',
+				'title'       => $title,
+				'action'      => __( 'Review whether this page should stay out of search. Leaving it out may be intentional.', 'seo-studio' ),
+				'reason'      => __( 'The last published-page check found a noindex directive. The content score is separate and is not reduced. Zoop does not remove the directive.', 'seo-studio' ),
+				'pages'       => array(
+					array(
+						'post_id' => (int) ( $row['post_id'] ?? 0 ),
+						'title'   => $title,
+						'url'     => (string) ( $row['url'] ?? '' ),
+					),
+				),
+				'impressions' => 0,
+			);
+		}
+
+		return $items;
 	}
 
 	/**

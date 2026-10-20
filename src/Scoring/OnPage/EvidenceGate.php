@@ -36,6 +36,20 @@ final class EvidenceGate {
 		return null;
 	}
 
+	/**
+	 * Score a title that was fetched, including a page that has no title tag.
+	 *
+	 * An unobserved title stays outside the score. Meta descriptions keep the
+	 * separate absent-tag rule in metadata().
+	 */
+	public static function fetchedTitle( Assessment $assessment, string $evidence ): ?AssessmentResult {
+		if ( MetadataEvidence::NOT_OBSERVED === $evidence ) {
+			return self::metadata( $assessment, $evidence );
+		}
+
+		return null;
+	}
+
 	public static function documentH1( Assessment $assessment, PageModel $page ): ?AssessmentResult {
 		if ( MetadataEvidence::OBSERVED === $page->documentH1Evidence ) {
 			return null;

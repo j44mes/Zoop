@@ -20,7 +20,7 @@ export function scoreStateLabel(
 	denominator: number | null
 ): string {
 	if ( state === 'needs_reanalysis' ) {
-		return __( 'Needs reanalysis', 'seo-studio' );
+		return __( 'Out of date', 'seo-studio' );
 	}
 	if ( state === 'unscored' ) {
 		return __( 'Not scored', 'seo-studio' );
@@ -50,7 +50,7 @@ export function suggestionForState(
 	issueTitle: string
 ): string {
 	if ( state === 'needs_reanalysis' ) {
-		return __( 'Needs reanalysis.', 'seo-studio' );
+		return __( 'Out of date.', 'seo-studio' );
 	}
 	if ( state === 'current' && topIssue ) {
 		return issueTitle;
@@ -79,7 +79,7 @@ export function historicalScoreLabel(
 ): string {
 	return sprintf(
 		/* translators: 1: previous points, 2: previous points available. */
-		__( 'Previous result: %1$d / %2$d. Needs reanalysis.', 'seo-studio' ),
+		__( 'Previous result: %1$d / %2$d. Out of date.', 'seo-studio' ),
 		score,
 		denominator
 	);

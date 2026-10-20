@@ -26,6 +26,7 @@ final class RouteAccessTest extends WP_UnitTestCase {
 		'GET /seostudio/v1/pages',
 		'GET /seostudio/v1/keyphrases/usage',
 		'GET /seostudio/v1/capabilities',
+		'GET /seostudio/v1/recommendations',
 	);
 
 	private int $postId = 0;

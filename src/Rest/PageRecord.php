@@ -103,7 +103,7 @@ final class PageRecord {
 	/**
 	 * Filtered, capability-checked page list.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|null>}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|string|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
 		$filters  = array(
@@ -139,16 +139,17 @@ final class PageRecord {
 		$stats   = $this->pages->aggregate( $filters );
 		$total   = $stats['total'];
 		$summary = array(
-			'analysed'         => $total,
-			'scored'           => $stats['scored'],
-			'unscored'         => $stats['unscored'],
-			'needs_reanalysis' => $stats['needs_reanalysis'],
-			'not_analysed'     => $stats['not_analysed'],
-			'failed'           => $stats['failed'],
-			'average'          => $stats['average'],
-			'red'              => $stats['red'],
-			'orange'           => $stats['orange'],
-			'green'            => $stats['green'],
+			'analysed'          => $total,
+			'scored'            => $stats['scored'],
+			'unscored'          => $stats['unscored'],
+			'needs_reanalysis'  => $stats['needs_reanalysis'],
+			'not_analysed'      => $stats['not_analysed'],
+			'failed'            => $stats['failed'],
+			'average'           => $stats['average'],
+			'red'               => $stats['red'],
+			'orange'            => $stats['orange'],
+			'green'             => $stats['green'],
+			'reanalysis_notice' => ScorePresentation::reanalysisNotice( (int) $stats['needs_reanalysis'] ),
 		);
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {

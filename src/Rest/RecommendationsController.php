@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace SEOStudio\Rest;
 
-use SEOStudio\Core\Capabilities;
 use SEOStudio\Recommendations\PrioritiesReport;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -27,7 +26,7 @@ final class RecommendationsController {
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'show' ),
 				'permission_callback' => static function (): bool {
-					return Capabilities::canManage();
+					return current_user_can( 'edit_posts' );
 				},
 			)
 		);
