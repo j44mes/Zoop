@@ -28,6 +28,10 @@ final class FetchPolicy {
 			throw new FetchBlockedException( 'Fetch target is not the site host.' );
 		}
 
+		if ( ( new LocalObservation() )->permits( $url, $homeUrl ) ) {
+			return $url;
+		}
+
 		if ( $this->isBlockedHost( $target['host'] ) || $this->resolvesToBlockedAddress( $target['host'] ) ) {
 			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
 		}

@@ -55,6 +55,34 @@ final class SsrfTest extends WP_UnitTestCase {
 		$this->assertNotInstanceOf( WP_Error::class, $result, 'The control case must pass, or every refusal below proves nothing.' );
 	}
 
+	public function test_a_rest_url_parameter_cannot_choose_the_target(): void {
+		$seen    = '';
+		$filter  = static fn (): string => 'https://example.test/page/';
+		add_filter( 'post_link', $filter );
+		$fetcher = new LoopbackFetcher(
+			policy: new FetchPolicy( static fn (): array => array( '93.184.216.34' ) ),
+			transport: function ( string $url ) use ( &$seen ): array {
+				$seen = $url;
+				return array(
+					'code'     => 200,
+					'location' => '',
+					'body'     => '<html><head><title>Fine</title></head><body><p>Body</p></body></html>',
+				);
+			}
+		);
+		$request = new WP_REST_Request( 'POST' );
+		$request->set_param( 'object_type', 'post' );
+		$request->set_param( 'object_id', $this->postId );
+		$request->set_param( 'mode', 'live' );
+		$request->set_param( 'keyphrase', 'probe' );
+		$request->set_param( 'url', 'https://evil.test/steal' );
+		$result = ( new PagesController( fetcher: $fetcher ) )->analyseObject( $request );
+		remove_filter( 'post_link', $filter );
+
+		$this->assertNotInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'https://example.test/page/', $seen );
+	}
+
 	public function test_a_permalink_on_another_host_is_blocked(): void {
 		$this->assertRefused( 'https://elsewhere.test/page/', $this->transport( 200, '', '<html></html>' ), 'seostudio_fetch_blocked' );
 	}

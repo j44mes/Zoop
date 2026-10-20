@@ -211,6 +211,42 @@ final class EvidenceFidelityTest extends TestCase {
 		$this->assertSame( 'fail', $this->assessmentStatus( $model, 'headings.subheadings' ) );
 	}
 
+	public function testWithheldChecksStayOutsideTheDenominator(): void {
+		$missing = ( new Extractor() )->extract(
+			'<html><head><title>Rank tracker</title></head><body><main><p>Body.</p></main></body></html>',
+			array(
+				'render_mode' => 'live',
+				'url'         => 'https://example.test/missing-description',
+			)
+		);
+		$empty = ( new Extractor() )->extract(
+			'<html><head><title></title></head><body><main><p>Body.</p></main></body></html>',
+			array(
+				'render_mode' => 'live',
+				'url'         => 'https://example.test/empty-title',
+			)
+		);
+		$unseen = $this->scoreOwner( '', '' );
+
+		$this->assertSame( 'not_applicable', $this->assessmentStatus( $missing, 'meta.keyphrase' ) );
+		$this->assertSame( 0, $this->findResult( $missing, 'meta.keyphrase' )->earned );
+		$this->assertSame( '', $this->recommendation( $missing, 'meta.keyphrase' ) );
+		$this->assertSame( 'fail', $this->assessmentStatus( $empty, 'title.exists' ) );
+		$this->assertSame( 0, $this->findResult( $empty, 'title.exists' )->earned );
+		$this->assertSame( 'not_checked', $this->assessmentStatus( $unseen, 'title.exists' ) );
+		$this->assertSame( 0, $this->findResult( $unseen, 'title.exists' )->earned );
+
+		$missing_score = ( new Scorer() )->score( $missing, 'rank tracker' );
+		$empty_score   = ( new Scorer() )->score( $empty, 'rank tracker' );
+		$unseen_score  = ( new Scorer() )->score( $unseen, 'rank tracker' );
+		$this->assertSame( $this->applicableMax( $missing ), $missing_score->denominator );
+		$this->assertSame( $this->applicableMax( $empty ), $empty_score->denominator );
+		$this->assertSame( $this->applicableMax( $unseen ), $unseen_score->denominator );
+		$this->assertLessThan( $empty_score->denominator, $unseen_score->denominator );
+		$this->assertSame( 7, $this->findResult( $empty, 'title.exists' )->max );
+		$this->assertNotSame( 'not_checked', $this->assessmentStatus( $empty, 'title.exists' ) );
+	}
+
 	public function testReferenceFixtureStillScoresNinetyTwo(): void {
 		$raw  = file_get_contents( dirname( __DIR__, 2 ) . '/fixtures/onpage/01-wincher-reference.json' );
 		$data = json_decode( (string) $raw, true );
@@ -261,6 +297,18 @@ final class EvidenceFidelityTest extends TestCase {
 
 	private function denominator( PageModel $page ): int {
 		return ( new Scorer() )->score( $page, 'rank tracker' )->denominator;
+	}
+
+	private function applicableMax( PageModel $page ): int {
+		$max = 0;
+		foreach ( ( new Scorer() )->score( $page, 'rank tracker' )->assessments as $result ) {
+			if ( 'not_checked' === $result->status || 'not_applicable' === $result->status ) {
+				continue;
+			}
+			$max += $result->max;
+		}
+
+		return $max;
 	}
 
 	private function findResult( PageModel $page, string $id ): \SEOStudio\Scoring\OnPage\AssessmentResult {
