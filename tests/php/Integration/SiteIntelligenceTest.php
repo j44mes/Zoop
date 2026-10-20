@@ -491,9 +491,13 @@ final class SiteIntelligenceTest extends WP_UnitTestCase {
 		$settings['host_aliases'] = array( 'www.example.test' );
 		update_option( Settings::OPTION, $settings );
 		$resolver = new DestinationResolver();
-		$this->assertTrue( \SEOStudio\Architecture\SiteBoundary::contains( 'https://www.example.test/about', home_url( '/' ) ) );
-		$this->assertSame( 'unknown', $resolver->classify( 'https://www.example.test/about', home_url( '/' ) )['status'] );
-		$this->assertSame( 'external', $resolver->classify( 'https://cdn.example.test/file', home_url( '/' ) )['status'] );
+		$public   = 'https://example.test/';
+		$ported   = 'https://example.test:8443/';
+		$this->assertTrue( \SEOStudio\Architecture\SiteBoundary::contains( 'https://www.example.test/about', $public ) );
+		$this->assertTrue( \SEOStudio\Architecture\SiteBoundary::contains( 'https://www.example.test:8443/about', $ported ) );
+		$this->assertFalse( \SEOStudio\Architecture\SiteBoundary::contains( 'https://www.example.test/about', $ported ) );
+		$this->assertSame( 'unknown', $resolver->classify( 'https://www.example.test/about', $public )['status'] );
+		$this->assertSame( 'external', $resolver->classify( 'https://cdn.example.test/file', $public )['status'] );
 		$clean = Settings::sanitize(
 			array(
 				'host_aliases' => array( 'WWW.Example.test', 'https://evil.test/path', 'cdn.example.test' ),
