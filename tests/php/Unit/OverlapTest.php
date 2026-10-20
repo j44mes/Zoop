@@ -232,6 +232,28 @@ final class OverlapTest extends TestCase {
 		$this->assertStringContainsString( 'not proof of harm', $thin['groups'][0]['reason'] );
 	}
 
+	public function testSingularAndPluralPhrasesAreOneInvestigation(): void {
+		$result = ( new Overlap() )->assess(
+			array(
+				$this->page( 1, 'Fire door survey', 'fire door', 'fire door', 'commercial', 'keyphrase', 'saved' ),
+				$this->page( 2, 'Fire-doors cost', 'Fire-doors', 'Fire-doors', 'commercial', 'keyphrase', 'saved' ),
+				$this->page( 3, 'Cleaning quote', 'cleaning quote', 'cleaning quote', 'commercial', 'keyphrase', 'saved' ),
+			)
+		);
+
+		$phrases = array();
+		foreach ( $result['groups'] as $group ) {
+			if ( is_array( $group ) && 'phrase' === ( $group['observation'] ?? '' ) ) {
+				$phrases[] = $group;
+			}
+		}
+		$this->assertCount( 1, $phrases );
+		$this->assertSame( 'fire door', $phrases[0]['phrase'] );
+		$this->assertSame( array( 1, 2 ), array_column( $phrases[0]['pages'], 'post_id' ) );
+		$this->assertSame( 'not_established', $this->signal( $phrases[0], 'cannibalisation' )['establishes'] );
+		$this->assertStringContainsString( 'does not prove the pages compete', (string) $phrases[0]['reason'] );
+	}
+
 	/**
 	 * One evidence row by signal name.
 	 *

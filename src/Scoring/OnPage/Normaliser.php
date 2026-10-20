@@ -69,6 +69,39 @@ final class Normaliser {
 		return in_array( $token, $this->functionWords(), true );
 	}
 
+	/**
+	 * Stable phrase identity for overlap grouping.
+	 *
+	 * Case, hyphens, and regular English plurals share one key. Function words stay exact.
+	 */
+	public function phraseKey( string $text ): string {
+		$tokens = array();
+		foreach ( $this->tokens( $text ) as $token ) {
+			$tokens[] = $this->canonicalToken( $token );
+		}
+
+		return implode( ' ', $tokens );
+	}
+
+	/**
+	 * True when two tokens are the same word or a regular singular/plural pair.
+	 */
+	public function equivalent( string $left, string $right ): bool {
+		return $this->canonicalToken( $left ) === $this->canonicalToken( $right );
+	}
+
+	/**
+	 * Singular form for a regular plural, otherwise the token itself.
+	 */
+	public function canonicalToken( string $token ): string {
+		if ( $this->isFunctionWord( $token ) || $this->isInvariant( $token ) ) {
+			return $token;
+		}
+
+		$singular = $this->regularSingular( $token );
+		return null === $singular ? $token : $singular;
+	}
+
 	public function matchField( string $field, string $keyphrase ): FieldMatch {
 		$content_words = $this->contentWords( $keyphrase );
 		$phrase        = $this->tokens( $keyphrase );
@@ -104,7 +137,7 @@ final class Normaliser {
 
 		$found = 0;
 		foreach ( $unique as $word ) {
-			if ( in_array( $word, $tokens, true ) ) {
+			if ( $this->containsToken( $tokens, $word ) ) {
 				++$found;
 			}
 		}
@@ -120,7 +153,7 @@ final class Normaliser {
 	 */
 	private function hasPartial( array $tokens, array $contentWords ): bool {
 		foreach ( $contentWords as $word ) {
-			if ( in_array( $word, $tokens, true ) ) {
+			if ( $this->containsToken( $tokens, $word ) ) {
 				return true;
 			}
 		}
@@ -186,12 +219,77 @@ final class Normaliser {
 	 */
 	private function sliceMatches( array $tokens, int $index, array $contentWords ): bool {
 		foreach ( $contentWords as $offset => $word ) {
-			if ( ( $tokens[ $index + $offset ] ?? '' ) !== $word ) {
+			if ( ! $this->equivalent( (string) ( $tokens[ $index + $offset ] ?? '' ), $word ) ) {
 				return false;
 			}
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether the field contains this content word, including a regular plural.
+	 *
+	 * @param string[] $tokens Field tokens.
+	 */
+	private function containsToken( array $tokens, string $word ): bool {
+		foreach ( $tokens as $token ) {
+			if ( $this->equivalent( $word, $token ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Regular English plural, or null when the word is too short or not safe to change.
+	 */
+	private function regularPlural( string $token ): ?string {
+		if ( mb_strlen( $token ) < 4 || $this->isFunctionWord( $token ) || $this->isInvariant( $token ) ) {
+			return null;
+		}
+
+		if ( 1 === preg_match( '/(?:s|x|z|ch|sh)\z/u', $token ) ) {
+			$plural = $token . 'es';
+		} elseif ( 1 === preg_match( '/[^aeiou]y\z/u', $token ) ) {
+			$plural = mb_substr( $token, 0, -1 ) . 'ies';
+		} else {
+			$plural = $token . 's';
+		}
+
+		return $this->isInvariant( $plural ) ? null : $plural;
+	}
+
+	/**
+	 * Stem of a regular -s plural when that stem pluralises back to the token.
+	 *
+	 * -ies and -es forms are left unchanged. Guessing them also fits unrelated words.
+	 */
+	private function regularSingular( string $token ): ?string {
+		if ( $this->isInvariant( $token ) || mb_strlen( $token ) < 5 || ! $this->endsWith( $token, 's' ) || $this->endsWith( $token, 'ss' ) ) {
+			return null;
+		}
+
+		$stem = mb_substr( $token, 0, -1 );
+		if ( $this->regularPlural( $stem ) !== $token ) {
+			return null;
+		}
+
+		return $stem;
+	}
+
+	private function endsWith( string $token, string $suffix ): bool {
+		$length = mb_strlen( $suffix );
+
+		return $length <= mb_strlen( $token ) && mb_substr( $token, -$length ) === $suffix;
+	}
+
+	/**
+	 * Forms that must not be split into a guessed singular.
+	 */
+	private function isInvariant( string $token ): bool {
+		return in_array( $token, array( 'news', 'series', 'species' ), true );
 	}
 
 	/**
