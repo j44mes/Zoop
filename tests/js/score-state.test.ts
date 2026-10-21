@@ -7,7 +7,7 @@ import {
 describe( 'score freshness labels', () => {
 	it( 'keeps a stale result out of the current score and the next step', () => {
 		expect( scoreStateLabel( 'needs_reanalysis', null, null ) ).toBe(
-			'Needs reanalysis'
+			'Out of date'
 		);
 		expect( scoreStateLabel( 'unscored', null, null ) ).toBe(
 			'Not scored'
@@ -18,12 +18,12 @@ describe( 'score freshness labels', () => {
 		expect( scoreStateLabel( 'current', 40, 80 ) ).toBe( '40 / 80' );
 		expect(
 			suggestionForState( 'needs_reanalysis', 'title.exists', 'Title' )
-		).toBe( 'Needs reanalysis.' );
+		).toBe( 'Out of date.' );
 		expect( suggestionForState( 'current', 'title.exists', 'Title' ) ).toBe(
 			'Title'
 		);
 		expect( historicalScoreLabel( 35, 100 ) ).toBe(
-			'Previous result: 35 / 100. Needs reanalysis.'
+			'Previous result: 35 / 100. Out of date.'
 		);
 	} );
 } );

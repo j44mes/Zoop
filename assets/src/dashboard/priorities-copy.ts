@@ -6,6 +6,7 @@ export function priorityKind( kind: string ): string {
 		unresolved: __( 'Unresolved link', 'seo-studio' ),
 		page: __( 'Link graph', 'seo-studio' ),
 		search: __( 'Search evidence', 'seo-studio' ),
+		visibility: __( 'Search visibility', 'seo-studio' ),
 	};
 	return labels[ kind ] || kind;
 }

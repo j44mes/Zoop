@@ -15,6 +15,10 @@ import {
 	type SeoFields,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
+import {
+	EvidenceReadiness,
+	readinessText,
+} from '../shared/ui/EvidenceReadiness';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { historicalScoreLabel } from './score-state';
 import type { ListedAssessment } from '../shared/ui/AssessmentList';
@@ -363,6 +367,15 @@ export function PageWorkspace() {
 		identity.title || item?.title || __( 'Untitled', 'seo-studio' );
 	const url = model?.url || item?.url || identity.link || record?.url || '';
 
+	function focusKeyphrase() {
+		const field = document.getElementById( 'seostudio-focus-keyphrase' );
+		if ( field instanceof HTMLInputElement ) {
+			field.focus();
+			return;
+		}
+		field?.querySelector( 'input' )?.focus();
+	}
+
 	function onTabKey( event: KeyboardEvent< HTMLDivElement > ) {
 		if ( event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' ) {
 			return;
@@ -454,8 +467,9 @@ export function PageWorkspace() {
 						<>
 							<div className="seostudio-command">
 								<TextControl
+									id="seostudio-focus-keyphrase"
 									label={ __(
-										'Target phrase',
+										'Focus keyphrase',
 										'seo-studio'
 									) }
 									value={ phrase }
@@ -507,38 +521,84 @@ export function PageWorkspace() {
 											'seo-studio'
 										) }
 									</p>
-									<p
-										className="seostudio-score-figure"
-										data-testid="onpage-score"
-									>
-										{ onpage?.score }{ ' ' }
-										<span>
-											{ sprintf(
-												/* translators: %d: points available for this page. */
-												__( 'of %d', 'seo-studio' ),
-												onpage?.denominator || 0
-											) }
-										</span>
-										<span className="screen-reader-text">
-											{ sprintf(
-												/* translators: 1: points earned, 2: points available. */
-												__(
-													'%1$d of %2$d',
-													'seo-studio'
-												),
-												onpage?.score || 0,
-												onpage?.denominator || 0
-											) }
-										</span>
-									</p>
-									<p
-										className="seostudio-pill"
-										data-rating={
-											onpage?.rating || 'orange'
+									<EvidenceReadiness
+										presentation={ record.presentation }
+										busy={ busy !== '' }
+										editorUrl={ `post.php?post=${ postId }&action=edit` }
+										onCheckPublished={ () =>
+											analyse( 'live' )
 										}
+										onAddKeyphrase={ focusKeyphrase }
 									>
-										{ scoreWord( onpage?.rating ) }
-									</p>
+										<p
+											className={
+												record.presentation?.definitive
+													? 'seostudio-score-figure'
+													: 'seostudio-score-figure is-unavailable'
+											}
+											data-testid="onpage-score"
+										>
+											{ record.presentation
+												?.definitive ? (
+												record.presentation.headline
+											) : (
+												<span
+													className="seostudio-score-unavailable"
+													aria-hidden="true"
+												>
+													–
+												</span>
+											) }{ ' ' }
+											{ record.presentation?.definitive &&
+											record.presentation.explanation ? (
+												<span>
+													{
+														record.presentation
+															.explanation
+													}
+												</span>
+											) : null }
+											{ ! record.presentation
+												?.definitive &&
+											record.presentation?.headline ? (
+												<span className="seostudio-muted">
+													{
+														record.presentation
+															.headline
+													}
+												</span>
+											) : null }
+											{ record.presentation
+												?.verified_label ? (
+												<span className="seostudio-muted">
+													{
+														record.presentation
+															.verified_label
+													}
+												</span>
+											) : null }
+											<span className="screen-reader-text">
+												{ readinessText(
+													record.presentation
+												) }
+											</span>
+										</p>
+										{ record.presentation?.definitive &&
+										record.presentation.content_rating ? (
+											<p
+												className="seostudio-pill"
+												data-rating={
+													record.presentation
+														.content_rating
+												}
+											>
+												{ scoreWord(
+													record.presentation
+														.content_rating
+												) }
+											</p>
+										) : null }
+									</EvidenceReadiness>
 									<p className="seostudio-muted">
 										{ __(
 											'Points from the checks Zoop could score. This is not a ranking.',
@@ -732,7 +792,8 @@ export function PageWorkspace() {
 								) }
 							</p>
 							<TextControl
-								label={ __( 'Target phrase', 'seo-studio' ) }
+								id="seostudio-focus-keyphrase"
+								label={ __( 'Focus keyphrase', 'seo-studio' ) }
 								value={ phrase }
 								onChange={ setPhrase }
 								help={

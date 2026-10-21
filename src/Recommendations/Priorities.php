@@ -22,10 +22,11 @@ final class Priorities {
 	 *
 	 * @param array<string, mixed>       $architecture Public architecture report.
 	 * @param array<string, mixed>       $overlap      Overlap groups and notes.
-	 * @param list<array<string, mixed>> $search_rows  Imported query rows.
+	 * @param list<array<string, mixed>> $search_rows       Imported query rows.
+	 * @param int                        $hiddenFromSearch Fresh verified noindex pages the viewer may edit.
 	 * @return array{items: list<array<string, mixed>>, notes: string[], limited: bool}
 	 */
-	public function rank( array $architecture, array $overlap, array $search_rows ): array {
+	public function rank( array $architecture, array $overlap, array $search_rows, int $hiddenFromSearch = 0 ): array {
 		$demand       = $this->demand( $search_rows );
 		$coverage     = $this->searchCoverage( $search_rows );
 		$search_mode  = $coverage['mode'];
@@ -97,9 +98,22 @@ final class Priorities {
 			);
 		}
 
-		$limited = count( $items ) > self::LIST_LIMIT;
-		$items   = array_slice( $items, 0, self::LIST_LIMIT );
-		$public  = array();
+		$see_all = ! function_exists( 'current_user_can' ) || current_user_can( 'manage_options' );
+		$items   = $this->actionable(
+			$items,
+			$see_all,
+			static function ( int $id ): bool {
+				return function_exists( 'current_user_can' ) && current_user_can( 'edit_post', $id );
+			}
+		);
+		$hidden  = $this->hiddenFromSearchItem( $hiddenFromSearch );
+		$room    = self::LIST_LIMIT - ( null === $hidden ? 0 : 1 );
+		$limited = count( $items ) > $room;
+		$items   = array_slice( $items, 0, max( 0, $room ) );
+		if ( null !== $hidden ) {
+			$items[] = $hidden;
+		}
+		$public = array();
 		foreach ( $items as $item ) {
 			unset( $item['impressions'] );
 			$public[] = $item;
@@ -109,6 +123,119 @@ final class Priorities {
 			'items'   => $public,
 			'limited' => $limited,
 			'notes'   => $this->notes( $architecture, $coverage, $limited ),
+		);
+	}
+
+	/**
+	 * Keep findings the current user can act on, before the display limit.
+	 *
+	 * Whole-site evidence is already reflected in the items. This only removes
+	 * or redacts pages the user cannot edit. Administrators receive the list unchanged.
+	 *
+	 * @param list<array<string, mixed>> $items   Ranked items, before the display limit.
+	 * @param callable(int): bool        $canEdit Whether the user can edit one post.
+	 * @return list<array<string, mixed>>
+	 */
+	public function actionable( array $items, bool $seeAll, callable $canEdit ): array {
+		if ( $seeAll ) {
+			return $items;
+		}
+
+		$visible = array();
+		foreach ( $items as $item ) {
+			$next = $this->redactItem( $item, $canEdit );
+			if ( null !== $next ) {
+				$visible[] = $next;
+			}
+		}
+
+		return $visible;
+	}
+
+	/**
+	 * Drop site-wide actions and pages this user cannot edit.
+	 *
+	 * @param array<string, mixed> $item    One ranked item.
+	 * @param callable(int): bool  $canEdit Whether the user can edit one post.
+	 * @return array<string, mixed>|null
+	 */
+	private function redactItem( array $item, callable $canEdit ): ?array {
+		if ( 'search' === (string) ( $item['kind'] ?? '' ) ) {
+			return null;
+		}
+
+		$pages = is_array( $item['pages'] ?? null ) ? $item['pages'] : array();
+		if ( array() === $pages ) {
+			return null;
+		}
+
+		$kept   = array();
+		$hidden = false;
+		foreach ( $pages as $page ) {
+			if ( ! is_array( $page ) ) {
+				continue;
+			}
+			$id = (int) ( $page['post_id'] ?? 0 );
+			if ( $id > 0 && $canEdit( $id ) ) {
+				$kept[] = array(
+					'post_id' => $id,
+					'title'   => (string) ( $page['title'] ?? '' ),
+					'url'     => (string) ( $page['url'] ?? '' ),
+				);
+				continue;
+			}
+			$hidden = true;
+		}
+
+		if ( array() === $kept ) {
+			return null;
+		}
+		if ( $hidden ) {
+			$kept[] = array(
+				'post_id'  => 0,
+				'title'    => '',
+				'url'      => '',
+				'redacted' => true,
+			);
+		}
+		$item['pages'] = $kept;
+
+		return $item;
+	}
+
+	/**
+	 * One finding for every fresh verified noindex page. It does not list those pages.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function hiddenFromSearchItem( int $count ): ?array {
+		if ( $count < 1 ) {
+			return null;
+		}
+
+		$href = 'admin.php?page=seostudio&section=pages&visibility=noindex';
+		if ( function_exists( 'admin_url' ) ) {
+			$href = admin_url( $href );
+		}
+
+		return array(
+			'priority'    => 4,
+			'kind'        => 'visibility',
+			'title'       => sprintf(
+				/* translators: %d: number of pages with a fresh noindex directive. */
+				_n(
+					'%d page is hidden from search.',
+					'%d pages are hidden from search.',
+					$count,
+					'seo-studio'
+				),
+				$count
+			),
+			'action'      => __( 'Review these pages. Hiding a page from search may be intentional.', 'seo-studio' ),
+			'reason'      => __( 'This count uses the latest published-page check only. The content score is separate and is not reduced. Zoop does not change the robots directive.', 'seo-studio' ),
+			'href'        => $href,
+			'pages'       => array(),
+			'impressions' => 0,
 		);
 	}
 

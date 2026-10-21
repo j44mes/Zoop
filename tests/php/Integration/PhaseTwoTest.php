@@ -186,8 +186,10 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 		$this->assertSame( 'orange', $match['readability_rating'] );
 		$summary = $list->get_data()['summary'];
 		$this->assertSame( $list->get_data()['total'], $summary['analysed'] );
-		$this->assertNotNull( $summary['average'] );
-		$this->assertGreaterThanOrEqual( 1, $summary['scored'] );
+		$this->assertNull( $summary['average'] );
+		$this->assertSame( 0, $summary['scored'] );
+		$this->assertFalse( $match['presentation']['definitive'] );
+		$this->assertNull( $match['onpage']['score'] );
 		$this->assertArrayHasKey( 'unscored', $summary );
 		$this->assertArrayHasKey( 'failed', $summary );
 

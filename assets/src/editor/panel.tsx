@@ -24,10 +24,15 @@ import {
 	saveContentScores,
 	type OnPageScore,
 	type PageModelResponse,
+	type PageRecord,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { CategoryBar } from '../shared/ui/CategoryBar';
+import {
+	EvidenceReadiness,
+	readinessText,
+} from '../shared/ui/EvidenceReadiness';
 import { ScoreRing } from '../shared/ui/ScoreRing';
 import { SnippetPreview } from '../shared/ui/SnippetPreview';
 import { SocialPreview } from '../shared/ui/SocialPreview';
@@ -116,6 +121,8 @@ export function Panel( {
 	const [ ogTitle, setOgTitle ] = useState( '' );
 	const [ ogDescription, setOgDescription ] = useState( '' );
 	const [ onpage, setOnpage ] = useState< OnPageScore | null >( null );
+	const [ presentation, setPresentation ] =
+		useState< PageRecord[ 'presentation' ] >( undefined );
 	const [ analysis, setAnalysis ] = useState< ContentAnalysis | null >(
 		null
 	);
@@ -318,6 +325,15 @@ export function Panel( {
 		runWorker,
 	] );
 
+	function focusKeyphrase() {
+		const field = document.getElementById( 'seostudio-focus-keyphrase' );
+		if ( field instanceof HTMLInputElement ) {
+			field.focus();
+			return;
+		}
+		field?.querySelector( 'input' )?.focus();
+	}
+
 	async function persist( nextMode: 'content' | 'live' ) {
 		if ( ! id ) {
 			setError(
@@ -340,6 +356,7 @@ export function Panel( {
 				( row ) => row.engine === 'onpage'
 			);
 			setOnpage( ( score?.details as OnPageScore ) || null );
+			setPresentation( record.presentation );
 			setModel( record.page_model );
 			setMode( record.render_mode || nextMode );
 			setSelector( record.content_selector || '' );
@@ -415,7 +432,8 @@ export function Panel( {
 				/>
 			) : null }
 			<TextControl
-				label={ __( 'Target phrase', 'seo-studio' ) }
+				id="seostudio-focus-keyphrase"
+				label={ __( 'Focus keyphrase', 'seo-studio' ) }
 				value={ keyphrase }
 				onChange={ setKeyphrase }
 				help={ __(
@@ -449,10 +467,47 @@ export function Panel( {
 			<div className="seostudio-summary">
 				<article className="seostudio-card">
 					<h2>{ __( 'On-page', 'seo-studio' ) }</h2>
-					<ScoreRing
-						value={ onpage ? onpage.earned : null }
-						denominator={ onpage ? onpage.denominator : null }
-					/>
+					<EvidenceReadiness
+						presentation={ presentation }
+						provisional={ preview }
+						busy={ busy }
+						editorUrl={
+							id ? `post.php?post=${ id }&action=edit` : ''
+						}
+						onCheckPublished={ () => persist( 'live' ) }
+						onAddKeyphrase={ focusKeyphrase }
+					>
+						<ScoreRing
+							value={
+								preview ||
+								! presentation?.definitive ||
+								! onpage
+									? null
+									: onpage.earned
+							}
+							denominator={
+								preview ||
+								! presentation?.definitive ||
+								! onpage
+									? null
+									: onpage.denominator
+							}
+							label={ readinessText( presentation ) }
+						/>
+						{ presentation && ! preview ? (
+							<p data-testid="score-presentation">
+								{ presentation.headline }
+								{ presentation.explanation
+									? ` ${ presentation.explanation }`
+									: '' }
+							</p>
+						) : null }
+						{ presentation?.verified_label && ! preview ? (
+							<p className="seostudio-muted">
+								{ presentation.verified_label }
+							</p>
+						) : null }
+					</EvidenceReadiness>
 				</article>
 				<article className="seostudio-card">
 					<h2>{ __( 'Content analysis', 'seo-studio' ) }</h2>

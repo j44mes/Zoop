@@ -1,36 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { assertSignedIn, expect, test } from './fixtures';
 
 test.describe.configure( { mode: 'serial' } );
 
 let editedPostUrl = '';
-
-async function login( page: Page ): Promise< void > {
-	// Land on the plugin screen rather than the WordPress dashboard, whose widgets make outbound
-	// requests. A lost session comes back as wp-login.php?reauth=1, so try once more.
-	const target =
-		'/wp-login.php?redirect_to=' +
-		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
-	for ( let attempt = 0; attempt < 2; attempt++ ) {
-		await page.goto( target, { waitUntil: 'domcontentloaded' } );
-		if ( page.url().includes( '/wp-admin/' ) ) {
-			return;
-		}
-		await page.locator( '#user_login' ).fill( 'admin' );
-		await page.locator( '#user_pass' ).fill( 'password' );
-		await page.locator( '#wp-submit' ).click();
-		try {
-			await page.waitForURL( '**/wp-admin/**', {
-				timeout: 20000,
-				waitUntil: 'commit',
-			} );
-			return;
-		} catch ( error ) {
-			if ( attempt === 1 ) {
-				throw error;
-			}
-		}
-	}
-}
 
 async function editorDiagnostics( page: Page ): Promise< string > {
 	const details = await page.evaluate( () => {
@@ -117,7 +90,7 @@ async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
 	} );
 	try {
 		await expect(
-			page.getByLabel( 'Target phrase', { exact: true } )
+			page.getByLabel( 'Focus keyphrase', { exact: true } )
 		).toBeVisible( { timeout: 20000 } );
 	} catch ( error ) {
 		throw new Error(
@@ -169,7 +142,8 @@ async function saveDraft( page: Page ): Promise< void > {
  * @param url  Editor URL to open.
  */
 async function openEditor( page: Page, url: string ): Promise< void > {
-	await page.goto( url );
+	await page.goto( url, { waitUntil: 'domcontentloaded' } );
+	await assertSignedIn( page );
 	await page.waitForFunction(
 		() => !! ( window as unknown as { wp?: { data?: unknown } } ).wp?.data
 	);
@@ -199,22 +173,36 @@ async function openEditor( page: Page, url: string ): Promise< void > {
 }
 
 test( 'dashboard is available after activation', async ( { page } ) => {
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
+	await page.goto( '/wp-admin/admin.php?page=seostudio', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
 	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
-	// Browser projects share one WordPress database, so another project may already have analysed a page.
+	// Browser projects share one WordPress database, so a later project may already have stored a page.
+	const firstRun = page.getByRole( 'region', {
+		name: 'No pages checked yet',
+	} );
+	const pages = page.getByRole( 'region', { name: 'Pages', exact: true } );
 	await expect(
-		page
-			.getByText( 'No pages are stored yet' )
-			.or( page.getByRole( 'table' ) )
+		firstRun
+			.getByRole( 'heading', { name: 'No pages checked yet' } )
+			.or( pages.getByRole( 'table' ) )
 	).toBeVisible();
+	if ( await firstRun.isVisible() ) {
+		await expect(
+			firstRun.getByRole( 'button', { name: 'Open a page' } )
+		).toBeVisible();
+		await expect(
+			page.getByRole( 'heading', { name: 'Suggested next steps' } )
+		).toHaveCount( 0 );
+		await expect( pages ).toHaveCount( 0 );
+	}
 } );
 
 test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	page,
 } ) => {
 	const errors = watchPageErrors( page );
-	await login( page );
 	await openEditor( page, '/wp-admin/post-new.php' );
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'Welcome note' );
@@ -222,7 +210,7 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	editedPostUrl = page.url();
 	await openSeoSidebar( page, errors );
 	await page
-		.getByLabel( 'Target phrase', { exact: true } )
+		.getByLabel( 'Focus keyphrase', { exact: true } )
 		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
@@ -259,7 +247,6 @@ test( 'editing the title updates the title assessment without a reload', async (
 	page,
 } ) => {
 	const errors = watchPageErrors( page );
-	await login( page );
 	await openEditor( page, editedPostUrl );
 	await openSeoSidebar( page, errors );
 	const checks = page.locator( 'details[data-section="checks"]' );
@@ -293,9 +280,13 @@ test( 'editing the title updates the title assessment without a reload', async (
 } );
 
 test( 're-analyse all queues an audit', async ( { page } ) => {
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Run website audit' } ).click();
+	await page.goto( '/wp-admin/admin.php?page=seostudio', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	await page
+		.getByRole( 'button', { name: 'Refresh content analysis' } )
+		.click();
 	await expect(
 		page.getByText(
 			/Audit queued\.|An audit is already running\.|An audit was started recently/
@@ -326,10 +317,10 @@ async function saveSettings( page: Page ): Promise< void > {
 }
 
 test( 'owner mode prints the home description', async ( { page } ) => {
-	await login( page );
 	const settingsUrl = '/wp-admin/admin.php?page=seostudio';
 	try {
-		await page.goto( settingsUrl );
+		await page.goto( settingsUrl, { waitUntil: 'domcontentloaded' } );
+		await assertSignedIn( page );
 		await page
 			.getByRole( 'button', { name: 'Settings', exact: true } )
 			.click();

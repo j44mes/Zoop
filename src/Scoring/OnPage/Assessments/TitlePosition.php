@@ -32,7 +32,7 @@ final class TitlePosition implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
-		$withheld = EvidenceGate::metadata( $this, $page->titleEvidence );
+		$withheld = EvidenceGate::fetchedTitle( $this, $page->titleEvidence );
 		if ( $withheld instanceof AssessmentResult ) {
 			return $withheld;
 		}

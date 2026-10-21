@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Scoring\OnPage\CheckPresentation;
+use SEOStudio\Scoring\OnPage\ScorePresentation;
 use SEOStudio\Storage\PagesRepository;
 use SEOStudio\Storage\ScoresRepository;
 use WP_REST_Request;
@@ -52,6 +54,36 @@ final class PageRecord {
 			);
 		}
 
+		$presentation = ScorePresentation::fromRow( $row );
+		$current      = 'current' === (string) ( $row['onpage_state'] ?? '' );
+		$checks       = array();
+		foreach ( $details as $score ) {
+			if ( 'onpage' !== $score['engine'] ) {
+				continue;
+			}
+			if ( $current && empty( $score['current'] ) ) {
+				continue;
+			}
+			if ( ! $current && ! empty( $score['current'] ) ) {
+				continue;
+			}
+			$payload = isset( $score['details']['assessments'] ) && is_array( $score['details']['assessments'] ) ? $score['details']['assessments'] : array();
+			foreach ( $payload as $assessment ) {
+				if ( is_array( $assessment ) ) {
+					$checks[] = CheckPresentation::fromAssessment( $assessment, $current );
+				}
+			}
+			break;
+		}
+		$presentation['checks'] = $checks;
+		if ( is_array( $decoded ) ) {
+			$canonical = (string) ( $decoded['canonical'] ?? '' );
+			$url       = (string) ( $row['url'] ?? '' );
+			if ( '' !== $canonical && '' !== $url && untrailingslashit( $canonical ) !== untrailingslashit( $url ) ) {
+				$presentation['canonical_note'] = __( 'The canonical address is different. That is not a noindex directive.', 'seo-studio' );
+			}
+		}
+
 		return array(
 			'page_id'          => (int) $row['id'],
 			'object_type'      => (string) $row['object_type'],
@@ -64,59 +96,59 @@ final class PageRecord {
 			'is_indexable'     => isset( $row['is_indexable'] ) ? (bool) $row['is_indexable'] : null,
 			'page_model'       => is_array( $decoded ) ? $decoded : array(),
 			'scores'           => $details,
+			'presentation'     => $presentation,
 		);
 	}
 
 	/**
 	 * Filtered, capability-checked page list.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|null>}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, pages: int, summary: array<string, int|string|bool|null>}
 	 */
 	public function collection( WP_REST_Request $request ): array {
-		$filters  = array(
-			'search'        => $request->get_param( 'search' ),
-			'object_id'     => $request->get_param( 'object_id' ),
-			'post_type'     => $request->get_param( 'post_type' ),
-			'rating'        => $request->get_param( 'rating' ),
-			'score_min'     => $request->get_param( 'score_min' ),
-			'score_max'     => $request->get_param( 'score_max' ),
-			'orderby'       => $request->get_param( 'orderby' ),
-			'order'         => $request->get_param( 'order' ),
-			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
-		);
+		$filters  = $this->authorise( $this->filtersFromRequest( $request ) );
 		$per_page = min( 100, max( 1, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-		if ( Capabilities::needsObjectChecks() ) {
-			// Custom mappings can grant as well as deny access, so do not prefilter by role SQL.
-			$allowed = array();
-			foreach ( array_chunk( $this->pages->permissionCandidates( $filters ), 200 ) as $batch ) {
-				_prime_post_caches( array_map( 'intval', array_column( $batch, 'object_id' ) ), false, false );
-				foreach ( $batch as $candidate ) {
-					if ( Capabilities::canEditPost( (int) $candidate['object_id'] ) ) {
-						$allowed[] = (int) $candidate['id'];
-					}
-				}
-			}
-			$filters['ids'] = $allowed;
-		} else {
-			$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
-		}
 
 		// Every query uses the same authorised set, before aggregation and pagination.
 		$stats   = $this->pages->aggregate( $filters );
 		$total   = $stats['total'];
 		$summary = array(
-			'analysed'         => $total,
-			'scored'           => $stats['scored'],
-			'unscored'         => $stats['unscored'],
-			'needs_reanalysis' => $stats['needs_reanalysis'],
-			'not_analysed'     => $stats['not_analysed'],
-			'failed'           => $stats['failed'],
-			'average'          => $stats['average'],
-			'red'              => $stats['red'],
-			'orange'           => $stats['orange'],
-			'green'            => $stats['green'],
+			'analysed'           => $total,
+			'scored'             => $stats['scored'],
+			'unscored'           => $stats['unscored'],
+			'needs_reanalysis'   => $stats['needs_reanalysis'],
+			'not_analysed'       => $stats['not_analysed'],
+			'failed'             => $stats['failed'],
+			'average'            => $stats['average'],
+			'red'                => $stats['red'],
+			'orange'             => $stats['orange'],
+			'green'              => $stats['green'],
+			'reanalysis_notice'  => ScorePresentation::reanalysisNotice( (int) $stats['needs_reanalysis'] ),
+			'search_discouraged' => '0' === (string) get_option( 'blog_public' ),
 		);
+		if ( true === $request->get_param( 'suggestions' ) ) {
+			// Authorise the full stored set. The card query's score filter must not shrink it first.
+			$scope = $this->filtersFromRequest( $request );
+			unset( $scope['score_min'], $scope['score_max'], $scope['rating'] );
+			$scope                       = $this->authorise( $scope );
+			$coverage                    = $this->pages->aggregate( $scope );
+			$checked                     = (int) $coverage['scored'];
+			$unchecked                   = max( 0, (int) $coverage['total'] - $checked );
+			$state                       = ScorePresentation::suggestionState(
+				$checked,
+				$this->pages->actionableCount( $scope ),
+				$unchecked
+			);
+			$summary['suggestion_state'] = $state;
+			$summary['checked']          = $checked;
+			$summary['unchecked']        = $unchecked;
+			if ( 'incomplete' === $state ) {
+				$summary['suggestion_notice'] = ScorePresentation::incompleteNotice( $checked, $unchecked );
+			} elseif ( $unchecked > 0 ) {
+				$summary['suggestion_notice'] = ScorePresentation::uncheckedNotice( $unchecked );
+			}
+		}
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
 			if ( Capabilities::canEditPost( (int) $row['object_id'] ) ) {
@@ -130,6 +162,64 @@ final class PageRecord {
 			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
 			'summary' => $summary,
 		);
+	}
+
+	/**
+	 * Count rows the current user may see. The same filters and permission check as the page list.
+	 *
+	 * @param array<string, mixed> $filters List filters.
+	 */
+	public function count( array $filters ): int {
+		$stats = $this->pages->aggregate( $this->authorise( $filters ) );
+
+		return (int) $stats['total'];
+	}
+
+	/**
+	 * Query arguments shared by the list and its count.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function filtersFromRequest( WP_REST_Request $request ): array {
+		return array(
+			'search'        => $request->get_param( 'search' ),
+			'object_id'     => $request->get_param( 'object_id' ),
+			'post_type'     => $request->get_param( 'post_type' ),
+			'rating'        => $request->get_param( 'rating' ),
+			'score_min'     => $request->get_param( 'score_min' ),
+			'score_max'     => $request->get_param( 'score_max' ),
+			'orderby'       => $request->get_param( 'orderby' ),
+			'order'         => $request->get_param( 'order' ),
+			'has_keyphrase' => $this->flag( $request->get_param( 'has_keyphrase' ) ),
+			'score_state'   => $request->get_param( 'score_state' ),
+			'visibility'    => $request->get_param( 'visibility' ),
+		);
+	}
+
+	/**
+	 * Restrict a list to posts the current user can edit, before counting or paging.
+	 *
+	 * @param array<string, mixed> $filters List filters.
+	 * @return array<string, mixed>
+	 */
+	private function authorise( array $filters ): array {
+		if ( Capabilities::needsObjectChecks() ) {
+			// Custom mappings can grant as well as deny access, so do not prefilter by role SQL.
+			$allowed = array();
+			foreach ( array_chunk( $this->pages->permissionCandidates( $filters ), 200 ) as $batch ) {
+				_prime_post_caches( array_map( 'intval', array_column( $batch, 'object_id' ) ), false, false );
+				foreach ( $batch as $candidate ) {
+					if ( Capabilities::canEditPost( (int) $candidate['object_id'] ) ) {
+						$allowed[] = (int) $candidate['id'];
+					}
+				}
+			}
+			$filters['ids'] = $allowed;
+			return $filters;
+		}
+
+		$filters['editable_sql'] = Capabilities::editableSql( 'posts' );
+		return $filters;
 	}
 
 	/**
@@ -191,10 +281,11 @@ final class PageRecord {
 		$object_id = (int) $row['object_id'];
 		$keyphrase = (string) ( $row['focus_keyphrase'] ?? '' );
 
-		$state   = (string) ( $row['onpage_state'] ?? 'not_analysed' );
-		$details = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
-		$issue   = '';
-		if ( 'current' === $state && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
+		$state        = (string) ( $row['onpage_state'] ?? 'not_analysed' );
+		$presentation = ScorePresentation::fromRow( $row );
+		$details      = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+		$issue        = '';
+		if ( $presentation['definitive'] && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
 			foreach ( $details['assessments'] as $assessment ) {
 				if ( ! is_array( $assessment ) || ! isset( $assessment['status'] ) ) {
 					continue;
@@ -206,14 +297,13 @@ final class PageRecord {
 				break;
 			}
 		}
-		if ( 'current' !== $state ) {
+		if ( ! $presentation['definitive'] ) {
 			$row['onpage_score']       = null;
 			$row['onpage_denominator'] = null;
 		}
 
-		$edit = get_edit_post_link( $object_id, 'raw' );
-
-		return array(
+		$edit    = get_edit_post_link( $object_id, 'raw' );
+		$record  = array(
 			'page_id'            => (int) $row['id'],
 			'object_type'        => (string) $row['object_type'],
 			'object_id'          => $object_id,
@@ -229,8 +319,16 @@ final class PageRecord {
 			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
 			'top_issue'          => $issue,
 			'score_state'        => $state,
+			'presentation'       => $presentation,
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,
 		);
+		$checked = ! empty( $presentation['definitive'] ) && (int) ( $row['onpage_denominator'] ?? 0 ) > 0;
+		if ( ! $checked ) {
+			$record['recovery_action'] = 'check_published';
+			$record['recovery_label']  = __( 'Check published page', 'seo-studio' );
+		}
+
+		return $record;
 	}
 }

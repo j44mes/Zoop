@@ -143,10 +143,12 @@ final class PhaseThreeTest extends WP_UnitTestCase {
 			$score = ( new ScoresRepository() )->latest( (int) $row['id'], 'rank tracker' );
 			$this->assertIsArray( $score );
 
-			$this->assertTrue( ( new AnalysePost() )->handle( $post_id ) );
+			$worker = new AnalysePost();
+			$this->assertTrue( $worker->handle( $post_id ) );
+			$this->assertSame( 'published_evidence_kept', $worker->lastOutcome );
 			$model = ( new PagesRepository() )->loadModel( $post_id );
 			$this->assertInstanceOf( PageModel::class, $model );
-			$this->assertStringContainsString( 'Content sentence', $model->bodyText );
+			$this->assertStringContainsString( 'Live sentence', $model->bodyText );
 			$this->assertTrue( $model->hasExternalCss );
 			$this->assertSame( 1200, $model->htmlBytes );
 			$this->assertSame( 300, $model->visibleTextBytes );

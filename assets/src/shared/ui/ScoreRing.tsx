@@ -3,21 +3,28 @@ import { __, sprintf } from '@wordpress/i18n';
 interface ScoreRingProps {
 	value: number | null;
 	denominator: number | null;
+	label?: string;
 }
 
-export function ScoreRing( { value, denominator }: ScoreRingProps ) {
+export function ScoreRing( {
+	value,
+	denominator,
+	label = '',
+}: ScoreRingProps ) {
 	if ( value === null || denominator === null || denominator <= 0 ) {
+		const text =
+			label.trim() !== ''
+				? label
+				: __( 'Not analysed yet', 'seo-studio' );
 		return (
 			<div
-				className="seostudio-ring"
+				className="seostudio-ring is-unavailable"
 				data-testid="onpage-score"
 				role="img"
-				aria-label={ __( 'Not analysed yet', 'seo-studio' ) }
+				aria-label={ text }
 			>
 				<span aria-hidden="true">–</span>
-				<span className="screen-reader-text">
-					{ __( 'Not analysed yet', 'seo-studio' ) }
-				</span>
+				<span className="screen-reader-text">{ text }</span>
 			</div>
 		);
 	}

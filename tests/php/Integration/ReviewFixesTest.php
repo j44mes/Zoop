@@ -51,7 +51,9 @@ final class ReviewFixesTest extends WP_UnitTestCase {
 		$list->set_param( 'search', 'Unique dashboard fixture' );
 		$item = rest_do_request( $list )->get_data()['items'][0];
 		$this->assertSame( 'alpha', $item['keyphrase'] );
-		$this->assertSame( $scores['alpha'], $item['onpage']['score'] );
+		$this->assertNull( $item['onpage']['score'] );
+		$this->assertFalse( $item['presentation']['definitive'] );
+		$this->assertArrayHasKey( 'alpha', $scores );
 		update_post_meta( $id, '_seostudio_focus_keyphrase', 'not yet analysed' );
 		$this->assertNull( rest_do_request( $list )->get_data()['items'][0]['onpage']['score'] );
 		delete_post_meta( $id, '_seostudio_focus_keyphrase' );

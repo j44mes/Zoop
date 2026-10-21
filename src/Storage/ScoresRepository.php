@@ -9,7 +9,10 @@ declare(strict_types=1);
 
 namespace SEOStudio\Storage;
 
+use SEOStudio\Content\PageModel;
+use SEOStudio\Content\SourceFingerprint;
 use SEOStudio\Scoring\OnPage\Score;
+use SEOStudio\Scoring\OnPage\ScorePresentation;
 
 /**
  * Reads and writes seostudio_scores.
@@ -24,9 +27,30 @@ final class ScoresRepository {
 			$inputHash = is_array( $page ) ? (string) ( $page['input_hash'] ?? '' ) : '';
 		}
 
+		$page                        = $pages->find( $pageId );
+		$post_id                     = is_array( $page ) ? (int) ( $page['object_id'] ?? 0 ) : 0;
+		$model                       = $post_id > 0 ? $pages->loadModel( $post_id ) : null;
+		$source                      = $post_id > 0 ? SourceFingerprint::current( $post_id ) : '';
+		$index                       = $model instanceof PageModel ? Indexability::describe( $post_id, $model ) : array(
+			'status' => 'unobserved',
+			'source' => '',
+		);
+		$readiness                   = $model instanceof PageModel
+			? ScorePresentation::gate( $model, $score, $keyphrase, $index )
+			: array(
+				'ready'             => false,
+				'missing'           => 'indexability,title,h1,keyphrase',
+				'checks_evaluated'  => 0,
+				'checks_applicable' => 0,
+				'index_status'      => 'unobserved',
+				'index_source'      => '',
+			);
+		$live                        = $model instanceof PageModel && 'live' === $model->renderMode;
 		$details                     = $score->toArray();
 		$details['evidence_version'] = 2;
 		$details['input_hash']       = $inputHash;
+		$details['source_hash']      = $source;
+		$details['readiness']        = $readiness;
 
 		$wpdb->insert(
 			Tables::scores(),
@@ -45,7 +69,7 @@ final class ScoresRepository {
 		);
 
 		$id = (int) $wpdb->insert_id;
-		$pages->recordScore( $pageId, md5( mb_strtolower( $keyphrase, 'UTF-8' ) ), $id, $score->earned, $score->denominator, $this->rating( $score ), $inputHash );
+		$pages->recordScore( $pageId, md5( mb_strtolower( $keyphrase, 'UTF-8' ) ), $id, $score->earned, $score->denominator, $this->rating( $score ), $inputHash, $readiness, $source, $live );
 		return $id;
 	}
 

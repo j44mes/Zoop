@@ -259,6 +259,170 @@ final class PrioritiesTest extends TestCase {
 		$this->assertStringNotContainsString( '900', $result['items'][1]['reason'] );
 	}
 
+	public function testVerifiedNoindexPagesAreOneGroupedFinding(): void {
+		$one = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 4,
+						'title'   => 'Quiet page',
+						'url'     => 'https://example.test/quiet/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(
+				array(
+					'query'       => 'rank tracker',
+					'page'        => 'https://example.test/quiet/',
+					'clicks'      => 1,
+					'impressions' => 10,
+				),
+			),
+			1
+		);
+		$this->assertSame( 'Quiet page', $one['items'][0]['title'] );
+		$grouped = $one['items'][ count( $one['items'] ) - 1 ];
+		$this->assertSame( 'visibility', $grouped['kind'] );
+		$this->assertSame( '1 page is hidden from search.', $grouped['title'] );
+		$this->assertSame( array(), $grouped['pages'] );
+		$this->assertStringContainsString( 'visibility=noindex', $grouped['href'] );
+		$this->assertStringContainsString( 'intentional', $grouped['action'] );
+		$this->assertStringNotContainsString( 'remove noindex', strtolower( $grouped['action'] . ' ' . $grouped['reason'] ) );
+		$this->assertStringContainsString( 'content score is separate', $grouped['reason'] );
+
+		$many = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 4,
+						'title'   => 'Quiet page',
+						'url'     => 'https://example.test/quiet/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(),
+			100
+		);
+		$titles = array_column( $many['items'], 'title' );
+		$this->assertSame( 'Quiet page', $titles[0] );
+		$this->assertSame( '100 pages are hidden from search.', $titles[ count( $titles ) - 1 ] );
+		$this->assertCount( 1, array_filter( $many['items'], static fn ( array $item ): bool => 'visibility' === $item['kind'] ) );
+		$this->assertLessThanOrEqual( 40, count( $many['items'] ) );
+
+		$none = ( new Priorities() )->rank( $this->architecture( array() ), array( 'groups' => array() ), array(), 0 );
+		$this->assertNotContains( 'visibility', array_column( $none['items'], 'kind' ) );
+	}
+
+	public function testAGroupedNoindexFindingDoesNotFillTheFortyItemList(): void {
+		$orphans = array();
+		for ( $index = 0; $index < 45; $index++ ) {
+			$orphans[] = array(
+				'post_id' => $index + 1,
+				'title'   => 'Orphan ' . $index,
+				'url'     => 'https://example.test/orphan-' . $index . '/',
+			);
+		}
+		$result = ( new Priorities() )->rank( $this->architecture( $orphans ), array( 'groups' => array() ), array(), 100 );
+		$this->assertCount( 40, $result['items'] );
+		$this->assertTrue( $result['limited'] );
+		$this->assertSame( 'Orphan 0', $result['items'][0]['title'] );
+		$this->assertSame( '100 pages are hidden from search.', $result['items'][39]['title'] );
+		$this->assertSame( array(), $result['items'][39]['pages'] );
+	}
+
+	public function testPermittedFindingsAreChosenBeforeTheDisplayLimit(): void {
+		$items = array();
+		for ( $index = 1; $index <= 45; $index++ ) {
+			$items[] = array(
+				'priority' => 3,
+				'kind'     => 'page',
+				'title'    => 'Other ' . $index,
+				'action'   => 'Review the link graph.',
+				'reason'   => 'Stored graph.',
+				'pages'    => array(
+					array(
+						'post_id' => 1000 + $index,
+						'title'   => 'Other ' . $index,
+						'url'     => 'https://example.test/other/' . $index . '/',
+					),
+				),
+			);
+		}
+		$items[] = array(
+			'priority' => 4,
+			'kind'     => 'overlap',
+			'title'    => 'shared phrase',
+			'action'   => 'Compare what these pages are for.',
+			'reason'   => 'These pages use the same target phrase.',
+			'pages'    => array(
+				array(
+					'post_id' => 7,
+					'title'   => 'Mine',
+					'url'     => 'https://example.test/mine/',
+				),
+				array(
+					'post_id' => 8,
+					'title'   => 'Secret other title',
+					'url'     => 'https://example.test/secret/',
+				),
+			),
+		);
+		$items[] = array(
+			'priority' => 2,
+			'kind'     => 'unresolved',
+			'title'    => 'https://example.test/from-other/',
+			'action'   => 'Review this internal address.',
+			'reason'   => 'This internal address appears from Secret other title.',
+			'pages'    => array(
+				array(
+					'post_id' => 8,
+					'title'   => 'Secret other title',
+					'url'     => 'https://example.test/secret/',
+				),
+			),
+		);
+		$items[] = array(
+			'priority' => 4,
+			'kind'     => 'search',
+			'title'    => 'Import a Search Console file',
+			'action'   => 'Import a performance export.',
+			'reason'   => 'No file.',
+			'pages'    => array(),
+		);
+
+		$priorities = new Priorities();
+		$visible    = $priorities->actionable(
+			$items,
+			false,
+			static function ( int $id ): bool {
+				return 7 === $id;
+			}
+		);
+		$this->assertCount( 1, $visible );
+		$this->assertSame( 'shared phrase', $visible[0]['title'] );
+		$this->assertSame( 'Mine', $visible[0]['pages'][0]['title'] );
+		$this->assertTrue( $visible[0]['pages'][1]['redacted'] );
+		$this->assertSame( '', $visible[0]['pages'][1]['url'] );
+		$encoded = (string) json_encode( $visible );
+		$this->assertStringNotContainsString( 'Secret other title', $encoded );
+		$this->assertStringNotContainsString( 'example.test/secret', $encoded );
+		$this->assertStringNotContainsString( 'from-other', $encoded );
+		$this->assertStringNotContainsString( 'Import a Search Console', $encoded );
+		$this->assertSame( 'shared phrase', array_slice( $visible, 0, 40 )[0]['title'] );
+
+		$everything = $priorities->actionable(
+			$items,
+			true,
+			static function (): bool {
+				return false;
+			}
+		);
+		$this->assertGreaterThan( 40, count( $everything ) );
+		$this->assertStringContainsString( 'Secret other title', (string) json_encode( $everything ) );
+	}
+
 	/**
 	 * Architecture fixture with a complete crawl.
 	 *

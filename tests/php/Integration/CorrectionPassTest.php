@@ -56,9 +56,11 @@ final class CorrectionPassTest extends WP_UnitTestCase {
 					'not_analysed'     => 0,
 					'failed'           => 0,
 					'average'          => null,
-					'red'              => 0,
-					'orange'           => 0,
-					'green'            => 0,
+					'red'               => 0,
+					'orange'            => 0,
+					'green'             => 0,
+					'reanalysis_notice'  => '0 pages have changed or need checking again.',
+					'search_discouraged' => false,
 				),
 				$secret['summary']
 			);
