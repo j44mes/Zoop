@@ -9,6 +9,12 @@
     "/seostudio/v1/pages/{page_id}": { "get": { "summary": "One analysed page", "responses": { "200": { "description": "Page record" } } } },
     "/seostudio/v1/analyse/{object_type}/{object_id}": { "post": { "summary": "Analyse an object", "responses": { "200": { "description": "Page record" } } } },
     "/seostudio/v1/pages/{page_id}/analyse": { "post": { "summary": "Re-analyse a page", "responses": { "200": { "description": "Page record" } } } },
+    "/seostudio/v1/posts/{post_id}/appearance": {
+      "get": { "summary": "Read the search-appearance proposal", "responses": { "200": { "description": "Published title and description, the saved proposal, and whether Zoop can apply it" } } },
+      "put": { "summary": "Save a title and description proposal", "responses": { "200": { "description": "Proposal stored without publishing" } } }
+    },
+    "/seostudio/v1/posts/{post_id}/appearance/apply": { "post": { "summary": "Publish a confirmed proposal when Zoop prints the tags", "responses": { "200": { "description": "Zoop fields updated and the live HTML checked" }, "409": { "description": "Zoop is not the publisher" } } } },
+    "/seostudio/v1/posts/{post_id}/appearance/restore": { "post": { "summary": "Restore the previous Zoop title and description", "responses": { "200": { "description": "Previous values restored and the live HTML checked" }, "409": { "description": "Zoop is not the publisher" } } } },
     "/seostudio/v1/posts/{post_id}/seo": {
       "get": { "summary": "Read SEO fields", "responses": { "200": { "description": "SEO fields" } } },
       "put": { "summary": "Save SEO fields", "responses": { "200": { "description": "SEO fields" } } }

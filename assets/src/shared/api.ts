@@ -127,6 +127,88 @@ export function saveSeo(
 	} );
 }
 
+export interface AppearanceText {
+	title: string;
+	description: string;
+}
+
+export interface AppearanceVerification {
+	status: string;
+	html_matches: boolean;
+	basis: string;
+	note: string;
+	observed_title: string;
+	observed_description: string;
+	checked_at: string;
+}
+
+export interface AppearanceBaseline extends AppearanceText {
+	target: string;
+}
+
+export interface AppearanceRecord {
+	publishing: boolean;
+	can_apply: boolean;
+	can_restore: boolean;
+	controller: string;
+	edit_url: string;
+	url: string;
+	resolved: AppearanceText & { basis: string };
+	published: AppearanceText;
+	baseline: AppearanceBaseline;
+	proposal_saved: boolean;
+	proposal: AppearanceText;
+	previous: AppearanceText;
+	verification: AppearanceVerification | null;
+}
+
+export function fetchAppearance( postId: number ): Promise< AppearanceRecord > {
+	return apiFetch( {
+		path: `/seostudio/v1/posts/${ postId }/appearance`,
+	} );
+}
+
+export function saveAppearance(
+	postId: number,
+	body: AppearanceText
+): Promise< AppearanceRecord > {
+	return apiFetch( {
+		path: `/seostudio/v1/posts/${ postId }/appearance`,
+		method: 'PUT',
+		data: body,
+	} );
+}
+
+export function applyAppearance(
+	postId: number,
+	body: AppearanceText & {
+		confirm: boolean;
+		baseline_title: string;
+		baseline_description: string;
+	}
+): Promise< AppearanceRecord > {
+	return apiFetch( {
+		path: `/seostudio/v1/posts/${ postId }/appearance/apply`,
+		method: 'POST',
+		data: body,
+	} );
+}
+
+export function restoreAppearance(
+	postId: number,
+	baseline: AppearanceText
+): Promise< AppearanceRecord > {
+	return apiFetch( {
+		path: `/seostudio/v1/posts/${ postId }/appearance/restore`,
+		method: 'POST',
+		data: {
+			confirm: true,
+			baseline_title: baseline.title,
+			baseline_description: baseline.description,
+		},
+	} );
+}
+
 export function analysePost(
 	postId: number,
 	body: { mode?: string; keyphrase?: string }

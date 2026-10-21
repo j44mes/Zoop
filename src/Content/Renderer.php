@@ -81,6 +81,23 @@ final class Renderer {
 	}
 
 	/**
+	 * Title and description a visitor would receive from the current publisher.
+	 *
+	 * @return array{title: string, description: string, url: string}
+	 */
+	public function publishedFields( \WP_Post $post ): array {
+		$url      = get_permalink( $post );
+		$url      = is_string( $url ) ? $url : '';
+		$resolved = $this->resolver->resolve( $this->contextFor( $post, $url ) );
+
+		return array(
+			'title'       => $resolved['title_tag'],
+			'description' => $resolved['meta_description'],
+			'url'         => $url,
+		);
+	}
+
+	/**
 	 * Score unsaved editor content with the same metadata rules as a saved post.
 	 *
 	 * Keys in $draft: post_title, excerpt, seo_title, seo_description. A missing key keeps the saved value.

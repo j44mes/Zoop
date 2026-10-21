@@ -14,6 +14,7 @@ use SEOStudio\Admin\Notices;
 use SEOStudio\Cli\Commands;
 use SEOStudio\Jobs\Scheduler;
 use SEOStudio\Output\HeadOutput;
+use SEOStudio\Rest\AppearanceController;
 use SEOStudio\Rest\ArchitectureController;
 use SEOStudio\Rest\AuditsController;
 use SEOStudio\Rest\ContentScoresController;
@@ -70,6 +71,7 @@ final class Plugin {
 
 		( new PagesController() )->register();
 		( new PostSeoController() )->register();
+		( new AppearanceController() )->register();
 		( new KeyphrasesController() )->register();
 		( new ModelController() )->register();
 		( new ContentScoresController() )->register();
@@ -90,26 +92,33 @@ final class Plugin {
 
 	private static function registerMeta(): void {
 		$keys = array(
-			'_seostudio_focus_keyphrase'      => 'string',
-			'_seostudio_related_keyphrases'   => 'array',
-			'_seostudio_synonyms'             => 'array',
-			'_seostudio_title'                => 'string',
-			'_seostudio_description'          => 'string',
-			'_seostudio_canonical'            => 'string',
-			'_seostudio_robots'               => 'array',
-			'_seostudio_og_title'             => 'string',
-			'_seostudio_og_description'       => 'string',
-			'_seostudio_og_image'             => 'integer',
-			'_seostudio_cornerstone'          => 'boolean',
-			'_seostudio_content_selector'     => 'string',
-			'_seostudio_video_url'            => 'string',
-			'_seostudio_is_news'              => 'boolean',
-			'_seostudio_primary_topic'        => 'string',
-			'_seostudio_primary_topic_origin' => 'string',
-			'_seostudio_page_role'            => 'string',
-			'_seostudio_search_intent'        => 'string',
-			'_seostudio_parent_topic'         => 'string',
-			'_seostudio_supporting_entities'  => 'array',
+			'_seostudio_focus_keyphrase'            => 'string',
+			'_seostudio_related_keyphrases'         => 'array',
+			'_seostudio_synonyms'                   => 'array',
+			'_seostudio_title'                      => 'string',
+			'_seostudio_description'                => 'string',
+			'_seostudio_title_proposal'             => 'string',
+			'_seostudio_description_proposal'       => 'string',
+			'_seostudio_appearance_saved'           => 'string',
+			'_seostudio_title_previous'             => 'string',
+			'_seostudio_description_previous'       => 'string',
+			'_seostudio_appearance_previous_saved'  => 'string',
+			'_seostudio_appearance_previous_target' => 'string',
+			'_seostudio_canonical'                  => 'string',
+			'_seostudio_robots'                     => 'array',
+			'_seostudio_og_title'                   => 'string',
+			'_seostudio_og_description'             => 'string',
+			'_seostudio_og_image'                   => 'integer',
+			'_seostudio_cornerstone'                => 'boolean',
+			'_seostudio_content_selector'           => 'string',
+			'_seostudio_video_url'                  => 'string',
+			'_seostudio_is_news'                    => 'boolean',
+			'_seostudio_primary_topic'              => 'string',
+			'_seostudio_primary_topic_origin'       => 'string',
+			'_seostudio_page_role'                  => 'string',
+			'_seostudio_search_intent'              => 'string',
+			'_seostudio_parent_topic'               => 'string',
+			'_seostudio_supporting_entities'        => 'array',
 		);
 
 		foreach ( $keys as $key => $type ) {

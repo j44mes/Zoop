@@ -26,6 +26,7 @@ import {
 } from '../../assets/src/dashboard/recommendation-copy';
 import { requestedSection } from '../../assets/src/editor/section';
 import {
+	appearancePreviewCaption,
 	snippetCaption,
 	socialCaption,
 	workspaceOwnership,
@@ -107,6 +108,9 @@ describe( 'page workspace copy', () => {
 	} );
 
 	it( 'separates a live observation from a content analysis', () => {
+		expect( appearancePreviewCaption() ).toBe(
+			'Illustrative preview. Google may rewrite the title and description.'
+		);
 		expect( snippetCaption( 'live' ) ).toContain( 'published page' );
 		expect( snippetCaption( 'content' ) ).toContain(
 			'not the live metadata'

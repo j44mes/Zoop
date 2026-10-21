@@ -482,6 +482,32 @@
 	align-items: center;
 }
 
+.seostudio-appearance {
+	display: grid;
+	grid-template-columns: minmax( 0, 1.1fr ) minmax( 260px, 0.9fr );
+	gap: 24px;
+	align-items: start;
+}
+
+.seostudio-published,
+.seostudio-confirm {
+	margin: 0 0 16px;
+	padding: 12px 16px;
+	border: 1px solid var(--zoop-border);
+	border-radius: 12px;
+	background: var(--zoop-surface);
+}
+
+.seostudio-why {
+	margin-top: 16px;
+}
+
+@media ( max-width: 782px ) {
+	.seostudio-appearance {
+		grid-template-columns: 1fr;
+	}
+}
+
 .seostudio-action-index,
 .seostudio-cards,
 .seostudio-saved {

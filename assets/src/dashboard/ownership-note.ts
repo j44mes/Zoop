@@ -36,6 +36,16 @@ export function workspaceOwnership(
 }
 
 /**
+ * Caption for an illustrative search-result preview.
+ */
+export function appearancePreviewCaption(): string {
+	return __(
+		'Illustrative preview. Google may rewrite the title and description.',
+		'seo-studio'
+	);
+}
+
+/**
  * Caption for the snippet taken from the stored page model.
  *
  * @param renderMode content or live, from the stored page row.
