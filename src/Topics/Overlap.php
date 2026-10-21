@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SEOStudio\Topics;
 
+use SEOStudio\Scoring\OnPage\Normaliser;
+
 /**
  * Records shared phrases without turning them into proof that pages compete.
  */
@@ -529,13 +531,18 @@ final class Overlap {
 	 * @return array<string, list<array{post_id: int, title: string, keyphrase: string, topic: string, intent: string, topic_source: string, intent_source: string}>>
 	 */
 	private function buckets( array $pages, string $field ): array {
-		$buckets = array();
+		$normaliser = new Normaliser();
+		$buckets    = array();
 		foreach ( $pages as $page ) {
 			$phrase = $page[ $field ];
 			if ( '' === $phrase ) {
 				continue;
 			}
-			$buckets[ $phrase ][] = $page;
+			$key = $normaliser->phraseKey( $phrase );
+			if ( '' === $key ) {
+				continue;
+			}
+			$buckets[ $key ][] = $page;
 		}
 		return array_filter( $buckets, static fn( array $bucket ): bool => count( $bucket ) >= 2 );
 	}
