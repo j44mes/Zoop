@@ -18,10 +18,15 @@ A site audit runs in the background. Yoast SEO, Rank Math, and SEOPress fields c
 
 == Installation ==
 
-1. Build from the source tree: run `composer install --no-dev --optimize-autoloader`, then `npm install` and `npm run build`, and copy the directory into `wp-content/plugins/`.
-2. Activate Zoop. Activation creates the custom tables.
+1. Download `seo-studio-0.6.0-beta.1.zip` from the GitHub Release for tag `v0.6.0-beta.1`.
+2. In WordPress, open Plugins, Add New Plugin, Upload Plugin, and choose that zip.
+3. Activate Zoop. Activation creates Zoop's tables. The plugin starts in Analysis-only mode and does not print meta tags.
 
-A release zip is produced only when a future tag runs the release workflow. `0.6.0-beta.1` is a prerelease candidate. It does not publish a zip from this branch, and `seo-studio-0.5.0.zip` is not the current build.
+The directory inside the zip is `seo-studio`. Uploading a newer Zoop zip replaces that directory. It does not install a second copy.
+
+`0.6.0-beta.1` is a prerelease. Do not install it on a production site until that decision is explicit. `seo-studio-0.5.0.zip` is the previous release.
+
+Developers building from a checkout run `composer install --no-dev --optimize-autoloader`, then `npm ci` and `npm run build`, before copying the directory into `wp-content/plugins`.
 
 == Frequently Asked Questions ==
 
@@ -36,7 +41,9 @@ The two code checks need a full-page fetch. A content render leaves them uncheck
 == Changelog ==
 
 = 0.6.0-beta.1 =
-* Prerelease candidate. Regular plurals share a keyphrase, ruleset 2 retires older current scores, and the release zip is an allowlist. This is not a production release.
+* Prerelease. Regular English plurals share a keyphrase. Ruleset 2 marks older current scores out of date and keeps their history.
+* A saved score from 0.5.0 is kept and labelled out of date. Zoop explains how many pages still need a published-page check. It does not describe those old scores as verified.
+* The release zip is built from an allowlist, includes the yoastseo licence, and installs as the `seo-studio` plugin directory.
 
 = 0.6.0-dev.1 =
 * Development build for release identity and score currency. See CHANGELOG.md. This is not a production release.

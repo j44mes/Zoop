@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use SEOStudio\Cli\Commands;
 
 require_once dirname( __DIR__, 3 ) . '/scripts/validate-version.php';
 require_once dirname( __DIR__, 3 ) . '/scripts/package-plugin.php';
@@ -33,6 +34,7 @@ final class ReleaseContractTest extends TestCase {
 		$this->assertFalse( seostudio_package_rejected( 'src/Core/Plugin.php' ) );
 		$this->assertFalse( seostudio_package_rejected( 'assets/build/dashboard.js' ) );
 		$this->assertFalse( seostudio_package_rejected( 'vendor/autoload.php' ) );
+		$this->assertFalse( seostudio_package_rejected( 'vendor-js/yoastseo/LICENSE' ) );
 		$this->assertTrue( seostudio_package_rejected( 'assets/src/dashboard/index.tsx' ) );
 		$this->assertTrue( seostudio_package_rejected( 'dist/seo-studio/seo-studio.php' ) );
 		$this->assertTrue( seostudio_package_rejected( 'tests/php/Unit/ReleaseContractTest.php' ) );
@@ -45,6 +47,35 @@ final class ReleaseContractTest extends TestCase {
 
 	public function testCheckoutVersionsMatch(): void {
 		$this->assertSame( 0, seostudio_version_main() );
+	}
+
+	public function testTheOpenApiDocumentListsTheSameRoutesAsTheCli(): void {
+		$document = json_decode( (string) file_get_contents( dirname( __DIR__, 3 ) . '/docs/openapi.json' ), true );
+		$this->assertIsArray( $document );
+		$from_document = array();
+		foreach ( $document['paths'] as $path => $operations ) {
+			$this->assertIsArray( $operations );
+			foreach ( array_keys( $operations ) as $method ) {
+				$from_document[] = strtoupper( (string) $method ) . ' ' . $path;
+			}
+		}
+		$from_cli = Commands::routeCatalogue();
+		sort( $from_document );
+		sort( $from_cli );
+		$this->assertSame( $from_cli, $from_document );
+	}
+
+	public function testANestedLicenceFileIsCopiedIntoThePackage(): void {
+		$root = sys_get_temp_dir() . '/zoop-licence-' . bin2hex( random_bytes( 4 ) );
+		mkdir( $root . '/vendor-js/yoastseo', 0777, true );
+		file_put_contents( $root . '/vendor-js/yoastseo/LICENSE', "GPL-3.0\n" );
+		$destination = $root . '/out';
+		mkdir( $destination );
+
+		$problems = seostudio_package_copy_path( $root, $root . '/vendor-js/yoastseo/LICENSE', $destination );
+
+		$this->assertSame( array(), $problems );
+		$this->assertSame( "GPL-3.0\n", (string) file_get_contents( $destination . '/vendor-js/yoastseo/LICENSE' ) );
 	}
 
 	public function testAMatchingBetaTagAgreesAndAMismatchFails(): void {

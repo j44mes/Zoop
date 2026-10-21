@@ -44,10 +44,15 @@ jobs:
           php scripts/assert-build-identity.php
 
       - name: Pack the plugin
-        run: php scripts/package-plugin.php
+        run: |
+          php scripts/package-plugin.php
+          sha256sum dist/seo-studio-*.zip | tee dist/SHA256SUMS
 
       - name: Attach the zip to the release
         uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: dist/seo-studio-*.zip
+          body_path: docs/release-notes.md
+          files: |
+            dist/seo-studio-*.zip
+            dist/SHA256SUMS

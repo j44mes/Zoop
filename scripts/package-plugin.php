@@ -22,6 +22,7 @@ function seostudio_package_roots(): array {
 		'vendor',
 		'assets/build',
 		'languages',
+		'vendor-js/yoastseo/LICENSE',
 	);
 }
 
@@ -125,7 +126,12 @@ function seostudio_package_copy_path( string $root, string $source, string $dest
 		if ( ! is_string( $relative ) || seostudio_package_rejected( $relative ) ) {
 			return array();
 		}
-		if ( ! copy( $source, $destination . '/' . $relative ) ) {
+		$target = $destination . '/' . $relative;
+		$parent = dirname( $target );
+		if ( ! is_dir( $parent ) && ! mkdir( $parent, 0777, true ) && ! is_dir( $parent ) ) {
+			return array( 'Could not create ' . $parent );
+		}
+		if ( ! copy( $source, $target ) ) {
 			return array( 'Could not copy ' . $relative );
 		}
 		return array();
@@ -173,6 +179,7 @@ function seostudio_package_verify( string $destination ): array {
 		'assets/build/metabox.js',
 		'assets/build/worker.js',
 		'src/Core/Plugin.php',
+		'vendor-js/yoastseo/LICENSE',
 	);
 	foreach ( $required as $path ) {
 		if ( ! is_readable( $destination . '/' . $path ) ) {

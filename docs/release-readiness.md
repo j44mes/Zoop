@@ -8,7 +8,7 @@ Zoop `0.6.0-beta.1` is a prerelease candidate on the stacked draft branches. Pas
 
 - Pull request #22 explains content that has been checked but not scored, and shows a ruleset-retirement notice only for pages the current user can still edit.
 - Pull request #23 matches regular English singular and plural keyphrases. On-page ruleset 2 retires current ruleset 1 scores and keeps their history. Overlap still describes a shared phrase as something to investigate, not established cannibalisation.
-- This branch accepts `0.6.0-beta.1`, builds the zip from an allowlist, and will mark a future hyphenated tag as a prerelease. It does not create that tag.
+- This branch accepts `0.6.0-beta.1` and builds the zip from an allowlist. The downloadable file is the asset on the GitHub Release created by tag `v0.6.0-beta.1`. This branch does not create that tag. A pull-request artifact is not the release.
 
 ## Ruleset notice and a 0.5.0 upgrade
 

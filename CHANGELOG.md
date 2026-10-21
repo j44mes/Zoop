@@ -6,11 +6,12 @@ The plugin header, `SEOSTUDIO_VERSION`, and the readme stable tag move together.
 
 ## 0.6.0-beta.1
 
-Prerelease candidate. Not a production release and not a published zip.
+Prerelease. The downloadable zip is attached when the tag `v0.6.0-beta.1` is pushed. This branch does not create that tag.
 
-- Accept `X.Y.Z-beta.N` in the version contract. A beta build shows its checked-out commit, the same way a development build does. A stable `X.Y.Z` version does not.
-- Package the release zip from an allowlist. Development Composer packages, tests, `dist`, `.git`, and `.env` files are refused. A tag containing a hyphen is a GitHub prerelease. This branch does not create that tag.
-- On-page ruleset 2 treats a regular English plural as the same keyphrase token for URL checks and overlap grouping.
+- Accept `X.Y.Z-beta.N` in the version contract. A beta build shows its checked-out commit. A stable `X.Y.Z` version does not. The tag, plugin header, version constant, and readme stable tag must agree before a zip is named.
+- Package the release zip from an allowlist. Development Composer packages, tests, `dist`, `.git`, and `.env` files are refused. The yoastseo GPL licence is included. The zip directory is `seo-studio`, so an upgrade replaces the existing plugin.
+- On-page ruleset 2 treats a regular English plural as the same keyphrase token for URL checks and overlap grouping. Previously definitive ruleset 1 scores are marked out of date and their history is kept.
+- A direct upgrade from 0.5.0 keeps the old score rows. Those scores were not evidence-ready, so they are not described as previously verified. Zoop shows one explanation of how many pages the current user can still send for a published-page check. Dismissing it hides it for that user. A fresh install does not show it.
 
 ## 0.6.0-dev.1
 

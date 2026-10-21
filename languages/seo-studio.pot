@@ -2,68 +2,1537 @@
 # This file is distributed under the GPL-3.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Zoop 0.5.0\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-17 12:00+0000\n"
+"Project-Id-Version: Zoop 0.6.0-beta.1\n"
+"Report-Msgid-Bugs-To: https://github.com/j44mes/Zoop/issues\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: \n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"POT-Creation-Date: 2026-10-21T13:25:20+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: seo-studio\n"
 
-#: assets/src/dashboard/index.tsx
-msgid "SEO Studio"
+#. Plugin Name of the plugin
+#. Author of the plugin
+#: seo-studio.php
+#: src/Admin/Menu.php:28
+#: src/Admin/Menu.php:29
+#: src/Admin/MetaBox.php:68
+#: src/Rest/AppearanceController.php:474
+msgid "Zoop"
 msgstr ""
 
-#: assets/src/dashboard/index.tsx
-msgid "Re-analyse all"
+#. Description of the plugin
+#: seo-studio.php
+msgid "On-page SEO scoring for WordPress, with an editor panel and dashboard."
 msgstr ""
 
-#: assets/src/dashboard/index.tsx
-msgid "Audit queued."
+#: src/Admin/Assets.php:73
+msgid "Zoop admin assets are not built. Run npm run build in the plugin directory."
 msgstr ""
 
-#: assets/src/dashboard/index.tsx
-msgid "Settings"
+#. translators: %s: the other SEO plugin's name
+#: src/Admin/Notices.php:41
+#, php-format
+msgid "SEO Studio has suspended its head output because %s is active. Nothing was deleted."
 msgstr ""
 
-#: assets/src/dashboard/settings/SettingsPanel.tsx
-msgid "Settings saved."
-msgstr ""
-
-#: assets/src/dashboard/settings/SettingsPanel.tsx
-msgid "Mode"
-msgstr ""
-
-#: assets/src/dashboard/settings/SettingsPanel.tsx
-msgid "Home description"
-msgstr ""
-
-#: assets/src/dashboard/settings/SettingsPanel.tsx
-msgid "Save settings"
-msgstr ""
-
-#: assets/src/editor/panel.tsx
-msgid "Video URL"
-msgstr ""
-
-#: assets/src/editor/panel.tsx
-msgid "News article"
-msgstr ""
-
-#: src/Admin/Notices.php
+#: src/Admin/Notices.php:48
 msgid "The active theme does not support the title-tag feature, so SEO Studio will not print a second title."
 msgstr ""
 
-#: src/Rest/AuditsController.php
+#. translators: %s: WP-CLI command
+#: src/Admin/Notices.php:55
+#, php-format
+msgid "WP-Cron is disabled. Add this cron line so queued audits run: %s"
+msgstr ""
+
+#: src/Appearance/Decision.php:32
+msgid "The proposed title is too long."
+msgstr ""
+
+#: src/Appearance/Decision.php:39
+msgid "The proposed description is too long."
+msgstr ""
+
+#: src/Appearance/Decision.php:109
+msgid "The live HTML was not read. Values resolved from saved settings are not a verified publication."
+msgstr ""
+
+#: src/Appearance/Decision.php:117
+msgid "The published HTML was observed and does not match the title and description Zoop saved. A cache can delay that check."
+msgstr ""
+
+#: src/Appearance/Decision.php:125
+msgid "The published HTML was observed and matches the title and description Zoop saved."
+msgstr ""
+
+#: src/Appearance/EditorMeta.php:227
+msgid "The SEO fields were not saved because the security check failed. The rest of the update was kept."
+msgstr ""
+
+#: src/Appearance/EditorMeta.php:228
+msgid "The SEO title and description were not saved because a newer edit was saved first. Review the current proposal. The rest of the update was kept."
+msgstr ""
+
+#: src/Appearance/EditorMeta.php:229
+msgid "The SEO title and description were not saved because they are not valid. The rest of the update was kept."
+msgstr ""
+
+#: src/Appearance/EditorMeta.php:230
+msgid "The SEO title and description were not saved because the database write failed. The rest of the update was kept."
+msgstr ""
+
+#: src/Appearance/EditorMeta.php:231
+msgid "The homepage title and description are site settings. This update did not change them."
+msgstr ""
+
+#: src/Appearance/ProposalStore.php:84
+msgid "The proposal could not be locked. Save it again."
+msgstr ""
+
+#: src/Appearance/ProposalStore.php:90
+#: src/Appearance/ProposalStore.php:178
+#: src/Appearance/ProposalStore.php:188
+msgid "The proposal could not be saved."
+msgstr ""
+
+#: src/Appearance/ProposalStore.php:157
+msgid "A newer proposal was saved. Review it before saving again."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:28
+msgid "WordPress system route."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:34
+msgid "Outside the public site."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:77
+#: src/Recommendations/Priorities.php:364
+msgid "No local WordPress route matched this address. It is not a confirmed broken link."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:105
+msgid "The address names a post that is not in WordPress."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:111
+msgid "The post is in the trash."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:120
+msgid "PDF attachment."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:121
+msgid "Media attachment."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:127
+msgid "The post status is not a public destination."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:133
+msgid "The destination exists and is not public."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:139
+msgid "Valid query permalink."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:144
+msgid "Published content."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:191
+msgid "Known historical slug for a published post."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:320
+msgid "Author archive."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:343
+msgid "Category archive."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:344
+msgid "Tag archive."
+msgstr ""
+
+#: src/Architecture/DestinationResolver.php:349
+msgid "The archive path has no matching term. It is not a confirmed broken link."
+msgstr ""
+
+#: src/Architecture/Graph.php:171
+#: src/Architecture/Graph.php:348
+msgid "Site navigation"
+msgstr ""
+
+#: src/Architecture/Graph.php:506
+msgid "No verified incoming links were found."
+msgstr ""
+
+#: src/Architecture/Graph.php:508
+msgid "Check the published pages again after updating links."
+msgstr ""
+
+#. translators: %s: hostname that may belong to this site.
+#: src/Architecture/Graph.php:513
+#, php-format
+msgid "A link uses the same path on %s, and that hostname is not trusted as this site. This page is not called an orphan."
+msgstr ""
+
+#: src/Architecture/Graph.php:517
+msgid "Published-link coverage is incomplete, so this page is not called an orphan."
+msgstr ""
+
+#: src/Architecture/Graph.php:522
+msgid "Not yet verified."
+msgstr ""
+
+#: src/Architecture/Graph.php:525
+msgid "Check the published page."
+msgstr ""
+
+#: src/Architecture/Graph.php:527
+msgid "Verified template or navigation links were found, and no contextual links."
+msgstr ""
+
+#: src/Architecture/Graph.php:529
+msgid "Check the published page if the template changes."
+msgstr ""
+
+#. translators: 1: number of links, 2: hostname.
+#: src/Architecture/Graph.php:704
+#, php-format
+msgid "%1$d link points to %2$s, which may be this site."
+msgid_plural "%1$d links point to %2$s, which may be this site."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of pages that are not called orphans.
+#: src/Architecture/Graph.php:716
+#, php-format
+msgid "%d page is not called an orphan until that hostname is trusted."
+msgid_plural "%d pages are not called orphans until that hostname is trusted."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Architecture/Graph.php:742
+msgid "A referring page is counted once even when it repeats the same link. The occurrence count includes those repeats."
+msgstr ""
+
+#: src/Architecture/Graph.php:743
+msgid "Contextual links sit in the content area. Template links sit outside that area, and navigation menus are template links too."
+msgstr ""
+
+#: src/Architecture/Graph.php:744
+msgid "Zoop matches unresolved addresses to the published inventory and does not request them."
+msgstr ""
+
+#: src/Architecture/Graph.php:747
+msgid "This report includes published pages this account can edit. Orphan pages stay hidden because the account cannot see every published page."
+msgstr ""
+
+#: src/Architecture/Graph.php:750
+#: src/Architecture/Graph.php:900
+msgid "Orphans are not counted yet."
+msgstr ""
+
+#: src/Architecture/Graph.php:755
+msgid "Run a site audit to analyse page content. A content-only site audit does not restore published-link evidence."
+msgstr ""
+
+#: src/Architecture/Graph.php:758
+msgid "Check the published pages to record current link evidence. A content-only site audit does not restore published links."
+msgstr ""
+
+#. translators: %d: published pages that still need a published-page check.
+#: src/Architecture/Graph.php:764
+#, php-format
+msgid "%d page needs a published-page check before orphans can be counted."
+msgid_plural "%d pages need a published-page check before orphans can be counted."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Architecture/Graph.php:773
+#: src/Architecture/Graph.php:886
+msgid "Depth is not known yet."
+msgstr ""
+
+#: src/Architecture/Graph.php:775
+msgid "Pages with no verified path have none from the modelled entry points. That is not proof that visitors or search engines cannot reach them."
+msgstr ""
+
+#: src/Architecture/Graph.php:778
+msgid "Crawl depth uses the pages this account can edit."
+msgstr ""
+
+#: src/Architecture/Graph.php:781
+msgid "The front page is the blog index, so depth starts at the site address and at navigation targets."
+msgstr ""
+
+#: src/Architecture/Graph.php:787
+msgid "Some same-site addresses did not match a local WordPress route. They are unverified, not confirmed broken links."
+msgstr ""
+
+#. translators: %d: number of published pages that share an address with an earlier page.
+#: src/Architecture/Graph.php:792
+#, php-format
+msgid "%d published pages share an address with another page. Links resolve to the first page."
+msgstr ""
+
+#. translators: %d: published pages with no stored analysis.
+#: src/Architecture/Graph.php:839
+#, php-format
+msgid "%d published page has not been analysed."
+msgid_plural "%d published pages have not been analysed."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: analyses that read post content rather than the published HTML.
+#: src/Architecture/Graph.php:851
+#, php-format
+msgid "%d page was analysed only from content, without published-link verification."
+msgid_plural "%d pages were analysed only from content, without published-link verification."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: pages whose stored published links are missing or out of date.
+#: src/Architecture/Graph.php:863
+#, php-format
+msgid "%d page has a stale published-link observation."
+msgid_plural "%d pages have stale published-link observations."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Architecture/Graph.php:874
+msgid "Navigation coverage is incomplete."
+msgstr ""
+
+#: src/Architecture/Graph.php:882
+msgid "These pages have no verified path from the modelled entry points. That is not proof that visitors or search engines cannot reach them."
+msgstr ""
+
+#: src/Architecture/Graph.php:888
+#: src/Architecture/Graph.php:902
+msgid "Published-link coverage is incomplete."
+msgstr ""
+
+#: src/Architecture/Graph.php:896
+msgid "An orphan has no verified incoming link. Template-only pages are listed separately."
+msgstr ""
+
+#: src/Architecture/LinkSource.php:56
+msgid "A navigation block has no stored reference. Zoop uses links from fresh published pages and does not invent menu edges. Orphan counts wait until those pages have been checked."
+msgstr ""
+
+#. translators: %d: number of analyses that read post content rather than the published HTML.
+#: src/Architecture/SiteSurvey.php:136
+#, php-format
+msgid "%d stored analyses read the post content only. Their links are not treated as published theme evidence."
+msgstr ""
+
+#. translators: %d: number of pages whose stored published links are missing or out of date.
+#: src/Architecture/SiteSurvey.php:143
+#, php-format
+msgid "%d pages have a stored published model whose link evidence is missing or out of date. Those links are withheld until the page is checked again."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:151
+msgid "No assigned navigation menu is stored. Template links then come only from fresh published pages."
+msgstr ""
+
+#. translators: 1: assigned menus, 2: saved menus that are not assigned.
+#: src/Architecture/SiteSurvey.php:155
+#, php-format
+msgid "Zoop read %1$d assigned navigation menus. %2$d saved menus are not assigned and are not counted unless the published HTML shows their links."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:160
+msgid "Link evidence is the state at the last successful published-page check. Zoop does not continuously re-read the theme."
+msgstr ""
+
+#. translators: %d: published pages with no stored analysis.
+#: src/Architecture/SiteSurvey.php:165
+#, php-format
+msgid "%d published page has no stored analysis."
+msgid_plural "%d published pages have no stored analysis."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: analyses that read post content rather than the published HTML.
+#: src/Architecture/SiteSurvey.php:177
+#, php-format
+msgid "%d stored analysis read the post content only."
+msgid_plural "%d stored analyses read the post content only."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: pages whose stored published links are missing or out of date.
+#: src/Architecture/SiteSurvey.php:189
+#, php-format
+msgid "%d page has missing or out-of-date published-link evidence."
+msgid_plural "%d pages have missing or out-of-date published-link evidence."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: pages with current published-link evidence, 2: eligible published pages.
+#: src/Architecture/SiteSurvey.php:245
+#, php-format
+msgid "%1$d of %2$d eligible pages have current published-link evidence."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:277
+msgid "No stored topic or keyphrase matches this page, so there is no candidate source to suggest."
+msgstr ""
+
+#. translators: %s: comma-separated page titles that share a stored topic or keyphrase.
+#: src/Architecture/SiteSurvey.php:288
+#: src/Recommendations/Priorities.php:346
+#, php-format
+msgid "Review these stored matches as potential link sources: %s."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:320
+msgid "Same stored topic."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:323
+msgid "Same stored keyphrase."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:362
+msgid "This list includes published pages you can edit. Details of other pages are omitted."
+msgstr ""
+
+#: src/Architecture/SiteSurvey.php:363
+msgid "Link counts were calculated for the whole published site before this list was filtered."
+msgstr ""
+
+#. translators: %d: number of pages the current user can still check after an upgrade from saved pre-evidence scores.
+#: src/Core/LegacyScoreNotice.php:138
+#, php-format
+msgid "Zoop's page checks have been updated. Your previous scores have been kept, but %d page needs a new published-page check."
+msgid_plural "Zoop's page checks have been updated. Your previous scores have been kept, but %d pages need a new published-page check."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of pages the current user can still check after a scoring-rules update.
+#: src/Core/UpgradeNotice.php:127
+#, php-format
+msgid "Zoop 0.6 uses updated scoring rules, so %d page needs checking again. Your previous scores have been kept."
+msgid_plural "Zoop 0.6 uses updated scoring rules, so %d pages need checking again. Your previous scores have been kept."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Recommendations/Priorities.php:86
+msgid "Import a Search Console file"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:87
+msgid "Import a performance export before treating demand as evidence."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:88
+msgid "Zoop is not connected to Search Console. Without an imported file, impressions cannot raise or lower a page. Even a future file would need dates and a page address before it could describe demand. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:96
+msgid "The Search Console file has no page addresses"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:97
+msgid "Import a file that includes the page column before comparing URLs."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:98
+msgid "This file has queries, clicks, and impressions, and no page addresses. Zoop cannot tell which URL received them. The counts are not verified commercial value and not evidence of lost traffic. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:224
+msgid "Part of this finding refers to a page you cannot open. Its title and address are hidden. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:225
+msgid "The link count includes the whole published site. Hidden pages are not named."
+msgstr ""
+
+#. translators: %d: number of pages with a fresh noindex directive.
+#: src/Recommendations/Priorities.php:251
+#, php-format
+msgid "%d page is hidden from search."
+msgid_plural "%d pages are hidden from search."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Recommendations/Priorities.php:259
+msgid "Review these pages. Hiding a page from search may be intentional."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:260
+msgid "This count uses the latest published-page check only. The content score is separate and is not reduced. Zoop does not change the robots directive."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:310
+msgid "Zoop does not edit the pages."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:316
+msgid "Shared wording"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:317
+msgid "Compare what these pages are for. A shared phrase or topic is not proof that they compete."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:335
+msgid "No stored topic or keyphrase matches this page that you can open."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:361
+#: src/Recommendations/Priorities.php:403
+msgid "a stored page"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:370
+msgid "Unverified address"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:371
+msgid "Review this address. Zoop did not confirm that it is broken and does not edit the page."
+msgstr ""
+
+#. translators: 1: occurrence count, 2: source page title.
+#: src/Recommendations/Priorities.php:374
+#, php-format
+msgid "This address appears %1$d times from %2$s. It is not a confirmed broken link. Zoop did not request it. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:378
+#: src/Recommendations/Priorities.php:429
+msgid "Unverified destination."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:381
+#: src/Recommendations/Priorities.php:432
+msgid "Check the published page after the address is updated."
+msgstr ""
+
+#. translators: 1: occurrence count, 2: source page title.
+#: src/Recommendations/Priorities.php:409
+#, php-format
+msgid "This address appears %1$d times from %2$s and WordPress shows the destination is gone. Zoop did not request it. Zoop does not edit the page."
+msgstr ""
+
+#. translators: 1: occurrence count, 2: source page title.
+#: src/Recommendations/Priorities.php:415
+#, php-format
+msgid "This address appears %1$d times from %2$s and does not match a published page. It is not a confirmed broken link. Zoop did not request it. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:422
+msgid "Unverified internal address"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:424
+msgid "Review this address. WordPress shows the destination is gone."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:425
+msgid "Review this address. Zoop could not classify it and did not request it."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:428
+msgid "Confirmed missing destination."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:460
+msgid "Untitled"
+msgstr ""
+
+#: src/Recommendations/Priorities.php:463
+msgid "This page has no contextual referring page in the stored crawl."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:464
+msgid "This page has one contextual referring page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:468
+msgid "this address"
+msgstr ""
+
+#. translators: 1: impression count, 2: query list.
+#: src/Recommendations/Priorities.php:471
+#, php-format
+msgid "The imported file records %1$d impressions for %2$s. The file has no reporting dates or country and device split, so this count is not verified commercial value and not evidence of lost traffic. Zoop is not connected to Search Console. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:476
+msgid "Review this page. An imported impression count can help choose what to examine. It does not measure commercial value."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:479
+msgid "Demand is not known until a Search Console file is imported. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:480
+msgid "Review the link graph. Do not treat missing impressions as evidence."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:483
+msgid "The imported file has queries and no page addresses, so Zoop cannot attach impressions to this URL. That is not zero demand and not lost traffic. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:484
+msgid "Review the link graph. A query-only file cannot rank this page by demand."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:487
+msgid "No imported row names this address. A missing row is not zero demand, and the file has no dates or segmentation. Zoop does not edit the page."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:488
+msgid "Review the link graph before looking for more referring pages."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:655
+msgid "No Search Console file has been imported, so demand is not used as evidence."
+msgstr ""
+
+#. translators: 1: imported row count, 2: rows with a usable page address, 3: rows without one.
+#: src/Recommendations/Priorities.php:659
+#, php-format
+msgid "Rows imported: %1$d. Rows with a usable page address: %2$d. Rows without a usable page address: %3$d. Rows without a page address are not attached to a URL. The counts have no dates or segmentation, so they are not verified commercial value or evidence of lost traffic. Zoop is not connected to Search Console."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:666
+msgid "Zoop orders stored evidence for review. It does not edit pages, insert links, or change metadata."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:667
+msgid "A shared phrase is an observation. It is not an urgent cannibalisation problem."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:668
+msgid "Shared title words stay on the Overlap screen. They are not repeated here."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:672
+msgid "Orphan pages stay out of this list until every published page has a stored analysis."
+msgstr ""
+
+#: src/Recommendations/Priorities.php:675
+msgid "Long lists are shortened. Higher priorities are kept first."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:105
+msgid "The proposal revision was missing from this update."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:122
+msgid "Save the proposal before applying it."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:127
+msgid "A newer proposal was saved. Review it before applying."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:131
+msgid "The published title changed after this suggestion was saved. Review it again before applying."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:150
+msgid "The homepage title is a site setting. Apply is available to an administrator."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:152
+msgid "Zoop is not printing the tags, so this proposal was not published."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:155
+msgid "Apply the proposal only after confirming the previous and proposed values."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:158
+#: src/Rest/AppearanceController.php:198
+msgid "The stored title or description changed before this confirmation. Review the current values and try again."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:173
+msgid "Zoop is not printing the tags, so the previous values were not published."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:176
+msgid "Restore the previous values only after confirming them."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:179
+msgid "There is no previous title to restore."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:188
+msgid "This page no longer controls the homepage title."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:191
+msgid "The homepage title is a site setting. Restore is available to an administrator."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:219
+#: src/Rest/ModelController.php:76
+#: src/Rest/PagesController.php:241
+#: src/Rest/PostSeoController.php:161
+#: src/Rest/PostSeoController.php:170
+#: src/Rest/TopicController.php:62
+#: src/Rest/TopicController.php:71
+msgid "That post does not exist."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:294
+msgid "Confirm the stored title and description that this change will replace."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:404
+msgid "The live HTML was not read. A calculated title is not a verified publication."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:420
+msgid "The published HTML was observed and does not match the title or description Zoop applied."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:423
+msgid "The published HTML was observed and matches the title and description Zoop applied."
+msgstr ""
+
+#: src/Rest/AppearanceController.php:426
+msgid "The published HTML was observed. Zoop is not treating a theme title or generated excerpt as a verified tag."
+msgstr ""
+
+#: src/Rest/ArchitectureController.php:72
+msgid "The link expired. Reload Zoop and try again."
+msgstr ""
+
+#: src/Rest/ArchitectureController.php:76
+#: src/Rest/ArchitectureController.php:79
+msgid "Enter a hostname, with a port only when the site uses one."
+msgstr ""
+
+#: src/Rest/ArchitectureController.php:84
+msgid "That hostname could not be saved."
+msgstr ""
+
+#: src/Rest/AuditsController.php:81
 msgid "An audit is already running."
 msgstr ""
 
-#: src/Rest/AuditsController.php
+#: src/Rest/AuditsController.php:95
+#: src/Rest/AuditsController.php:104
+msgid "That audit does not exist."
+msgstr ""
+
+#: src/Rest/AuditsController.php:124
 msgid "An audit was started recently. Wait a few minutes and try again."
 msgstr ""
 
-#: src/Rest/SettingsController.php
+#: src/Rest/ContentCheckedPresentation.php:41
+msgid "Content checked. Needs a published-page check to score."
+msgstr ""
+
+#: src/Rest/ContentCheckedPresentation.php:72
+msgid "The published page has not been checked."
+msgstr ""
+
+#: src/Rest/ContentScoresController.php:55
+#: src/Rest/PagesController.php:219
+#: src/Rest/PagesController.php:228
+msgid "That page has not been analysed yet."
+msgstr ""
+
+#: src/Rest/ContentScoresController.php:61
+#: src/Rest/PagesController.php:303
+msgid "A keyphrase is required."
+msgstr ""
+
+#: src/Rest/ContentScoresController.php:67
+msgid "Each engine needs a score."
+msgstr ""
+
+#: src/Rest/ContentScoresController.php:71
+msgid "The rating is not valid."
+msgstr ""
+
+#: src/Rest/ContentScoresController.php:75
+msgid "The score must be between 0 and 100."
+msgstr ""
+
+#: src/Rest/ModelController.php:81
+msgid "The editor content is too large to analyse."
+msgstr ""
+
+#: src/Rest/PageRecord.php:93
+msgid "The canonical address is different. That is not a noindex directive."
+msgstr ""
+
+#: src/Rest/PageRecord.php:400
+#: src/Scoring/OnPage/CheckPresentation.php:109
+msgid "Check published page"
+msgstr ""
+
+#: src/Rest/PagesController.php:236
+msgid "Only posts can be analysed in this phase."
+msgstr ""
+
+#: src/Rest/PagesController.php:286
+msgid "A keyphrase is not valid."
+msgstr ""
+
+#: src/Rest/PostSeoController.php:185
+msgid "The homepage title is a site setting. It is available to an administrator."
+msgstr ""
+
+#: src/Rest/PostSeoController.php:187
+msgid "The homepage title and description are site settings."
+msgstr ""
+
+#: src/Rest/Responses.php:60
+msgid "You are not allowed to do that."
+msgstr ""
+
+#: src/Rest/SearchConsoleController.php:55
+msgid "The file is larger than 2 MB."
+msgstr ""
+
+#: src/Rest/SettingsController.php:75
 msgid "Owner mode stays off while another SEO plugin is active."
+msgstr ""
+
+#: src/Rest/ToolsController.php:88
+msgid "The import body must be a JSON object."
+msgstr ""
+
+#: src/Rest/TopicController.php:75
+msgid "Save at most eight supporting phrases."
+msgstr ""
+
+#: src/Scoring/OnPage/Advisories.php:34
+msgid "The keyphrase is repeated in more than 3% of body words. That reads as stuffing, even when the score rewards mentions."
+msgstr ""
+
+#: src/Scoring/OnPage/Advisories.php:42
+msgid "The title is wider than 600 pixels and may be truncated in search results."
+msgstr ""
+
+#: src/Scoring/OnPage/Advisories.php:50
+msgid "The meta description is outside 120 to 157 characters."
+msgstr ""
+
+#: src/Scoring/OnPage/Advisories.php:65
+msgid "More than 75% of subheadings contain the keyphrase. Vary them so the outline stays readable."
+msgstr ""
+
+#: src/Scoring/OnPage/Advisories.php:73
+msgid "This article body is under 300 words. Develop the topic rather than adding filler."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyEveryWord.php:42
+msgid "Every keyphrase word appears in the body."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyEveryWord.php:43
+msgid "At least one keyphrase word is missing from the body."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyEveryWord.php:45
+#: src/Scoring/OnPage/Assessments/BodyMentions.php:55
+#: src/Scoring/OnPage/Assessments/BodyPartial.php:53
+#: src/Scoring/OnPage/Assessments/BodyWordCount.php:58
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:57
+#: src/Scoring/OnPage/Assessments/CodeVisibleRatio.php:66
+#: src/Scoring/OnPage/Assessments/HeadingCount.php:54
+#: src/Scoring/OnPage/Assessments/HeadingEntireKeyphrase.php:51
+#: src/Scoring/OnPage/Assessments/HeadingLength.php:61
+#: src/Scoring/OnPage/Assessments/HeadingPartialKeyphrase.php:51
+#: src/Scoring/OnPage/Assessments/HeadingPosition.php:61
+#: src/Scoring/OnPage/Assessments/HeadingSubheadings.php:69
+#: src/Scoring/OnPage/Assessments/HeadingTitleDiffers.php:60
+#: src/Scoring/OnPage/Assessments/MetaKeyphrase.php:66
+#: src/Scoring/OnPage/Assessments/TitleEntireKeyphrase.php:53
+#: src/Scoring/OnPage/Assessments/TitleExists.php:60
+#: src/Scoring/OnPage/Assessments/TitleLength.php:66
+#: src/Scoring/OnPage/Assessments/TitlePartialKeyphrase.php:53
+#: src/Scoring/OnPage/Assessments/TitlePosition.php:70
+#: src/Scoring/OnPage/Assessments/UrlHttps.php:44
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:44
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:69
+msgid "No change needed."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyEveryWord.php:46
+msgid "Include every keyphrase word somewhere in the body."
+msgstr ""
+
+#. translators: %d: number of keyphrase mentions
+#: src/Scoring/OnPage/Assessments/BodyMentions.php:51
+#, php-format
+msgid "The body mentions the full keyphrase %d times."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyMentions.php:56
+msgid "Mention the full keyphrase in the body where it reads naturally."
+msgstr ""
+
+#. translators: %d: percentage of keyphrase words found
+#: src/Scoring/OnPage/Assessments/BodyPartial.php:49
+#, php-format
+msgid "%d%% of the keyphrase words appear in the body."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyPartial.php:54
+msgid "Use more of the keyphrase words in the body."
+msgstr ""
+
+#. translators: %d: body word count
+#: src/Scoring/OnPage/Assessments/BodyWordCount.php:54
+#, php-format
+msgid "The body contains %d words. The full score starts at 500."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/BodyWordCount.php:59
+msgid "Cover the topic fully. Do not add words only to raise this score."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:40
+msgid "A full-page fetch is required before the stylesheet check can run."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:41
+#: src/Scoring/OnPage/Assessments/CodeVisibleRatio.php:41
+msgid "Run Verify live to score the code checks."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:54
+msgid "The page links a separate CSS file."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:55
+msgid "The page does not link a separate CSS file."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeStylesheet.php:58
+msgid "Load styles from a separate CSS file."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeVisibleRatio.php:40
+msgid "A full-page fetch is required before the visible-text check can run."
+msgstr ""
+
+#. translators: %s: visible text percentage
+#: src/Scoring/OnPage/Assessments/CodeVisibleRatio.php:62
+#, php-format
+msgid "Visible text is %s%% of the page source. The full score starts at 2%%."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/CodeVisibleRatio.php:67
+msgid "Increase the share of visible text relative to the page source."
+msgstr ""
+
+#. translators: %d: number of H1 elements
+#: src/Scoring/OnPage/Assessments/HeadingCount.php:50
+#, php-format
+msgid "The page has %d H1 elements. Exactly one is required."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingCount.php:55
+msgid "Use exactly one H1 on the page."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingEntireKeyphrase.php:48
+msgid "The full keyphrase is in the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingEntireKeyphrase.php:49
+msgid "The full keyphrase is missing from the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingEntireKeyphrase.php:52
+msgid "Use the full keyphrase in the H1."
+msgstr ""
+
+#. translators: %d: H1 length in characters
+#: src/Scoring/OnPage/Assessments/HeadingLength.php:57
+#, php-format
+msgid "The H1 is %d characters. The full score is 1 to 40."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingLength.php:62
+msgid "Shorten the H1 to 40 characters or fewer."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingPartialKeyphrase.php:48
+msgid "Part of the keyphrase is in the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingPartialKeyphrase.php:49
+msgid "None of the keyphrase words are in the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingPartialKeyphrase.php:52
+msgid "Use at least one keyphrase word in the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingPosition.php:54
+msgid "The full keyphrase is not in the H1, so position cannot be scored."
+msgstr ""
+
+#. translators: %d: 1-based word position
+#: src/Scoring/OnPage/Assessments/HeadingPosition.php:57
+#, php-format
+msgid "The keyphrase starts at word %d of the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingPosition.php:62
+msgid "Move the keyphrase to the start of the H1."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingSubheadings.php:64
+msgid "A subheading contains the full keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingSubheadings.php:66
+msgid "A subheading contains only part of the keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingSubheadings.php:67
+msgid "No subheading contains the keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingSubheadings.php:70
+msgid "Use the keyphrase in at least one subheading."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingTitleDiffers.php:57
+msgid "The title tag and the H1 are different."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingTitleDiffers.php:58
+msgid "The title tag and the H1 are the same."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/HeadingTitleDiffers.php:61
+msgid "Make the title tag and the H1 different."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MediaAlt.php:77
+msgid "An image description contains the full target phrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MediaAlt.php:78
+msgid "No image description contains the full target phrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MediaAlt.php:80
+msgid "Check that the description still says what the image shows."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MediaAlt.php:81
+msgid "Describe what an informative image shows. Leave the description empty when the image is decorative. Repeating the target phrase is optional."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MetaKeyphrase.php:61
+msgid "The meta description contains the full keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MetaKeyphrase.php:62
+msgid "The meta description does not contain the full keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/MetaKeyphrase.php:67
+msgid "Mention the full keyphrase in the meta description."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleEntireKeyphrase.php:48
+msgid "The full keyphrase is in the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleEntireKeyphrase.php:49
+msgid "The full keyphrase is missing from the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleEntireKeyphrase.php:54
+msgid "Include the full keyphrase in the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleExists.php:55
+msgid "A title tag is present."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleExists.php:56
+msgid "The page has no title tag."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleExists.php:61
+msgid "Add a title tag that describes the page."
+msgstr ""
+
+#. translators: %d: title length in characters
+#: src/Scoring/OnPage/Assessments/TitleLength.php:60
+#, php-format
+msgid "The title is %d characters. The full score is 30 to 60."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitleLength.php:67
+msgid "Rewrite the title so it is between 30 and 60 characters."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitlePartialKeyphrase.php:48
+msgid "Part of the keyphrase is in the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitlePartialKeyphrase.php:49
+msgid "None of the keyphrase words are in the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitlePartialKeyphrase.php:54
+msgid "Use at least one word from the keyphrase in the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitlePosition.php:61
+msgid "The full keyphrase is not in the title, so position cannot be scored."
+msgstr ""
+
+#. translators: %d: 1-based word position
+#: src/Scoring/OnPage/Assessments/TitlePosition.php:64
+#, php-format
+msgid "The keyphrase starts at word %d of the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/TitlePosition.php:71
+msgid "Move the keyphrase to the start of the title."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlHttps.php:41
+msgid "The page is served over HTTPS."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlHttps.php:42
+msgid "The page is not served over HTTPS."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlHttps.php:45
+msgid "Serve the page over HTTPS."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:43
+msgid "The URL is the site root, which scores as a keyword path."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:66
+msgid "The URL path contains the keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:67
+msgid "The URL path does not fully contain the keyphrase."
+msgstr ""
+
+#: src/Scoring/OnPage/Assessments/UrlKeyphrase.php:70
+msgid "Include the keyphrase in the URL path."
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:27
+#: src/Scoring/OnPage/ScorePresentation.php:87
+msgid "Out of date"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:30
+msgid "Passed"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:33
+msgid "Needs work"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:36
+msgid "Doesn't apply"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:40
+msgid "Not checked"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:107
+msgid "View evidence"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:108
+msgid "View safe fix"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:110
+msgid "Add focus keyphrase"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:111
+msgid "Re-analyse"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:112
+msgid "View explanation"
+msgstr ""
+
+#: src/Scoring/OnPage/CheckPresentation.php:113
+msgid "Refresh content analysis"
+msgstr ""
+
+#: src/Scoring/OnPage/EvidenceGate.php:24
+msgid "This check did not run because the value was not observed."
+msgstr ""
+
+#: src/Scoring/OnPage/EvidenceGate.php:32
+msgid "This check does not apply because the tag is not in the page."
+msgstr ""
+
+#: src/Scoring/OnPage/EvidenceGate.php:61
+msgid "This check did not run because the full-document H1s were not observed."
+msgstr ""
+
+#: src/Scoring/OnPage/EvidenceGate.php:70
+msgid "Calculated from the saved value. This is not fetched HTML."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:85
+msgid "Not enough evidence yet"
+msgstr ""
+
+#. translators: 1: checks evaluated, 2: applicable checks.
+#: src/Scoring/OnPage/ScorePresentation.php:101
+#, php-format
+msgid "Based on %1$d of %2$d applicable checks."
+msgstr ""
+
+#. translators: %s: local datetime of the last published-page check.
+#: src/Scoring/OnPage/ScorePresentation.php:113
+#, php-format
+msgid "Published HTML last verified %s. This is not a continuous live check."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:130
+msgid "Indexability has not been checked."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:131
+msgid "The published page title has not been observed."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:132
+msgid "The full-document H1 has not been observed."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:133
+msgid "The focus keyphrase has not been checked in an observed title."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:134
+msgid "Scores need checking against the current rules."
+msgstr ""
+
+#. translators: 1: number of checked pages, 2: sentence naming how many stored pages have not been checked.
+#: src/Scoring/OnPage/ScorePresentation.php:185
+#, php-format
+msgid "No fixes found on the %1$d checked page. %2$s"
+msgid_plural "No fixes found on the %1$d checked pages. %2$s"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of stored pages that do not have a definitive ready score.
+#: src/Scoring/OnPage/ScorePresentation.php:194
+#: src/Scoring/OnPage/ScorePresentation.php:215
+#, php-format
+msgid "%d page hasn't been checked yet."
+msgid_plural "%d pages haven't been checked yet."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of pages that need another published-page check.
+#: src/Scoring/OnPage/ScorePresentation.php:230
+#, php-format
+msgid "%d page has changed or needs checking again."
+msgid_plural "%d pages have changed or need checking again."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:242
+msgid "Hidden from search"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:243
+msgid "Indexable"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:244
+msgid "This page is not public"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:245
+msgid "The site asks search engines to stay away"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:246
+msgid "Indexability has not been checked"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:255
+msgid "the meta robots tag and the X-Robots-Tag header"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:256
+msgid "the X-Robots-Tag header"
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:256
+msgid "the meta robots tag"
+msgstr ""
+
+#. translators: %s: where the noindex directive was observed.
+#: src/Scoring/OnPage/ScorePresentation.php:259
+#, php-format
+msgid "This page asks to be left out of search results via %s. That does not mean a search engine has already removed it. The choice may be intentional. The content score is unchanged."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:264
+msgid "The last published-page check found no noindex directive."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:267
+msgid "WordPress is not showing this page publicly. That is separate from a noindex directive."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:270
+msgid "The site setting asks search engines to stay away. Zoop has not observed a noindex directive on this page."
+msgstr ""
+
+#: src/Scoring/OnPage/ScorePresentation.php:273
+msgid "Zoop has not read this page’s published robots directives. robots.txt and a different canonical address are not treated as noindex."
+msgstr ""
+
+#: src/Search/CsvImport.php:27
+msgid "The file could not be read."
+msgstr ""
+
+#: src/Search/CsvImport.php:31
+msgid "The file has no rows."
+msgstr ""
+
+#: src/Search/CsvImport.php:38
+msgid "The file needs query, clicks, and impressions columns."
+msgstr ""
+
+#: src/Search/CsvImport.php:63
+msgid "The file has no query rows."
+msgstr ""
+
+#: src/Search/SearchRepository.php:97
+msgid "This is a file you imported. Zoop is not connected to Search Console."
+msgstr ""
+
+#: src/Search/SearchRepository.php:171
+msgid "No Search Console file has been imported. Zoop is not connected to Search Console."
+msgstr ""
+
+#: src/Topics/Overlap.php:59
+msgid "A shared target phrase confirms that the phrases match. It does not establish that the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:60
+msgid "A topic copied from that phrase is the same observation. It is not independent evidence."
+msgstr ""
+
+#: src/Topics/Overlap.php:61
+msgid "A matching intent supports a closer look. It is not proof of competition, even when an editor confirmed it."
+msgstr ""
+
+#: src/Topics/Overlap.php:62
+msgid "Zoop does not change the pages."
+msgstr ""
+
+#: src/Topics/Overlap.php:187
+msgid "These pages use the target phrase saved by the editor. This confirms that the phrases match."
+msgstr ""
+
+#: src/Topics/Overlap.php:204
+msgid "These pages use the same target phrase. That confirms the phrases match. It does not prove the pages compete. Zoop does not edit the pages."
+msgstr ""
+
+#: src/Topics/Overlap.php:224
+msgid "These pages share a primary topic specified by the editor. The words do not come from their target phrases, headings, or titles. It does not prove the pages compete. Zoop does not edit the pages."
+msgstr ""
+
+#: src/Topics/Overlap.php:226
+msgid "These pages share a primary topic, and the sources differ. Each page keeps its own source. A topic the editor specified is a separate observation for that page. A topic taken from the heading, title, or target phrase is not independent evidence, even when the editor accepted it. This does not prove the pages compete. Zoop does not edit the pages."
+msgstr ""
+
+#: src/Topics/Overlap.php:228
+msgid "These pages share a primary topic taken from another field. Accepting that wording does not make it independent evidence, and it does not prove the pages compete. Zoop does not edit the pages."
+msgstr ""
+
+#: src/Topics/Overlap.php:261
+msgid "This page uses a primary topic with the same words as its target phrase. Accepting those words does not create a second observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:262
+msgid "These pages use a primary topic with the same words as the target phrase. Accepting those words does not create a second observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:301
+msgid "This page has a primary topic specified by the editor. The words do not come from its target phrase, heading, or title. That is a separate observation for this page. It does not prove the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:302
+msgid "These pages have a primary topic specified by the editor. The words do not come from their target phrases, headings, or titles. That is a separate observation. It does not prove the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:306
+msgid "This page has a primary topic taken from its first heading. Accepting that suggestion does not make it an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:307
+msgid "These pages have a primary topic taken from the first heading. Accepting that suggestion does not make it an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:311
+msgid "This page has a primary topic taken from its title. Accepting that suggestion does not make it an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:312
+msgid "These pages have a primary topic taken from the page title. Accepting that suggestion does not make it an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:316
+msgid "This page has a primary topic taken from its target phrase. It is the same observation, not a second one."
+msgstr ""
+
+#: src/Topics/Overlap.php:317
+msgid "These pages have a primary topic taken from the target phrase. It is the same observation, not a second one."
+msgstr ""
+
+#: src/Topics/Overlap.php:320
+msgid "This page has a primary topic with no recorded source. It is not an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:321
+msgid "These pages have a primary topic with no recorded source. It is not an independent observation."
+msgstr ""
+
+#: src/Topics/Overlap.php:349
+msgid "At least one page has no assigned intent. Unknown intent is not agreement."
+msgstr ""
+
+#: src/Topics/Overlap.php:350
+msgid "The intent labels differ or are missing. That does not establish a conflict."
+msgstr ""
+
+#: src/Topics/Overlap.php:363
+msgid "This page has a confirmed intent. That supports a closer look. It is not proof that the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:365
+msgid "These pages have the same confirmed intent. That supports a closer look. It is not proof that the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:367
+msgid "This page has a suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:369
+msgid "These pages have the same suggested intent. The suggestion comes from wording on the page. It is not proof that the pages compete."
+msgstr ""
+
+#: src/Topics/Overlap.php:398
+msgid "Zoop has not established that these pages compete. Pages can share a phrase and still serve different purposes."
+msgstr ""
+
+#: src/Topics/Overlap.php:520
+msgid "Fewer than two pages have a target phrase or primary topic."
+msgstr ""
+
+#: src/Topics/Overlap.php:521
+msgid "No shared target phrase or primary topic was found. A shared phrase is not proof of harm."
+msgstr ""
+
+#: src/Topics/Overlap.php:651
+msgid "The titles share words. This is a separate observation from a saved target phrase."
+msgstr ""
+
+#: src/Topics/Overlap.php:655
+msgid "The titles share words. A shared phrase is not proof of harm. Zoop does not edit the pages."
+msgstr ""
+
+#: src/Topics/Suggester.php:51
+msgid "Suggested from the target phrase saved on this page."
+msgstr ""
+
+#: src/Topics/Suggester.php:58
+msgid "Suggested from the first heading. No target phrase is saved."
+msgstr ""
+
+#: src/Topics/Suggester.php:65
+msgid "Suggested from the page title. No target phrase or heading is saved."
+msgstr ""
+
+#: src/Topics/Suggester.php:72
+msgid "No target phrase, heading, or title is available."
+msgstr ""
+
+#: src/Topics/Suggester.php:100
+msgid "The title, heading, and target phrase do not use a recognised intent word. This is not Search Console data."
+msgstr ""
+
+#: src/Topics/Suggester.php:107
+msgid "Suggested from the wording on this page. This is not Search Console data."
+msgstr ""
+
+#: src/Topics/Suggester.php:122
+msgid "This page is not in the published inventory, so a role is not suggested."
+msgstr ""
+
+#: src/Topics/Suggester.php:128
+msgid "The wording looks like a utility page."
+msgstr ""
+
+#: src/Topics/Suggester.php:137
+msgid "This page is close to the front page and links to several other pages from its content."
+msgstr ""
+
+#: src/Topics/Suggester.php:143
+msgid "This page is several clicks from the front page."
+msgstr ""
+
+#: src/Topics/Suggester.php:149
+msgid "The link graph does not show a hub or a deep supporting page."
+msgstr ""
+
+#: src/Topics/Suggester.php:162
+msgid "No contextual referring page has a topic yet."
+msgstr ""
+
+#: src/Topics/Suggester.php:168
+msgid "Suggested from the closest contextual referring page."
+msgstr ""
+
+#: src/Topics/Suggester.php:199
+msgid "No related phrases or synonyms are saved."
+msgstr ""
+
+#: src/Topics/Suggester.php:205
+msgid "Taken from the related phrases and synonyms already saved on this page."
+msgstr ""
+
+#: src/Topics/TopicPage.php:57
+msgid "These suggestions come from the saved wording and the link graph. Zoop does not use a language model, and saving a field replaces only that suggestion."
 msgstr ""
