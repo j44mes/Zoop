@@ -410,7 +410,7 @@ final class PagesRepository {
 	 *
 	 * A row with a page model counts as analysed. The graph reads links only, not the body text.
 	 *
-	 * @return array<int, array{render_mode: string, analysed: bool, links: array<int, array{href: string, anchor: string, kind: string}>}>
+	 * @return array<int, array{render_mode: string, analysed: bool, h1: string, links: array<int, array{href: string, anchor: string, kind: string}>}>
 	 */
 	public function storedLinks(): array {
 		global $wpdb;
@@ -431,7 +431,11 @@ final class PagesRepository {
 				continue;
 			}
 			$decoded = json_decode( (string) ( $row['page_model'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON.
-			$links   = array();
+			$h1      = '';
+			if ( is_array( $decoded ) && isset( $decoded['h1'] ) && is_array( $decoded['h1'] ) && isset( $decoded['h1'][0] ) ) {
+				$h1 = trim( (string) $decoded['h1'][0] );
+			}
+			$links = array();
 			if ( is_array( $decoded ) && isset( $decoded['links'] ) && is_array( $decoded['links'] ) ) {
 				foreach ( $decoded['links'] as $link ) {
 					if ( ! is_array( $link ) ) {
@@ -447,6 +451,7 @@ final class PagesRepository {
 			$stored[ $object_id ] = array(
 				'render_mode' => (string) ( $row['render_mode'] ?? '' ),
 				'analysed'    => is_array( $decoded ),
+				'h1'          => $h1,
 				'links'       => $links,
 			);
 		}

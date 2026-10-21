@@ -83,15 +83,38 @@ export function SearchConsolePanel() {
 			{ error ? <p role="alert">{ error }</p> : null }
 			{ report ? (
 				<>
-					<p>
-						{ __( 'Rows:', 'seo-studio' ) } { report.rows }
-						{ report.skipped > 0
-							? ` (${ report.skipped } ${ __(
-									'skipped',
+					<dl className="seostudio-evidence">
+						<div>
+							<dt>{ __( 'Rows imported', 'seo-studio' ) }</dt>
+							<dd>
+								{ report.rows }
+								{ report.skipped > 0
+									? ` (${ report.skipped } ${ __(
+											'skipped',
+											'seo-studio'
+									  ) })`
+									: '' }
+							</dd>
+						</div>
+						<div>
+							<dt>
+								{ __(
+									'Rows with a usable page address',
 									'seo-studio'
-							  ) })`
-							: '' }
-					</p>
+								) }
+							</dt>
+							<dd>{ report.rows_with_page }</dd>
+						</div>
+						<div>
+							<dt>
+								{ __(
+									'Rows without a usable page address',
+									'seo-studio'
+								) }
+							</dt>
+							<dd>{ report.rows_without_page }</dd>
+						</div>
+					</dl>
 					{ report.top.length === 0 ? (
 						<p className="seostudio-muted">
 							{ __( 'No imported queries yet.', 'seo-studio' ) }

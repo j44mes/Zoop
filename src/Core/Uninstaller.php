@@ -72,6 +72,7 @@ final class Uninstaller {
 			'_seostudio_video_url',
 			'_seostudio_is_news',
 			'_seostudio_primary_topic',
+			'_seostudio_primary_topic_origin',
 			'_seostudio_page_role',
 			'_seostudio_search_intent',
 			'_seostudio_parent_topic',

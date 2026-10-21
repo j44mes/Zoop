@@ -18,6 +18,8 @@ use SEOStudio\Storage\PagesRepository;
 final class TopicPage {
 	public const PRIMARY = '_seostudio_primary_topic';
 
+	public const ORIGIN = '_seostudio_primary_topic_origin';
+
 	public const ROLE = '_seostudio_page_role';
 
 	public const INTENT = '_seostudio_search_intent';
@@ -95,9 +97,35 @@ final class TopicPage {
 			} else {
 				update_post_meta( $postId, $meta_key, $value );
 			}
+			if ( 'primary_topic' === $field ) {
+				$this->rememberOrigin( $postId, $value );
+			}
 		}
 
 		return $this->present( $postId );
+	}
+
+	/**
+	 * Remember where a saved topic's words came from. Clearing the topic clears the origin.
+	 */
+	private function rememberOrigin( int $postId, string $value ): void {
+		if ( '' === $value ) {
+			delete_post_meta( $postId, self::ORIGIN );
+			return;
+		}
+		$model  = $this->pages->loadModel( $postId );
+		$title  = get_the_title( $postId );
+		$origin = Overlap::topicOrigin(
+			$value,
+			(string) get_post_meta( $postId, '_seostudio_focus_keyphrase', true ),
+			null === $model ? '' : $model->firstH1(),
+			is_string( $title ) ? $title : ''
+		);
+		if ( 'none' === $origin ) {
+			delete_post_meta( $postId, self::ORIGIN );
+			return;
+		}
+		update_post_meta( $postId, self::ORIGIN, $origin );
 	}
 
 	/**

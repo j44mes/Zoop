@@ -32,6 +32,7 @@ final class TopicSuggesterTest extends TestCase {
 		);
 
 		$this->assertSame( 'fire door installation', $suggestion['primary_topic']['value'] );
+		$this->assertSame( 'keyphrase', $suggestion['primary_topic']['source'] );
 		$this->assertStringContainsString( 'target phrase', $suggestion['primary_topic']['reason'] );
 		$this->assertSame( 'commercial', $suggestion['search_intent']['value'] );
 		$this->assertStringContainsString( 'not Search Console', $suggestion['search_intent']['reason'] );
@@ -52,7 +53,9 @@ final class TopicSuggesterTest extends TestCase {
 		);
 
 		$this->assertSame( 'Rank tracker chart', $suggestion['primary_topic']['value'] );
+		$this->assertSame( 'title', $suggestion['primary_topic']['source'] );
 		$this->assertSame( 'unassigned', $suggestion['search_intent']['value'] );
+		$this->assertSame( 'unassigned', $suggestion['search_intent']['source'] );
 		$this->assertSame( 'supporting', $suggestion['page_role']['value'] );
 		$this->assertSame( '', $suggestion['parent_topic']['value'] );
 		$this->assertSame( array(), $suggestion['supporting_entities']['value'] );

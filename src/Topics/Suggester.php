@@ -21,7 +21,7 @@ final class Suggester {
 	 * Suggest values the user can replace.
 	 *
 	 * @param array<string, mixed> $page
-	 * @return array<string, array{value: mixed, reason: string}>
+	 * @return array<string, array{value: mixed, reason: string, source?: string}>
 	 */
 	public function suggest( array $page ): array {
 		$title     = trim( (string) ( $page['title'] ?? '' ) );
@@ -42,38 +42,42 @@ final class Suggester {
 	/**
 	 * Choose the primary topic from the phrase, heading, or title.
 	 *
-	 * @return array{value: string, reason: string}
+	 * @return array{value: string, reason: string, source: string}
 	 */
 	private function primary( string $keyphrase, string $heading, string $title ): array {
 		if ( '' !== $keyphrase ) {
 			return array(
 				'value'  => $keyphrase,
 				'reason' => __( 'Suggested from the target phrase saved on this page.', 'seo-studio' ),
+				'source' => 'keyphrase',
 			);
 		}
 		if ( '' !== $heading ) {
 			return array(
 				'value'  => $heading,
 				'reason' => __( 'Suggested from the first heading. No target phrase is saved.', 'seo-studio' ),
+				'source' => 'heading',
 			);
 		}
 		if ( '' !== $title ) {
 			return array(
 				'value'  => $title,
 				'reason' => __( 'Suggested from the page title. No target phrase or heading is saved.', 'seo-studio' ),
+				'source' => 'title',
 			);
 		}
 
 		return array(
 			'value'  => '',
 			'reason' => __( 'No target phrase, heading, or title is available.', 'seo-studio' ),
+			'source' => 'none',
 		);
 	}
 
 	/**
 	 * Match a small word list. This is not search data.
 	 *
-	 * @return array{value: string, reason: string}
+	 * @return array{value: string, reason: string, source: string}
 	 */
 	private function intent( string $keyphrase, string $heading, string $title ): array {
 		$words = $this->words( $keyphrase . ' ' . $heading . ' ' . $title );
@@ -94,12 +98,14 @@ final class Suggester {
 			return array(
 				'value'  => 'unassigned',
 				'reason' => __( 'The title, heading, and target phrase do not use a recognised intent word. This is not Search Console data.', 'seo-studio' ),
+				'source' => 'unassigned',
 			);
 		}
 
 		return array(
 			'value'  => $found,
 			'reason' => __( 'Suggested from the wording on this page. This is not Search Console data.', 'seo-studio' ),
+			'source' => 'suggested',
 		);
 	}
 

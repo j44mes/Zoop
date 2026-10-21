@@ -16,7 +16,7 @@ use SEOStudio\Recommendations\Priorities;
  * Recommendations order stored evidence and do not edit pages.
  */
 final class PrioritiesTest extends TestCase {
-	public function testHighOverlapOutranksAnUnresolvedLinkAndAQuietOrphan(): void {
+	public function testPhraseOverlapFollowsStructuralProblems(): void {
 		$result = ( new Priorities() )->rank(
 			array(
 				'coverage'   => array( 'complete' => true ),
@@ -40,28 +40,49 @@ final class PrioritiesTest extends TestCase {
 			array(
 				'groups' => array(
 					array(
-						'level'  => 'high',
-						'phrase' => 'fire door installation',
-						'reason' => 'These pages use the same target phrase. A shared phrase is not proof that the pages compete.',
-						'pages'  => array(
-							array( 'post_id' => 1, 'title' => 'Guide' ),
-							array( 'post_id' => 2, 'title' => 'Cost' ),
+						'level'                  => 'investigation',
+						'observation'            => 'phrase',
+						'observation_confidence' => 'high',
+						'conclusion'             => 'investigation',
+						'conclusion_confidence'  => 'insufficient',
+						'phrase'                 => 'fire door installation',
+						'reason'                 => 'These pages use the same target phrase. It does not prove the pages compete.',
+						'pages'                  => array(
+							array(
+								'post_id' => 1,
+								'title'   => 'Guide',
+							),
+							array(
+								'post_id' => 2,
+								'title'   => 'Cost',
+							),
 						),
 					),
 					array(
-						'level'  => 'medium',
-						'phrase' => 'fire safety',
-						'reason' => 'These pages share a primary topic. A shared topic is not proof that the pages compete.',
-						'pages'  => array(
-							array( 'post_id' => 1, 'title' => 'Guide' ),
-							array( 'post_id' => 3, 'title' => 'Rules' ),
+						'level'                  => 'investigation',
+						'observation'            => 'topic',
+						'observation_confidence' => 'high',
+						'conclusion'             => 'investigation',
+						'conclusion_confidence'  => 'insufficient',
+						'phrase'                 => 'fire safety',
+						'reason'                 => 'These pages share a primary topic. It does not prove the pages compete.',
+						'pages'                  => array(
+							array(
+								'post_id' => 1,
+								'title'   => 'Guide',
+							),
+							array(
+								'post_id' => 3,
+								'title'   => 'Rules',
+							),
 						),
 					),
 					array(
-						'level'  => 'low',
-						'phrase' => 'door words',
-						'reason' => 'Titles share words.',
-						'pages'  => array(),
+						'level'       => 'investigation',
+						'observation' => 'title',
+						'phrase'      => 'door words',
+						'reason'      => 'Titles share words.',
+						'pages'       => array(),
 					),
 				),
 			),
@@ -69,16 +90,18 @@ final class PrioritiesTest extends TestCase {
 		);
 
 		$this->assertSame(
-			array( 'fire door installation', 'https://example.test/missing/', 'Quiet page', 'fire safety', 'Import a Search Console file' ),
+			array( 'https://example.test/missing/', 'Quiet page', 'fire door installation', 'fire safety', 'Import a Search Console file' ),
 			array_column( $result['items'], 'title' )
 		);
-		$this->assertSame( array( 1, 2, 3, 3, 3 ), array_column( $result['items'], 'priority' ) );
-		$this->assertStringContainsString( 'not proof', $result['items'][0]['reason'] );
-		$this->assertStringContainsString( 'does not edit', $result['items'][0]['reason'] );
-		$this->assertStringContainsString( 'did not request', $result['items'][1]['reason'] );
-		$this->assertStringContainsString( 'not known', $result['items'][2]['reason'] );
-		$this->assertStringNotContainsString( 'No imported query', $result['items'][2]['reason'] );
-		$this->assertStringContainsString( 'not proof of harm', implode( ' ', $result['notes'] ) );
+		$this->assertSame( array( 2, 3, 4, 4, 4 ), array_column( $result['items'], 'priority' ) );
+		$this->assertSame( 'insufficient', $result['items'][2]['conclusion_confidence'] );
+		$this->assertStringContainsString( 'not prove', $result['items'][2]['reason'] );
+		$this->assertStringContainsString( 'does not edit', $result['items'][2]['reason'] );
+		$this->assertStringContainsString( 'did not request', $result['items'][0]['reason'] );
+		$this->assertStringContainsString( 'not known', $result['items'][1]['reason'] );
+		$this->assertStringNotContainsString( 'No imported query', $result['items'][1]['reason'] );
+		$this->assertNotContains( 1, array_column( $result['items'], 'priority' ) );
+		$this->assertStringContainsString( 'not an urgent', implode( ' ', $result['notes'] ) );
 	}
 
 	public function testImportedImpressionsRaiseAnOrphanAndMatchEitherScheme(): void {
@@ -112,10 +135,12 @@ final class PrioritiesTest extends TestCase {
 		$this->assertSame( 2, $result['items'][0]['priority'] );
 		$this->assertStringContainsString( '80', $result['items'][0]['reason'] );
 		$this->assertStringContainsString( 'fire door installation', $result['items'][0]['reason'] );
+		$this->assertStringContainsString( 'not verified commercial value', $result['items'][0]['reason'] );
+		$this->assertStringContainsString( 'not evidence of lost traffic', $result['items'][0]['reason'] );
 		$this->assertStringContainsString( 'not connected', $result['items'][0]['reason'] );
 		$this->assertSame( 'Other page', $result['items'][1]['title'] );
 		$this->assertSame( 3, $result['items'][1]['priority'] );
-		$this->assertStringContainsString( 'No imported query', $result['items'][1]['reason'] );
+		$this->assertStringContainsString( 'No imported row names this address', $result['items'][1]['reason'] );
 		$this->assertNotContains( 'Import a Search Console file', array_column( $result['items'], 'title' ) );
 	}
 
@@ -139,13 +164,99 @@ final class PrioritiesTest extends TestCase {
 				),
 				'unresolved' => array(),
 			),
-			array( 'groups' => array( array( 'level' => 'insufficient', 'phrase' => '', 'reason' => 'No shared phrase.', 'pages' => array() ) ) ),
+			array(
+				'groups' => array(
+					array(
+						'level'  => 'insufficient',
+						'phrase' => '',
+						'reason' => 'No shared phrase.',
+						'pages'  => array(),
+					),
+				),
+			),
 			array()
 		);
 
 		$this->assertNotContains( 'Hidden orphan', array_column( $result['items'], 'title' ) );
 		$this->assertContains( 'One link', array_column( $result['items'], 'title' ) );
 		$this->assertStringContainsString( 'stored analysis', implode( ' ', $result['notes'] ) );
+	}
+
+	public function testAQueryOnlyImportDoesNotAttachImpressionsToAPage(): void {
+		$result = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 4,
+						'title'   => 'Quiet page',
+						'url'     => 'https://example.test/quiet/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(
+				array(
+					'query'       => 'staff absence insurance',
+					'page'        => '',
+					'clicks'      => 4,
+					'impressions' => 700,
+				),
+			)
+		);
+
+		$this->assertSame( 'Quiet page', $result['items'][0]['title'] );
+		$this->assertSame( 3, $result['items'][0]['priority'] );
+		$this->assertStringContainsString( 'no page addresses', $result['items'][0]['reason'] );
+		$this->assertStringNotContainsString( '700', $result['items'][0]['reason'] );
+		$this->assertSame( 'The Search Console file has no page addresses', $result['items'][1]['title'] );
+		$this->assertStringContainsString( 'not verified commercial value', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows imported: 1.', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows with a usable page address: 0.', implode( ' ', $result['notes'] ) );
+		$this->assertStringContainsString( 'Rows without a usable page address: 1.', implode( ' ', $result['notes'] ) );
+	}
+
+	public function testAPartialImportCountsRowsThatCannotBeAttached(): void {
+		$result = ( new Priorities() )->rank(
+			$this->architecture(
+				array(
+					array(
+						'post_id' => 32,
+						'title'   => 'Fire door fixture',
+						'url'     => 'https://example.test/?p=32',
+					),
+					array(
+						'post_id' => 8,
+						'title'   => 'Other page',
+						'url'     => 'https://example.test/other/',
+					),
+				)
+			),
+			array( 'groups' => array() ),
+			array(
+				array(
+					'query'       => 'fire door installation',
+					'page'        => 'https://example.test/?p=32',
+					'clicks'      => 4,
+					'impressions' => 80,
+				),
+				array(
+					'query'       => 'staff absence insurance',
+					'page'        => '',
+					'clicks'      => 1,
+					'impressions' => 900,
+				),
+			)
+		);
+
+		$notes = implode( ' ', $result['notes'] );
+		$this->assertStringContainsString( 'Rows imported: 2.', $notes );
+		$this->assertStringContainsString( 'Rows with a usable page address: 1.', $notes );
+		$this->assertStringContainsString( 'Rows without a usable page address: 1.', $notes );
+		$this->assertSame( 'Fire door fixture', $result['items'][0]['title'] );
+		$this->assertStringContainsString( '80', $result['items'][0]['reason'] );
+		$this->assertStringNotContainsString( '900', $result['items'][0]['reason'] );
+		$this->assertStringContainsString( 'No imported row names this address', $result['items'][1]['reason'] );
+		$this->assertStringNotContainsString( '900', $result['items'][1]['reason'] );
 	}
 
 	/**
