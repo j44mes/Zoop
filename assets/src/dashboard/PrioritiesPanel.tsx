@@ -11,7 +11,7 @@ import {
 	overlapObservation,
 } from './overlap-copy';
 import { pageWorkspaceUrl } from './PageWorkspace';
-import { priorityKind } from './priorities-copy';
+import { candidateLabel, priorityKind } from './priorities-copy';
 
 export function PrioritiesPanel() {
 	const [ report, setReport ] = useState< {
@@ -89,7 +89,33 @@ export function PrioritiesPanel() {
 					<p className="seostudio-muted">
 						{ priorityKind( item.kind ) }
 					</p>
-					{ item.observation ? (
+					{ item.evidence ? (
+						<dl className="seostudio-evidence">
+							<div>
+								<dt>{ __( 'Observation', 'seo-studio' ) }</dt>
+								<dd>{ item.observation }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Evidence', 'seo-studio' ) }</dt>
+								<dd>{ item.evidence }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Confidence', 'seo-studio' ) }</dt>
+								<dd>{ item.confidence }</dd>
+							</div>
+							<div>
+								<dt>
+									{ __( 'Suggested action', 'seo-studio' ) }
+								</dt>
+								<dd>{ item.action }</dd>
+							</div>
+							<div>
+								<dt>{ __( 'Verify', 'seo-studio' ) }</dt>
+								<dd>{ item.verify }</dd>
+							</div>
+						</dl>
+					) : null }
+					{ item.observation && ! item.evidence ? (
 						<dl className="seostudio-evidence">
 							<div>
 								<dt>{ __( 'Observation', 'seo-studio' ) }</dt>
@@ -117,8 +143,43 @@ export function PrioritiesPanel() {
 							</div>
 						</dl>
 					) : null }
-					<p>{ item.action }</p>
+					{ item.evidence ? null : <p>{ item.action }</p> }
 					<p>{ item.reason }</p>
+					{ item.candidates && item.candidates.length > 0 ? (
+						<>
+							<p>
+								{ __(
+									'Pages that could link here:',
+									'seo-studio'
+								) }
+							</p>
+							<ul className="seostudio-candidates">
+								{ item.candidates.map( ( candidate ) => {
+									const label = candidateLabel( candidate );
+									if ( ! label ) {
+										return null;
+									}
+									return (
+										<li
+											key={ `${ candidate.post_id }-${ candidate.url }` }
+										>
+											{ candidate.post_id > 0 ? (
+												<a
+													href={ pageWorkspaceUrl(
+														candidate.post_id
+													) }
+												>
+													{ label }
+												</a>
+											) : (
+												label
+											) }
+										</li>
+									);
+								} ) }
+							</ul>
+						</>
+					) : null }
 					{ item.href ? (
 						<p>
 							<a href={ item.href }>

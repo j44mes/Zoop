@@ -39,6 +39,7 @@ final class Settings {
 			'batch_pause_ms'        => 0,
 			'function_word_locale'  => 'en',
 			'uninstall_delete_data' => false,
+			'host_aliases'          => array(),
 			'local_business'        => array(
 				'enabled'   => false,
 				'name'      => '',
@@ -84,6 +85,7 @@ final class Settings {
 			? sanitize_key( (string) $input['function_word_locale'] )
 			: 'en';
 		$clean['uninstall_delete_data'] = ! empty( $input['uninstall_delete_data'] );
+		$clean['host_aliases']          = self::hostAliases( $input['host_aliases'] ?? array() );
 		$clean['schema_version']        = (int) ( self::all()['schema_version'] ?? 0 );
 		$clean['default_robots']        = self::robots( $input['default_robots'] ?? $clean['default_robots'] );
 		$clean['local_business']        = self::localBusiness( $input['local_business'] ?? array() );
@@ -133,5 +135,73 @@ final class Settings {
 			'city'      => sanitize_text_field( (string) ( $input['city'] ?? '' ) ),
 			'telephone' => sanitize_text_field( (string) ( $input['telephone'] ?? '' ) ),
 		);
+	}
+
+	/**
+	 * Hosts an administrator has explicitly trusted as this public site.
+	 *
+	 * @param mixed $input
+	 * @return string[]
+	 */
+	public static function hostAliases( mixed $input ): array {
+		if ( ! is_array( $input ) ) {
+			return array();
+		}
+		$hosts = array();
+		foreach ( $input as $host ) {
+			$host = strtolower( trim( (string) $host ) );
+			if ( ! self::isHostAlias( $host ) ) {
+				continue;
+			}
+			$hosts[] = $host;
+		}
+		return array_values( array_unique( $hosts ) );
+	}
+
+	/**
+	 * A hostname, optionally with a numeric port. Schemes and paths are rejected.
+	 */
+	public static function isHostAlias( string $host ): bool {
+		$host = strtolower( trim( $host ) );
+		if ( '' === $host || strlen( $host ) > 253 || str_contains( $host, '/' ) || str_contains( $host, ' ' ) || str_contains( $host, '@' ) ) {
+			return false;
+		}
+		$name = $host;
+		$mark = strrpos( $host, ':' );
+		if ( false !== $mark && ctype_digit( substr( $host, $mark + 1 ) ) ) {
+			$name = substr( $host, 0, $mark );
+			$port = (int) substr( $host, $mark + 1 );
+			if ( $port < 1 || $port > 65535 || '' === $name ) {
+				return false;
+			}
+		}
+		return 1 === preg_match( '/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/', $name );
+	}
+
+	/**
+	 * Add or remove one trusted hostname. The caller must already have manage_options.
+	 */
+	public static function trustHost( string $host, bool $trust ): bool {
+		$host = strtolower( trim( $host ) );
+		if ( ! self::isHostAlias( $host ) || ! function_exists( 'update_option' ) ) {
+			return false;
+		}
+		$settings = self::all();
+		$aliases  = self::hostAliases( $settings['host_aliases'] ?? array() );
+		if ( $trust ) {
+			$aliases[] = $host;
+		} else {
+			$aliases = array_values(
+				array_filter(
+					$aliases,
+					static function ( string $item ) use ( $host ): bool {
+						return $item !== $host;
+					}
+				)
+			);
+		}
+		$settings['host_aliases'] = self::hostAliases( $aliases );
+		update_option( self::OPTION, $settings, true );
+		return true;
 	}
 }

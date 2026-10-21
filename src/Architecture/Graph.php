@@ -51,6 +51,34 @@ final class Graph {
 	private array $unresolved = array();
 
 	/**
+	 * Menu identities waiting for a published observation.
+	 *
+	 * @var array<string, array{occurrences: int, anchor: string, href: string, verified: bool}>
+	 */
+	private array $pendingNavigation = array();
+
+	/**
+	 * Same-site addresses that could not be classified. They are not confirmed broken links.
+	 *
+	 * @var array<string, array<string, mixed>>
+	 */
+	private array $unknownDestinations = array();
+
+	/**
+	 * Trusted host aliases supplied with this survey.
+	 *
+	 * @var string[]
+	 */
+	private array $aliases = array();
+
+	/**
+	 * Local classifier for addresses that miss the inventory. Null keeps the legacy unresolved bucket.
+	 *
+	 * @var callable(string): array{status: string, reason: string}|null
+	 */
+	private $classifier = null;
+
+	/**
 	 * Site address used to decide which links are internal.
 	 *
 	 * @var string
@@ -93,6 +121,27 @@ final class Graph {
 	private int $collisions = 0;
 
 	/**
+	 * Why published-link coverage is incomplete, when the survey knows.
+	 *
+	 * @var string
+	 */
+	private string $coverageGap = '';
+
+	/**
+	 * Untrusted www or non-www hosts and how many links point at them.
+	 *
+	 * @var array<string, int>
+	 */
+	private array $possibleAliases = array();
+
+	/**
+	 * Inventory pages whose path is also linked from an untrusted twin host.
+	 *
+	 * @var array<string, string>
+	 */
+	private array $aliasUncertain = array();
+
+	/**
 	 * Build the public report and the per-page stats used by later reports.
 	 *
 	 * @param list<array<string, mixed>> $pages
@@ -102,20 +151,25 @@ final class Graph {
 	 */
 	public function evaluate( array $pages, array $navigation, array $context ): array {
 		$this->reset();
-		$this->home     = (string) ( $context['home'] ?? '' );
-		$this->complete = (bool) ( $context['coverage_complete'] ?? false );
-		$this->missing  = max( 0, (int) ( $context['missing'] ?? 0 ) );
-		$this->withheld = (bool) ( $context['withheld'] ?? false );
+		$this->home        = (string) ( $context['home'] ?? '' );
+		$this->complete    = (bool) ( $context['coverage_complete'] ?? false );
+		$this->missing     = max( 0, (int) ( $context['missing'] ?? 0 ) );
+		$this->withheld    = (bool) ( $context['withheld'] ?? false );
+		$this->aliases     = is_array( $context['aliases'] ?? null ) ? array_map( 'strval', $context['aliases'] ) : array();
+		$classifier        = $context['classifier'] ?? null;
+		$this->classifier  = is_callable( $classifier ) ? $classifier : null;
+		$this->coverageGap = (string) ( $context['coverage_gap'] ?? '' );
 		$this->index( $pages );
 		$this->chooseFront( (string) ( $context['front_id'] ?? '' ) );
 
+		$this->absorb( 'site:navigation', __( 'Site navigation', 'seo-studio' ), $this->home, $navigation, 'navigation' );
 		foreach ( $this->nodes as $id => $node ) {
-			if ( empty( $node['analysed'] ) ) {
+			if ( empty( $node['analysed'] ) || ( array_key_exists( 'link_fresh', $node ) && empty( $node['link_fresh'] ) ) ) {
 				continue;
 			}
 			$this->absorb( (string) $id, (string) $node['title'], (string) $node['url'], (array) $node['links'], '' );
 		}
-		$this->absorb( 'site:navigation', __( 'Site navigation', 'seo-studio' ), $this->home, $navigation, 'template' );
+		$this->commitNavigation();
 
 		$stats = $this->stats();
 		$depth = $this->depths( $navigation );
@@ -128,13 +182,20 @@ final class Graph {
 	}
 
 	private function reset(): void {
-		$this->nodes      = array();
-		$this->byIdentity = array();
-		$this->incoming   = array();
-		$this->outgoing   = array();
-		$this->unresolved = array();
-		$this->frontId    = '';
-		$this->collisions = 0;
+		$this->nodes               = array();
+		$this->byIdentity          = array();
+		$this->incoming            = array();
+		$this->outgoing            = array();
+		$this->unresolved          = array();
+		$this->unknownDestinations = array();
+		$this->pendingNavigation   = array();
+		$this->aliases             = array();
+		$this->classifier          = null;
+		$this->coverageGap         = '';
+		$this->possibleAliases     = array();
+		$this->aliasUncertain      = array();
+		$this->frontId             = '';
+		$this->collisions          = 0;
 	}
 
 	/**
@@ -153,8 +214,8 @@ final class Graph {
 			}
 			$url      = (string) ( $page['url'] ?? '' );
 			$absolute = UrlKey::absolute( $url, $url );
-			$identity = UrlKey::identity( $absolute );
-			if ( '' !== $identity && UrlKey::sameSite( $identity, $this->home ) ) {
+			$identity = UrlKey::primaryIdentity( UrlKey::identity( $absolute ), $this->home, $this->aliases );
+			if ( '' !== $identity ) {
 				if ( isset( $this->byIdentity[ $identity ] ) ) {
 					++$this->collisions;
 					$identity = '';
@@ -163,13 +224,14 @@ final class Graph {
 				}
 			}
 			$this->nodes[ $id ] = array(
-				'id'       => $id,
-				'post_id'  => (int) ( $page['post_id'] ?? 0 ),
-				'title'    => (string) ( $page['title'] ?? '' ),
-				'url'      => '' !== $absolute ? $absolute : $url,
-				'identity' => $identity,
-				'analysed' => (bool) ( $page['analysed'] ?? false ),
-				'links'    => is_array( $page['links'] ?? null ) ? $page['links'] : array(),
+				'id'         => $id,
+				'post_id'    => (int) ( $page['post_id'] ?? 0 ),
+				'title'      => (string) ( $page['title'] ?? '' ),
+				'url'        => '' !== $absolute ? $absolute : $url,
+				'identity'   => $identity,
+				'analysed'   => (bool) ( $page['analysed'] ?? false ),
+				'link_fresh' => array_key_exists( 'link_fresh', $page ) ? (bool) $page['link_fresh'] : true,
+				'links'      => is_array( $page['links'] ?? null ) ? $page['links'] : array(),
 			);
 		}
 	}
@@ -201,10 +263,39 @@ final class Graph {
 				continue;
 			}
 			$identity = UrlKey::identity( $absolute );
-			if ( ! UrlKey::sameSite( $identity, $this->home ) ) {
+			if ( ! UrlKey::sameSite( $identity, $this->home, $this->aliases ) ) {
+				$this->rememberPossibleAlias( $identity );
 				continue;
 			}
-			$kind   = 'template' === $forcedKind || 'template' === (string) ( $link['kind'] ?? '' ) ? 'template' : 'contextual';
+			$identity = UrlKey::primaryIdentity( $identity, $this->home, $this->aliases );
+			if ( '' === $identity ) {
+				continue;
+			}
+			$link_kind = (string) ( $link['kind'] ?? '' );
+			if ( 'navigation' === $forcedKind || 'navigation' === $link_kind ) {
+				$kind = 'navigation';
+			} elseif ( 'template' === $forcedKind || 'template' === $link_kind ) {
+				$kind = 'template';
+			} else {
+				$kind = 'contextual';
+			}
+			$verified = array_key_exists( 'verified', $link ) ? (bool) $link['verified'] : true;
+			if ( 'navigation' === $kind && 'site:navigation' === $sourceId && ! $verified ) {
+				if ( ! isset( $this->pendingNavigation[ $identity ] ) ) {
+					$this->pendingNavigation[ $identity ] = array(
+						'occurrences' => 0,
+						'anchor'      => (string) ( $link['anchor'] ?? '' ),
+						'href'        => $absolute,
+						'verified'    => false,
+					);
+				}
+				++$this->pendingNavigation[ $identity ]['occurrences'];
+				continue;
+			}
+			if ( 'template' === $kind && 'site:navigation' !== $sourceId && isset( $this->pendingNavigation[ $identity ] ) ) {
+				$this->pendingNavigation[ $identity ]['verified'] = true;
+				continue;
+			}
 			$target = $this->byIdentity[ $identity ] ?? '';
 			if ( '' === $target || $target === $sourceId ) {
 				if ( '' === $target ) {
@@ -212,8 +303,12 @@ final class Graph {
 				}
 				continue;
 			}
-			$this->incoming[ $target ][ $kind ][ $sourceId ] = ( $this->incoming[ $target ][ $kind ][ $sourceId ] ?? 0 ) + 1;
-			$this->outgoing[ $sourceId ][ $target ]          = true;
+			$count_kind = 'navigation' === $kind ? 'template' : $kind;
+			$this->incoming[ $target ][ $count_kind ][ $sourceId ] = ( $this->incoming[ $target ][ $count_kind ][ $sourceId ] ?? 0 ) + 1;
+			if ( 'navigation' === $kind ) {
+				$this->incoming[ $target ]['navigation'][ $sourceId ] = ( $this->incoming[ $target ]['navigation'][ $sourceId ] ?? 0 ) + 1;
+			}
+			$this->outgoing[ $sourceId ][ $target ] = true;
 			if ( 'contextual' === $kind && isset( $this->nodes[ $sourceId ] ) ) {
 				$this->nodes[ $sourceId ]['contextual_targets'][ $target ] = true;
 				$this->nodes[ $sourceId ]['contextual_out']                = count( $this->nodes[ $sourceId ]['contextual_targets'] );
@@ -221,8 +316,67 @@ final class Graph {
 		}
 	}
 
+	/**
+	 * An untrusted www twin is not an incoming link. A matching path withholds an orphan claim.
+	 */
+	private function rememberPossibleAlias( string $identity ): void {
+		$twin = UrlKey::wwwTwinHost( $identity, $this->home );
+		if ( '' === $twin ) {
+			return;
+		}
+		$this->possibleAliases[ $twin ] = ( $this->possibleAliases[ $twin ] ?? 0 ) + 1;
+		$primary                        = UrlKey::primaryIdentity( $identity, $this->home, array( $twin ) );
+		$target                         = '' !== $primary ? ( $this->byIdentity[ $primary ] ?? '' ) : '';
+		if ( '' !== $target ) {
+			$this->aliasUncertain[ $target ] = $twin;
+		}
+	}
+
+	private function commitNavigation(): void {
+		foreach ( $this->pendingNavigation as $identity => $row ) {
+			if ( empty( $row['verified'] ) ) {
+				continue;
+			}
+			$target = $this->byIdentity[ $identity ] ?? '';
+			if ( '' === $target ) {
+				$this->rememberUnresolved( 'site:navigation', __( 'Site navigation', 'seo-studio' ), (string) $row['href'], 'navigation', (string) $row['anchor'] );
+				continue;
+			}
+			$occurrences = max( 1, (int) $row['occurrences'] );
+			$this->incoming[ $target ]['template']['site:navigation']   = ( $this->incoming[ $target ]['template']['site:navigation'] ?? 0 ) + $occurrences;
+			$this->incoming[ $target ]['navigation']['site:navigation'] = ( $this->incoming[ $target ]['navigation']['site:navigation'] ?? 0 ) + $occurrences;
+			$this->outgoing['site:navigation'][ $target ]               = true;
+		}
+	}
+
 	private function rememberUnresolved( string $sourceId, string $sourceTitle, string $absolute, string $kind, string $anchor ): void {
+		$resolution = 'unresolved';
+		$reason     = '';
+		if ( null !== $this->classifier ) {
+			$resolved   = ( $this->classifier )( $absolute );
+			$resolution = (string) ( $resolved['status'] ?? 'unknown' );
+			$reason     = (string) ( $resolved['reason'] ?? '' );
+			if ( in_array( $resolution, array( 'published', 'archive', 'media', 'query', 'system', 'redirect', 'external', 'non_public' ), true ) ) {
+				return;
+			}
+		}
 		$key = $sourceId . "\n" . UrlKey::identity( $absolute ) . "\n" . $kind;
+		if ( 'unknown' === $resolution ) {
+			if ( ! isset( $this->unknownDestinations[ $key ] ) ) {
+				$this->unknownDestinations[ $key ] = array(
+					'from_id'     => $sourceId,
+					'from_title'  => $sourceTitle,
+					'href'        => $absolute,
+					'kind'        => $kind,
+					'anchor'      => $anchor,
+					'occurrences' => 0,
+					'resolution'  => 'unknown',
+					'reason'      => $reason,
+				);
+			}
+			++$this->unknownDestinations[ $key ]['occurrences'];
+			return;
+		}
 		if ( ! isset( $this->unresolved[ $key ] ) ) {
 			$this->unresolved[ $key ] = array(
 				'from_id'     => $sourceId,
@@ -231,6 +385,8 @@ final class Graph {
 				'kind'        => $kind,
 				'anchor'      => $anchor,
 				'occurrences' => 0,
+				'resolution'  => 'missing' === $resolution ? 'missing' : 'unresolved',
+				'reason'      => $reason,
 			);
 		}
 		++$this->unresolved[ $key ]['occurrences'];
@@ -309,6 +465,8 @@ final class Graph {
 			$referrers = $item['referring_pages'];
 			if ( $id === $this->frontId ) {
 				$status = 'front';
+			} elseif ( 0 === $referrers && isset( $this->aliasUncertain[ $id ] ) ) {
+				$status = 'unknown';
 			} elseif ( ! $this->complete && 0 === $referrers ) {
 				$status = 'unknown';
 			} elseif ( $this->complete && 0 === $referrers ) {
@@ -320,22 +478,51 @@ final class Graph {
 			} else {
 				$status = 'linked';
 			}
-			$rows[ $id ] = array(
+			$row = array(
 				'id'                      => $id,
 				'post_id'                 => (int) $node['post_id'],
 				'title'                   => (string) $node['title'],
 				'url'                     => (string) $node['url'],
 				'analysed'                => (bool) $node['analysed'],
+				'link_fresh'              => (bool) $node['link_fresh'],
 				'depth'                   => $depth[ $id ] ?? null,
 				'referring_pages'         => $item['referring_pages'],
 				'contextual_referrers'    => $item['contextual_referrers'],
 				'template_referrers'      => $item['template_referrers'],
+				'navigation_referrers'    => count( $this->incoming[ $id ]['navigation'] ?? array() ),
 				'contextual_occurrences'  => $item['contextual_occurrences'],
 				'template_occurrences'    => $item['template_occurrences'],
 				'contextual_out'          => (int) ( $node['contextual_out'] ?? 0 ),
 				'contextual_referrer_ids' => array_map( 'strval', array_keys( $this->incoming[ $id ]['contextual'] ?? array() ) ),
 				'status'                  => $status,
 			);
+			if ( 'orphan' === $status ) {
+				$row['observation'] = __( 'No verified incoming links were found.', 'seo-studio' );
+				$row['confidence']  = 'high';
+				$row['verify']      = __( 'Check the published pages again after updating links.', 'seo-studio' );
+			} elseif ( 'unknown' === $status ) {
+				if ( isset( $this->aliasUncertain[ $id ] ) ) {
+					$evidence = sprintf(
+						/* translators: %s: hostname that may belong to this site. */
+						__( 'A link uses the same path on %s, and that hostname is not trusted as this site. This page is not called an orphan.', 'seo-studio' ),
+						$this->aliasUncertain[ $id ]
+					);
+				} else {
+					$evidence = __( 'Published-link coverage is incomplete, so this page is not called an orphan.', 'seo-studio' );
+				}
+				if ( '' !== $this->coverageGap ) {
+					$evidence .= ' ' . $this->coverageGap;
+				}
+				$row['observation'] = __( 'Not yet verified.', 'seo-studio' );
+				$row['evidence']    = $evidence;
+				$row['confidence']  = 'limited';
+				$row['verify']      = __( 'Check the published page.', 'seo-studio' );
+			} elseif ( 'template_only' === $status ) {
+				$row['observation'] = __( 'Verified template or navigation links were found, and no contextual links.', 'seo-studio' );
+				$row['confidence']  = $this->complete ? 'high' : 'limited';
+				$row['verify']      = __( 'Check the published page if the template changes.', 'seo-studio' );
+			}
+			$rows[ $id ] = $row;
 		}
 		return $rows;
 	}
@@ -383,20 +570,20 @@ final class Graph {
 		}
 
 		return array(
-			'coverage'      => array(
+			'coverage'         => array(
 				'complete'  => $this->complete,
 				'inventory' => count( $rows ),
 				'analysed'  => $analysed,
 				'missing'   => $this->missing,
 				'withheld'  => $this->withheld,
 			),
-			'front'         => array(
+			'front'            => array(
 				'id'    => $this->frontId,
 				'title' => '' !== $this->frontId ? (string) ( $rows[ $this->frontId ]['title'] ?? '' ) : '',
 				'url'   => UrlKey::absolute( $this->home, $this->home ),
 				'kind'  => '' !== $this->frontId ? 'page' : 'blog',
 			),
-			'counts'        => array(
+			'counts'           => array(
 				'inventory'       => count( $rows ),
 				'analysed'        => $analysed,
 				'orphans'         => $this->complete ? count( $orphans ) : null,
@@ -404,18 +591,21 @@ final class Graph {
 				'template_only'   => count( $template_only ),
 				'unknown'         => count( $unknown ),
 				'unresolved'      => count( $unresolved ),
+				'unverified'      => count( $this->unknownDestinations ),
 				'unreachable'     => $unreachable,
 				'navigation'      => $navigationLinks,
 				'address_clashes' => $this->collisions,
 			),
-			'depth'         => $histogram,
-			'deepest'       => null === $deepest ? null : $this->brief( $deepest ),
-			'orphans'       => $this->complete ? $this->limit( $orphans ) : array(),
-			'weak'          => $this->limit( $weak ),
-			'template_only' => $this->limit( $template_only ),
-			'unresolved'    => $this->limit( $unresolved ),
-			'limited'       => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT,
-			'notes'         => $this->notes(),
+			'depth'            => $histogram,
+			'deepest'          => null === $deepest ? null : $this->brief( $deepest ),
+			'orphans'          => $this->complete ? $this->limit( $orphans ) : array(),
+			'weak'             => $this->limit( $weak ),
+			'template_only'    => $this->limit( $template_only ),
+			'unresolved'       => $this->limit( $unresolved ),
+			'unverified'       => $this->limit( array_values( $this->unknownDestinations ) ),
+			'possible_aliases' => $this->aliasNotices(),
+			'limited'          => count( $orphans ) > self::LIST_LIMIT || count( $weak ) > self::LIST_LIMIT || count( $template_only ) > self::LIST_LIMIT || count( $unresolved ) > self::LIST_LIMIT || count( $this->unknownDestinations ) > self::LIST_LIMIT,
+			'notes'            => $this->notes(),
 		);
 	}
 
@@ -460,7 +650,12 @@ final class Graph {
 			'template_referrers'     => (int) $row['template_referrers'],
 			'contextual_occurrences' => (int) $row['contextual_occurrences'],
 			'template_occurrences'   => (int) $row['template_occurrences'],
+			'navigation_referrers'   => (int) ( $row['navigation_referrers'] ?? 0 ),
 			'status'                 => (string) $row['status'],
+			'observation'            => (string) ( $row['observation'] ?? '' ),
+			'evidence'               => (string) ( $row['evidence'] ?? '' ),
+			'confidence'             => (string) ( $row['confidence'] ?? '' ),
+			'verify'                 => (string) ( $row['verify'] ?? '' ),
 		);
 	}
 
@@ -472,6 +667,55 @@ final class Graph {
 	 */
 	private function limit( array $rows ): array {
 		return array_slice( $rows, 0, self::LIST_LIMIT );
+	}
+
+	/**
+	 * One notice per untrusted www or non-www hostname.
+	 *
+	 * @return list<array{host: string, count: int, pages: int, message: string}>
+	 */
+	private function aliasNotices(): array {
+		$notices = array();
+		foreach ( $this->possibleAliases as $host => $count ) {
+			$host  = (string) $host;
+			$count = (int) $count;
+			$pages = 0;
+			foreach ( $this->aliasUncertain as $uncertain ) {
+				if ( $uncertain === $host ) {
+					++$pages;
+				}
+			}
+			$message = sprintf(
+				/* translators: 1: number of links, 2: hostname. */
+				_n(
+					'%1$d link points to %2$s, which may be this site.',
+					'%1$d links point to %2$s, which may be this site.',
+					$count,
+					'seo-studio'
+				),
+				$count,
+				$host
+			);
+			if ( $pages > 0 ) {
+				$message .= ' ' . sprintf(
+					/* translators: %d: number of pages that are not called orphans. */
+					_n(
+						'%d page is not called an orphan until that hostname is trusted.',
+						'%d pages are not called orphans until that hostname is trusted.',
+						$pages,
+						'seo-studio'
+					),
+					$pages
+				);
+			}
+			$notices[] = array(
+				'host'    => $host,
+				'count'   => $count,
+				'pages'   => $pages,
+				'message' => $message,
+			);
+		}
+		return $notices;
 	}
 
 	/**
@@ -500,6 +744,12 @@ final class Graph {
 		}
 		if ( '' === $this->frontId ) {
 			$notes[] = __( 'The front page is the blog index, so depth starts at the site address and at navigation targets.', 'seo-studio' );
+		}
+		foreach ( $this->aliasNotices() as $notice ) {
+			$notes[] = (string) $notice['message'];
+		}
+		if ( array() !== $this->unknownDestinations ) {
+			$notes[] = __( 'Some same-site addresses did not match a local WordPress route. They are unverified, not confirmed broken links.', 'seo-studio' );
 		}
 		if ( $this->collisions > 0 ) {
 			$notes[] = sprintf(

@@ -9,7 +9,10 @@ import {
 	overlapConfidence,
 	overlapObservation,
 } from '../../assets/src/dashboard/overlap-copy';
-import { priorityKind } from '../../assets/src/dashboard/priorities-copy';
+import {
+	candidateLabel,
+	priorityKind,
+} from '../../assets/src/dashboard/priorities-copy';
 import {
 	topicIntentLabel,
 	topicRoleLabel,
@@ -32,12 +35,40 @@ import {
 	workspaceOwnership,
 } from '../../assets/src/dashboard/ownership-note';
 
+describe( 'priority candidates', () => {
+	it( 'names a page and its reason, and hides a restricted page', () => {
+		expect(
+			candidateLabel( {
+				post_id: 4,
+				title: 'Companion',
+				url: 'https://example.test/companion/',
+				reason: 'Same stored topic.',
+			} )
+		).toBe( 'Companion (Same stored topic.)' );
+		expect(
+			candidateLabel( {
+				post_id: 0,
+				title: '',
+				url: 'https://example.test/companion/',
+			} )
+		).toBe( 'https://example.test/companion/' );
+		expect(
+			candidateLabel( {
+				post_id: 0,
+				title: '',
+				url: 'https://example.test/secret/',
+				redacted: true,
+			} )
+		).toBe( '' );
+	} );
+} );
+
 describe( 'architecture copy', () => {
 	it( 'names link states without treating a missing crawl as an orphan', () => {
 		expect( architectureStatus( 'orphan' ) ).toBe( 'Orphan' );
 		expect( architectureStatus( 'weak' ) ).toBe( 'Weakly linked' );
 		expect( architectureStatus( 'template_only' ) ).toBe( 'Template only' );
-		expect( architectureStatus( 'unknown' ) ).toBe( 'Not enough data' );
+		expect( architectureStatus( 'unknown' ) ).toBe( 'Not yet verified' );
 		expect( depthLabel( null ) ).toBe( 'Not reached' );
 		expect( depthLabel( 2 ) ).toBe( '2' );
 	} );

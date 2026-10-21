@@ -62,8 +62,9 @@ final class RolePrioritiesTest extends WP_UnitTestCase {
 		$author_json = (string) wp_json_encode( $author_report );
 		$this->assertStringNotContainsString( 'Secret other title', $author_json );
 		$this->assertStringNotContainsString( 'Private secret page', $author_json );
-		$this->assertStringNotContainsString( 'Stale noindex page', $author_json );
 		$this->assertStringNotContainsString( 'Filler page 1', $author_json );
+		$this->assertStringContainsString( 'Author visible page', $author_json );
+		$this->assertStringContainsString( 'Stale noindex page', $author_json );
 		$this->assertStringNotContainsString( 'Import a Search Console file', $author_json );
 		$this->assertLessThanOrEqual( 40, count( $author_report['items'] ) );
 

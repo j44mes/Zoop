@@ -291,7 +291,7 @@ final class PrioritiesTest extends TestCase {
 		$this->assertStringNotContainsString( 'remove noindex', strtolower( $grouped['action'] . ' ' . $grouped['reason'] ) );
 		$this->assertStringContainsString( 'content score is separate', $grouped['reason'] );
 
-		$many = ( new Priorities() )->rank(
+		$many   = ( new Priorities() )->rank(
 			$this->architecture(
 				array(
 					array(
@@ -421,6 +421,36 @@ final class PrioritiesTest extends TestCase {
 		);
 		$this->assertGreaterThan( 40, count( $everything ) );
 		$this->assertStringContainsString( 'Secret other title', (string) json_encode( $everything ) );
+	}
+
+	public function testUnverifiedDestinationsAreNotConfirmedBroken(): void {
+		$result = ( new Priorities() )->rank(
+			array(
+				'coverage'   => array( 'complete' => true ),
+				'unresolved' => array(),
+				'unverified' => array(
+					array(
+						'from_id'     => 'post:1',
+						'from_title'  => 'Home',
+						'href'        => 'https://example.test/mystery/',
+						'occurrences' => 1,
+						'reason'      => 'No local WordPress route matched this address. It is not a confirmed broken link.',
+					),
+				),
+				'orphans'    => array(),
+				'weak'       => array(),
+			),
+			array( 'groups' => array() ),
+			array()
+		);
+
+		$item = $result['items'][0];
+		$this->assertSame( 'unverified', $item['kind'] );
+		$this->assertSame( 'limited', $item['confidence'] );
+		$this->assertSame( 'Unverified destination.', $item['observation'] );
+		$this->assertStringContainsString( 'not a confirmed broken link', $item['evidence'] );
+		$this->assertStringContainsString( 'did not request', $item['reason'] );
+		$this->assertStringNotContainsString( 'Confirmed missing', $item['observation'] . $item['action'] . $item['reason'] );
 	}
 
 	/**
