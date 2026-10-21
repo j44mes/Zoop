@@ -242,6 +242,7 @@ function seostudio_package_main(): int {
 	$files = new RecursiveIteratorIterator(
 		new RecursiveDirectoryIterator( $stage, FilesystemIterator::SKIP_DOTS )
 	);
+	$packed = array();
 	foreach ( $files as $file ) {
 		if ( ! $file instanceof SplFileInfo || ! $file->isFile() ) {
 			continue;
@@ -250,7 +251,15 @@ function seostudio_package_main(): int {
 		if ( ! is_string( $relative ) ) {
 			continue;
 		}
-		$zip->addFile( $file->getPathname(), 'seo-studio/' . str_replace( '\\', '/', $relative ) );
+		$packed[] = str_replace( '\\', '/', $relative );
+	}
+	sort( $packed );
+	// A fixed timestamp keeps two builds of the same tree on the same checksum.
+	$mtime = 1735689600;
+	foreach ( $packed as $relative ) {
+		$path = $stage . '/' . $relative;
+		touch( $path, $mtime );
+		$zip->addFile( $path, 'seo-studio/' . $relative );
 	}
 	$zip->close();
 
