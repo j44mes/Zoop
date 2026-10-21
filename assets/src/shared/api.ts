@@ -392,6 +392,35 @@ export function fetchOverlap(): Promise< OverlapReport > {
 	return apiFetch( { path: '/seostudio/v1/overlap' } );
 }
 
+export interface SearchRow {
+	query: string;
+	page: string;
+	clicks: number;
+	impressions: number;
+	position: number | null;
+}
+
+export interface SearchSummary {
+	connected: boolean;
+	rows: number;
+	skipped: number;
+	imported_at: string;
+	top: SearchRow[];
+	note: string;
+}
+
+export function fetchSearchConsole(): Promise< SearchSummary > {
+	return apiFetch( { path: '/seostudio/v1/search-console' } );
+}
+
+export function importSearchConsole( csv: string ): Promise< SearchSummary > {
+	return apiFetch( {
+		path: '/seostudio/v1/search-console',
+		method: 'POST',
+		data: { csv },
+	} );
+}
+
 export function saveTopic(
 	postId: number,
 	body: {

@@ -17,7 +17,7 @@ use SEOStudio\Storage\Migrations\Migration_001_Initial;
  * Runs ordered migrations when the stored schema version is behind.
  */
 final class Upgrader {
-	public const CURRENT = 3;
+	public const CURRENT = 4;
 
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
@@ -41,6 +41,7 @@ final class Upgrader {
 		if ( $current < 3 ) {
 			( new PagesRepository() )->backfillFocus();
 		}
+		// Schema 4 adds the imported Search Console table through dbDelta above.
 		$settings['schema_version'] = self::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 	}

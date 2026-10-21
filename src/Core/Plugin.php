@@ -24,6 +24,7 @@ use SEOStudio\Rest\OverlapController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
 use SEOStudio\Rest\Responses;
+use SEOStudio\Rest\SearchConsoleController;
 use SEOStudio\Rest\SettingsController;
 use SEOStudio\Rest\ToolsController;
 use SEOStudio\Rest\TopicController;
@@ -75,6 +76,7 @@ final class Plugin {
 		( new ArchitectureController() )->register();
 		( new TopicController() )->register();
 		( new OverlapController() )->register();
+		( new SearchConsoleController() )->register();
 		( new SettingsController() )->register();
 		( new MigrationsController() )->register();
 		( new ToolsController() )->register();

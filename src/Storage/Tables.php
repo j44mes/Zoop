@@ -33,6 +33,11 @@ final class Tables {
 		return $wpdb->prefix . 'seostudio_audit_runs';
 	}
 
+	public static function searchRows(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'seostudio_search_rows';
+	}
+
 	public static function install(): void {
 		global $wpdb;
 
@@ -43,6 +48,7 @@ final class Tables {
 		$scores  = self::scores();
 		$keys    = self::keyphrases();
 		$runs    = self::auditRuns();
+		$search  = self::searchRows();
 
 		$sql = array(
 			"CREATE TABLE {$pages} (
@@ -108,6 +114,17 @@ final class Tables {
 				report longtext NULL,
 				PRIMARY KEY  (id),
 				KEY status (status)
+			) {$charset};",
+			"CREATE TABLE {$search} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				query_text varchar(500) NOT NULL DEFAULT '',
+				page_url varchar(2048) NOT NULL DEFAULT '',
+				clicks int(11) NOT NULL DEFAULT 0,
+				impressions int(11) NOT NULL DEFAULT 0,
+				position decimal(8,2) NULL,
+				imported_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				KEY impressions (impressions)
 			) {$charset};",
 		);
 

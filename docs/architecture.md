@@ -75,3 +75,7 @@ Orphan pages are listed only when an administrator can see every published page 
 ## Overlap
 
 `GET /seostudio/v1/overlap` compares published pages. The same target phrase is High confidence. The same primary topic is High when the suggested intent also matches, and Medium when it does not. Three or more shared title words, after English function words are removed, is Low. Fewer than two phrases, or no shared phrase, is Insufficient evidence. Every reason says a shared phrase is not proof of harm. The report does not edit pages.
+
+## Search Console
+
+`POST /seostudio/v1/search-console` stores a performance export. The file needs query, clicks, and impressions columns. Page and position are kept when they are present. At most 5,000 query rows are stored, and a new import replaces the previous one. Zoop does not use OAuth and does not connect to Search Console. The summary says the rows came from a file.

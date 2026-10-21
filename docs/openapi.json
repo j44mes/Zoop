@@ -17,6 +17,10 @@
     "/seostudio/v1/keyphrases/usage": { "get": { "summary": "Keyphrase usage", "responses": { "200": { "description": "Posts" } } } },
     "/seostudio/v1/architecture": { "get": { "summary": "Internal-link architecture report", "responses": { "200": { "description": "Inventory, link graph, and incomplete-crawl state" } } } },
     "/seostudio/v1/overlap": { "get": { "summary": "Cannibalisation evidence", "responses": { "200": { "description": "Overlap levels with confidence and reasons" } } } },
+    "/seostudio/v1/search-console": {
+      "get": { "summary": "Imported Search Console rows", "responses": { "200": { "description": "Import summary" } } },
+      "post": { "summary": "Import a Search Console CSV", "responses": { "200": { "description": "Import summary" }, "400": { "description": "Unreadable file" } } }
+    },
     "/seostudio/v1/posts/{post_id}/topic": {
       "get": { "summary": "Topic suggestions and corrections", "responses": { "200": { "description": "Suggestions, saved values, and effective values" } } },
       "put": { "summary": "Save topic corrections", "responses": { "200": { "description": "Updated topic" } } }
