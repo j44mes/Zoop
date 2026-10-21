@@ -390,7 +390,7 @@ export function startAudit(): Promise< AuditRun > {
 }
 
 export interface UpgradeNoticePayload {
-	ruleset: number;
+	ruleset?: number;
 	count: number;
 	message: string;
 	review_url: string;
@@ -403,6 +403,7 @@ export interface CapabilityManifest {
 	detected_name: string;
 	version_label?: string;
 	upgrade_notice?: UpgradeNoticePayload | null;
+	legacy_notice?: UpgradeNoticePayload | null;
 }
 
 export function fetchCapabilities(): Promise< CapabilityManifest > {
@@ -412,6 +413,13 @@ export function fetchCapabilities(): Promise< CapabilityManifest > {
 export function dismissRulesetNotice(): Promise< { dismissed: boolean } > {
 	return apiFetch( {
 		path: '/seostudio/v1/notices/ruleset-retirement/dismiss',
+		method: 'POST',
+	} );
+}
+
+export function dismissLegacyScoreNotice(): Promise< { dismissed: boolean } > {
+	return apiFetch( {
+		path: '/seostudio/v1/notices/legacy-scores/dismiss',
 		method: 'POST',
 	} );
 }

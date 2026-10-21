@@ -12,8 +12,8 @@ namespace SEOStudio\Core;
 /**
  * Plugin version and the optional build stamp stay separate.
  *
- * A development version with a real stamp includes the commit. A release
- * version never does, and a missing stamp is left off rather than invented.
+ * A development or beta version with a real stamp includes the commit. A
+ * stable version never does, and a missing stamp is left off rather than invented.
  */
 final class VersionIdentity {
 	public static function label(): string {
@@ -34,6 +34,6 @@ final class VersionIdentity {
 	}
 
 	public static function isDevelopment( string $version ): bool {
-		return 1 === preg_match( '/\A\d+\.\d+\.\d+-dev\.\d+\z/', $version );
+		return 1 === preg_match( '/\A\d+\.\d+\.\d+-(?:dev|beta)\.\d+\z/', $version );
 	}
 }

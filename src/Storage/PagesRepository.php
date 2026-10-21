@@ -177,6 +177,36 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Pages that already have an on-page score row.
+	 *
+	 * Used when an install from before evidence-ready scores is upgraded. The rows stay.
+	 *
+	 * @return int[]
+	 */
+	public function pagesWithOnPageScores(): array {
+		global $wpdb;
+
+		$scores = Tables::scores();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name; no user input.
+		$rows = $wpdb->get_col( "SELECT DISTINCT page_id FROM {$scores} WHERE engine = 'onpage'" );
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$ids = array();
+		foreach ( $rows as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
+		$ids = array_values( array_unique( $ids ) );
+		sort( $ids );
+
+		return $ids;
+	}
+
+	/**
 	 * Pages whose current score is allowed to be shown as definitive.
 	 *
 	 * Captured before retirement withholds evidence_ready.
@@ -703,6 +733,11 @@ final class PagesRepository {
 		if ( 'ruleset_retired' === ( $filters['score_state'] ?? '' ) ) {
 			$retired = isset( $filters['retirement_ids'] ) && is_array( $filters['retirement_ids'] ) ? array_map( 'intval', $filters['retirement_ids'] ) : array();
 			$where[] = "pages.missing_evidence = 'ruleset' AND pages.id IN (" . implode( ',', array( 0, ...$retired ) ) . ')';
+		}
+
+		if ( 'legacy_scores' === ( $filters['score_state'] ?? '' ) ) {
+			$legacy  = isset( $filters['legacy_ids'] ) && is_array( $filters['legacy_ids'] ) ? array_map( 'intval', $filters['legacy_ids'] ) : array();
+			$where[] = "pages.onpage_state = 'needs_reanalysis' AND pages.id IN (" . implode( ',', array( 0, ...$legacy ) ) . ')';
 		}
 
 		if ( 'noindex' === ( $filters['visibility'] ?? '' ) ) {

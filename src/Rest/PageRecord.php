@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\UpgradeNotice;
 use SEOStudio\Scoring\OnPage\CheckPresentation;
 use SEOStudio\Scoring\OnPage\Ruleset;
@@ -182,7 +183,7 @@ final class PageRecord {
 	 * @param array<string, mixed> $filters List filters.
 	 */
 	public function count( array $filters ): int {
-		$stats = $this->pages->aggregate( $this->authorise( $this->withRetirement( $filters ) ) );
+		$stats = $this->pages->aggregate( $this->authorise( $this->withReviewLists( $filters ) ) );
 
 		return (int) $stats['total'];
 	}
@@ -229,7 +230,7 @@ final class PageRecord {
 	 * @return array<string, mixed>
 	 */
 	private function filtersFromRequest( WP_REST_Request $request ): array {
-		return $this->withRetirement(
+		return $this->withReviewLists(
 			array(
 				'search'        => $request->get_param( 'search' ),
 				'object_id'     => $request->get_param( 'object_id' ),
@@ -247,17 +248,18 @@ final class PageRecord {
 	}
 
 	/**
-	 * Limit a ruleset review to the recorded retirement, not every out-of-date page.
+	 * Limit a review to the recorded ruleset retirement or the saved pre-evidence scores.
 	 *
 	 * @param array<string, mixed> $filters List filters.
 	 * @return array<string, mixed>
 	 */
-	private function withRetirement( array $filters ): array {
-		if ( 'ruleset_retired' !== (string) ( $filters['score_state'] ?? '' ) ) {
-			return $filters;
+	private function withReviewLists( array $filters ): array {
+		if ( 'ruleset_retired' === (string) ( $filters['score_state'] ?? '' ) ) {
+			$filters['retirement_ids'] = UpgradeNotice::outstandingIds();
 		}
-
-		$filters['retirement_ids'] = UpgradeNotice::outstandingIds();
+		if ( 'legacy_scores' === (string) ( $filters['score_state'] ?? '' ) ) {
+			$filters['legacy_ids'] = LegacyScoreNotice::outstandingIds();
+		}
 
 		return $filters;
 	}

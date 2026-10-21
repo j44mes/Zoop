@@ -28,6 +28,7 @@ final class RouteAccessTest extends WP_UnitTestCase {
 		'GET /seostudio/v1/capabilities',
 		'GET /seostudio/v1/recommendations',
 		'POST /seostudio/v1/notices/ruleset-retirement/dismiss',
+		'POST /seostudio/v1/notices/legacy-scores/dismiss',
 	);
 
 	private int $postId = 0;

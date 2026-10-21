@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\UpgradeNotice;
 use SEOStudio\Core\VersionIdentity;
 use SEOStudio\Integrations\Detector;
@@ -44,6 +45,7 @@ final class CapabilitiesController {
 				'detected_name'  => is_array( $active ) ? $active['name'] : '',
 				'version_label'  => VersionIdentity::label(),
 				'upgrade_notice' => UpgradeNotice::payload(),
+				'legacy_notice'  => LegacyScoreNotice::payload(),
 			)
 		);
 	}

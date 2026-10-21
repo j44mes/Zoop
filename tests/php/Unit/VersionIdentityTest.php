@@ -22,8 +22,12 @@ final class VersionIdentityTest extends TestCase {
 		$this->assertSame( 'Zoop 0.6.0-dev.1', VersionIdentity::labelFor( '0.6.0-dev.1', '' ) );
 		$this->assertSame( 'Zoop 0.6.0-dev.1', VersionIdentity::labelFor( '0.6.0-dev.1', 'not-a-sha' ) );
 		$this->assertSame( 'Zoop 0.6.0', VersionIdentity::labelFor( '0.6.0', 'abc1234' ) );
+		$this->assertSame( 'Zoop 0.6.0-beta.1 (build abc1234)', VersionIdentity::labelFor( '0.6.0-beta.1', 'abc1234' ) );
+		$this->assertSame( 'Zoop 0.6.0-beta.1', VersionIdentity::labelFor( '0.6.0-beta.1', '' ) );
 		$this->assertTrue( VersionIdentity::isDevelopment( '0.6.0-dev.1' ) );
+		$this->assertTrue( VersionIdentity::isDevelopment( '0.6.0-beta.1' ) );
 		$this->assertFalse( VersionIdentity::isDevelopment( '0.6.0' ) );
+		$this->assertFalse( VersionIdentity::isDevelopment( '0.6.0-rc.1' ) );
 		$this->assertTrue( Ruleset::matches( Ruleset::CURRENT ) );
 		$this->assertFalse( Ruleset::matches( 0 ) );
 		$this->assertFalse( Ruleset::matches( 10 ) );

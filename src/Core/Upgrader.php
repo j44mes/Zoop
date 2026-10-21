@@ -45,6 +45,7 @@ final class Upgrader {
 		// Schema 5 classifies cached on-page scores. Old rows are not evidence version 2.
 		if ( $current < 5 ) {
 			self::ensureOnPageState();
+			LegacyScoreNotice::captureUpgrade();
 			( new PagesRepository() )->retireCachedScores();
 		}
 		// Schema 6 stores readiness on the page row. Previously verified live rows
