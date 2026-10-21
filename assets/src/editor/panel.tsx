@@ -5,6 +5,7 @@ import {
 	TextControl,
 	TextareaControl,
 } from '@wordpress/components';
+import { useEntityProp } from '@wordpress/core-data';
 import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
@@ -21,7 +22,6 @@ import {
 	keyphraseUsage,
 	previewModel,
 	saveContentScores,
-	saveSeo,
 	type OnPageScore,
 	type PageModelResponse,
 } from '../shared/api';
@@ -54,6 +54,13 @@ function classicField( id: string ): string | undefined {
 		| HTMLTextAreaElement
 		| null;
 	return field ? field.value : undefined;
+}
+
+function syncClassic( id: string, value: string ): void {
+	const field = document.getElementById( id ) as HTMLInputElement | null;
+	if ( field ) {
+		field.value = value;
+	}
 }
 
 function messageOf( error: unknown ): string {
@@ -115,6 +122,9 @@ export function Panel( {
 	const [ preview, setPreview ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
+	const [ fieldsReady, setFieldsReady ] = useState( false );
+	const [ robotsEdited, setRobotsEdited ] = useState( false );
+	const publishTitle = !! metadata?.publishesOwn && ! metadata?.isHomepage;
 	const [ workerDown, setWorkerDown ] = useState( false );
 	const [ selector, setSelector ] = useState( '' );
 	const [ mode, setMode ] = useState( 'content' );
@@ -163,14 +173,15 @@ export function Panel( {
 				setTitle( seo.title || '' );
 				setDescription( seo.description || '' );
 				setCanonical( seo.canonical || '' );
+				setFieldsReady( true );
 				setVideoUrl( seo.video_url || '' );
 				setIsNews(
 					seo.is_news === true ||
 						seo.is_news === 1 ||
 						seo.is_news === '1'
 				);
-				setIndexable( seo.robots?.index !== false );
-				setFollow( seo.robots?.follow !== false );
+				setIndexable( robotOn( seo.robots?.index, true ) );
+				setFollow( robotOn( seo.robots?.follow, true ) );
 				setOgTitle( seo.og_title || '' );
 				setOgDescription( seo.og_description || '' );
 			} )
@@ -180,6 +191,48 @@ export function Panel( {
 				)
 			);
 	}, [ id ] );
+
+	useEffect( () => {
+		if ( blockEditor || ! fieldsReady ) {
+			return;
+		}
+		if ( publishTitle ) {
+			syncClassic( 'seostudio-stored-title', title );
+			syncClassic( 'seostudio-stored-description', description );
+		}
+		syncClassic( 'seostudio-canonical-field', canonical );
+		syncClassic( 'seostudio-social-title', ogTitle );
+		syncClassic( 'seostudio-social-description', ogDescription );
+		syncClassic( 'seostudio-focus-keyphrase', keyphrase );
+		syncClassic( 'seostudio-video-url', videoUrl );
+		syncClassic(
+			'seostudio-related',
+			JSON.stringify( relatedPayload( related ) )
+		);
+		syncClassic(
+			'seostudio-synonyms',
+			JSON.stringify( splitList( synonyms ) )
+		);
+		syncClassic( 'seostudio-robots-index', indexable ? '1' : '0' );
+		syncClassic( 'seostudio-robots-follow', follow ? '1' : '0' );
+		syncClassic( 'seostudio-is-news', isNews ? '1' : '0' );
+	}, [
+		blockEditor,
+		fieldsReady,
+		publishTitle,
+		title,
+		description,
+		canonical,
+		ogTitle,
+		ogDescription,
+		keyphrase,
+		related,
+		synonyms,
+		videoUrl,
+		isNews,
+		indexable,
+		follow,
+	] );
 
 	const runWorker = useCallback(
 		async ( next: PageModelResponse, persistPageId: number | false ) => {
@@ -279,7 +332,6 @@ export function Panel( {
 		setBusy( true );
 		setError( '' );
 		try {
-			await saveSeo( id, seoPayload() );
 			const record = await analysePost( id, {
 				mode: nextMode,
 				keyphrase,
@@ -301,25 +353,6 @@ export function Panel( {
 		} finally {
 			setBusy( false );
 		}
-	}
-
-	function seoPayload() {
-		return {
-			focus_keyphrase: keyphrase,
-			related_keyphrases: splitList( related ).map( ( phrase ) => ( {
-				keyphrase: phrase,
-				synonyms: [],
-			} ) ),
-			synonyms: splitList( synonyms ),
-			title,
-			description,
-			canonical,
-			video_url: videoUrl,
-			is_news: isNews,
-			robots: { index: indexable, follow },
-			og_title: ogTitle,
-			og_description: ogDescription,
-		};
 	}
 
 	const home =
@@ -358,6 +391,25 @@ export function Panel( {
 						'seo-studio'
 					) }
 				</p>
+			) : null }
+			{ blockEditor ? (
+				<GutenbergMetaBridge
+					ready={ fieldsReady }
+					publishTitle={ publishTitle }
+					robotsEdited={ robotsEdited }
+					title={ title }
+					description={ description }
+					canonical={ canonical }
+					ogTitle={ ogTitle }
+					ogDescription={ ogDescription }
+					keyphrase={ keyphrase }
+					related={ related }
+					synonyms={ synonyms }
+					videoUrl={ videoUrl }
+					isNews={ isNews }
+					indexable={ indexable }
+					follow={ follow }
+				/>
 			) : null }
 			<TextControl
 				label={ __( 'Target phrase', 'seo-studio' ) }
@@ -487,10 +539,22 @@ export function Panel( {
 			</details>
 			<details data-section="search">
 				<summary>{ __( 'Search appearance', 'seo-studio' ) }</summary>
-				{ metadata?.publishesOwn && metadata.isHomepage ? (
-					<Notice status="info" isDismissible={ false }>
-						{ metadataNote( metadata ) }
-					</Notice>
+				<Notice status="info" isDismissible={ false }>
+					{ metadataNote( metadata ) }
+				</Notice>
+				{ metadata?.activePlugin && metadata.pluginUrl ? (
+					<p>
+						<a href={ metadata.pluginUrl }>
+							{ metadata.activePlugin }
+						</a>
+					</p>
+				) : null }
+				{ metadata?.isHomepage && metadata.canManage ? (
+					<p>
+						<a href="admin.php?page=seostudio&section=settings">
+							{ __( 'Edit homepage settings', 'seo-studio' ) }
+						</a>
+					</p>
 				) : null }
 				<SnippetPreview
 					title={ previewTitle }
@@ -503,21 +567,40 @@ export function Panel( {
 					description={ previewDescription }
 					viewport="mobile"
 				/>
-				<VariableInput
-					id="seostudio-title"
-					label={ __( 'SEO title', 'seo-studio' ) }
-					value={ title }
-					onChange={ setTitle }
-					hint={ `${ title.length } / 300` }
-				/>
-				<VariableInput
-					id="seostudio-description"
-					label={ __( 'Description', 'seo-studio' ) }
-					value={ description }
-					onChange={ setDescription }
-					multiline
-					hint={ `${ description.length }` }
-				/>
+				{ publishTitle ? (
+					<>
+						<VariableInput
+							id="seostudio-title"
+							label={ __( 'SEO title', 'seo-studio' ) }
+							value={ title }
+							onChange={ ( value ) => {
+								setTitle( value );
+								syncClassic( 'seostudio-stored-title', value );
+							} }
+							hint={ __(
+								'Update publishes this title on the public page.',
+								'seo-studio'
+							) }
+						/>
+						<VariableInput
+							id="seostudio-description"
+							label={ __( 'Description', 'seo-studio' ) }
+							value={ description }
+							onChange={ ( value ) => {
+								setDescription( value );
+								syncClassic(
+									'seostudio-stored-description',
+									value
+								);
+							} }
+							multiline
+							hint={ __(
+								'Update publishes this description on the public page.',
+								'seo-studio'
+							) }
+						/>
+					</>
+				) : null }
 				<TextControl
 					label={ __( 'Canonical', 'seo-studio' ) }
 					value={ canonical }
@@ -526,12 +609,18 @@ export function Panel( {
 				<CheckboxControl
 					label={ __( 'Index', 'seo-studio' ) }
 					checked={ indexable }
-					onChange={ setIndexable }
+					onChange={ ( value ) => {
+						setIndexable( value );
+						setRobotsEdited( true );
+					} }
 				/>
 				<CheckboxControl
 					label={ __( 'Follow', 'seo-studio' ) }
 					checked={ follow }
-					onChange={ setFollow }
+					onChange={ ( value ) => {
+						setFollow( value );
+						setRobotsEdited( true );
+					} }
 				/>
 			</details>
 			<details data-section="social">
@@ -604,6 +693,155 @@ function analysisLabelOf( state: string ): string {
 		return __( 'Saved analysis', 'seo-studio' );
 	}
 	return __( 'Not analysed yet', 'seo-studio' );
+}
+
+function GutenbergMetaBridge( {
+	ready,
+	publishTitle,
+	robotsEdited,
+	title,
+	description,
+	canonical,
+	ogTitle,
+	ogDescription,
+	keyphrase,
+	related,
+	synonyms,
+	videoUrl,
+	isNews,
+	indexable,
+	follow,
+}: {
+	ready: boolean;
+	publishTitle: boolean;
+	robotsEdited: boolean;
+	title: string;
+	description: string;
+	canonical: string;
+	ogTitle: string;
+	ogDescription: string;
+	keyphrase: string;
+	related: string;
+	synonyms: string;
+	videoUrl: string;
+	isNews: boolean;
+	indexable: boolean;
+	follow: boolean;
+} ) {
+	const postType = useSelect( ( select ): string => {
+		const editor = select( 'core/editor' ) as
+			| { getCurrentPostType?: () => string }
+			| undefined;
+		return editor?.getCurrentPostType?.() || 'post';
+	}, [] );
+	const [ meta, setMeta ] = useEntityProp( 'postType', postType, 'meta' );
+	useEffect( () => {
+		if ( ! ready || ! meta ) {
+			return;
+		}
+		const nextRelated = relatedPayload( related );
+		const nextSynonyms = splitList( synonyms );
+		const storedRobots =
+			meta._seostudio_robots && typeof meta._seostudio_robots === 'object'
+				? ( meta._seostudio_robots as Record< string, unknown > )
+				: undefined;
+		const robotsChanged =
+			!! robotsEdited &&
+			( ! storedRobots ||
+				robotOn( storedRobots.index, true ) !== indexable ||
+				robotOn( storedRobots.follow, true ) !== follow );
+		const currentNews =
+			meta._seostudio_is_news === true ||
+			meta._seostudio_is_news === 1 ||
+			meta._seostudio_is_news === '1';
+		const titleSame =
+			! publishTitle ||
+			( String( meta._seostudio_title ?? '' ) === title &&
+				String( meta._seostudio_description ?? '' ) === description );
+		const same =
+			titleSame &&
+			String( meta._seostudio_canonical ?? '' ) === canonical &&
+			String( meta._seostudio_og_title ?? '' ) === ogTitle &&
+			String( meta._seostudio_og_description ?? '' ) === ogDescription &&
+			String( meta._seostudio_focus_keyphrase ?? '' ) === keyphrase &&
+			String( meta._seostudio_video_url ?? '' ) === videoUrl &&
+			currentNews === isNews &&
+			! robotsChanged &&
+			JSON.stringify(
+				Array.isArray( meta._seostudio_related_keyphrases )
+					? meta._seostudio_related_keyphrases
+					: []
+			) === JSON.stringify( nextRelated ) &&
+			JSON.stringify(
+				Array.isArray( meta._seostudio_synonyms )
+					? meta._seostudio_synonyms
+					: []
+			) === JSON.stringify( nextSynonyms );
+		if ( same ) {
+			return;
+		}
+		const next: Record< string, unknown > = {
+			...meta,
+			_seostudio_canonical: canonical,
+			_seostudio_og_title: ogTitle,
+			_seostudio_og_description: ogDescription,
+			_seostudio_focus_keyphrase: keyphrase,
+			_seostudio_video_url: videoUrl,
+			_seostudio_is_news: isNews,
+			_seostudio_related_keyphrases: nextRelated,
+			_seostudio_synonyms: nextSynonyms,
+		};
+		if ( publishTitle ) {
+			next._seostudio_title = title;
+			next._seostudio_description = description;
+		}
+		if ( robotsChanged ) {
+			next._seostudio_robots = {
+				...( storedRobots || {} ),
+				index: indexable,
+				follow,
+			};
+		}
+		setMeta( next );
+	}, [
+		ready,
+		meta,
+		publishTitle,
+		robotsEdited,
+		title,
+		description,
+		canonical,
+		ogTitle,
+		ogDescription,
+		keyphrase,
+		related,
+		synonyms,
+		videoUrl,
+		isNews,
+		indexable,
+		follow,
+		setMeta,
+	] );
+	return null;
+}
+
+function robotOn( value: unknown, fallback: boolean ): boolean {
+	if ( value === false || value === 0 || value === '0' ) {
+		return false;
+	}
+	if ( value === true || value === 1 || value === '1' ) {
+		return true;
+	}
+	return fallback;
+}
+
+function relatedPayload(
+	value: string
+): Array< { keyphrase: string; synonyms: string[] } > {
+	return splitList( value ).map( ( keyphrase ) => ( {
+		keyphrase,
+		synonyms: [],
+	} ) );
 }
 
 function splitList( value: string ): string[] {

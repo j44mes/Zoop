@@ -49,7 +49,8 @@ final class PhaseOneTest extends WP_UnitTestCase {
 	public function test_registered_meta_is_hidden_from_the_core_rest_api(): void {
 		$keys = get_registered_meta_keys( 'post' );
 		$this->assertArrayHasKey( '_seostudio_focus_keyphrase', $keys );
-		$this->assertFalse( $keys['_seostudio_focus_keyphrase']['show_in_rest'] );
+		$this->assertArrayHasKey( '_seostudio_title', $keys );
+		$this->assertNotFalse( $keys['_seostudio_title']['show_in_rest'] );
 
 		$post_id = self::factory()->post->create(
 			array(

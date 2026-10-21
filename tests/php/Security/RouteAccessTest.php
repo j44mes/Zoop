@@ -25,6 +25,7 @@ final class RouteAccessTest extends WP_UnitTestCase {
 	private const CONTRIBUTOR_ALLOWED = array(
 		'GET /seostudio/v1/pages',
 		'GET /seostudio/v1/keyphrases/usage',
+		'GET /seostudio/v1/capabilities',
 	);
 
 	private int $postId = 0;

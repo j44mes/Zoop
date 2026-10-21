@@ -3,6 +3,8 @@ import { __, sprintf } from '@wordpress/i18n';
 export interface MetadataOwner {
 	publishesOwn: boolean;
 	activePlugin: string;
+	pluginUrl?: string;
+	canManage?: boolean;
 	isHomepage?: boolean;
 	homepage?: {
 		title_tag: string;
@@ -10,16 +12,22 @@ export interface MetadataOwner {
 		canonical: string;
 	} | null;
 }
+
 export function metadataNote( metadata?: MetadataOwner ): string {
+	if ( metadata?.publishesOwn && metadata.isHomepage ) {
+		return metadata.canManage
+			? __(
+					'This is the homepage. Its title and description are Zoop settings. Change them in Zoop settings. This page does not publish a separate SEO title.',
+					'seo-studio'
+			  )
+			: __(
+					'This is the homepage. Its title and description are site settings. An administrator changes them in Zoop settings.',
+					'seo-studio'
+			  );
+	}
 	if ( metadata?.publishesOwn ) {
-		if ( metadata.isHomepage ) {
-			return __(
-				'This is your homepage. Scores and published metadata use Home title and Home description in Zoop Settings, and the site home URL as canonical. The page SEO fields below are saved but do not override those settings. Social overrides still apply.',
-				'seo-studio'
-			);
-		}
 		return __(
-			'Scores use your SEO title and description, estimated from your settings. Verify live checks the published page.',
+			'Update publishes the SEO title and description. Zoop prints them on the published page.',
 			'seo-studio'
 		);
 	}
@@ -27,14 +35,14 @@ export function metadataNote( metadata?: MetadataOwner ): string {
 		return sprintf(
 			/* translators: %s: name of the active SEO plugin. */
 			__(
-				'%s prints this page’s metadata, so scores use its title and description, estimated from its settings. The SEO title and description below are saved but not printed.',
+				'%s prints the live title and description. Change them there. Zoop will not write a second set of tags.',
 				'seo-studio'
 			),
 			metadata.activePlugin
 		);
 	}
 	return __(
-		'Analysis-only mode: the page prints its post title and excerpt, so scores use those. The SEO title and description below are saved but not printed.',
+		'Zoop is not printing tags. An administrator can turn on Owner mode in Zoop settings.',
 		'seo-studio'
 	);
 }

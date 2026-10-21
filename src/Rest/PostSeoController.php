@@ -11,6 +11,7 @@ namespace SEOStudio\Rest;
 
 use SEOStudio\Content\TemplateValues;
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\HomepageMetadata;
 use SEOStudio\Core\Settings;
 use SEOStudio\Storage\SeoMeta;
 use WP_Error;
@@ -177,6 +178,13 @@ final class PostSeoController {
 		$error = $this->validator->validate( $params, (string) home_url( '/' ) );
 		if ( null !== $error ) {
 			return Responses::error( 'seostudio_validation', $error['message'], 400, $error['field'] );
+		}
+
+		if ( HomepageMetadata::isStaticPage( $post_id ) && ( array_key_exists( 'title', $params ) || array_key_exists( 'description', $params ) ) ) {
+			if ( ! Capabilities::canManage() ) {
+				return Responses::error( 'seostudio_homepage_settings', __( 'The homepage title is a site setting. It is available to an administrator.', 'seo-studio' ), 403 );
+			}
+			return Responses::error( 'seostudio_homepage_settings', __( 'The homepage title and description are site settings.', 'seo-studio' ), 400 );
 		}
 
 		foreach ( SeoValidator::FIELDS as $name => $meta_key ) {

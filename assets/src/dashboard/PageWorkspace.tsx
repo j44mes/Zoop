@@ -8,12 +8,11 @@ import {
 	fetchPages,
 	fetchPostIdentity,
 	fetchSeo,
-	fetchSettings,
-	saveSeo,
+	fetchCapabilities,
+	type CapabilityManifest,
 	type PageListItem,
 	type PageRecord,
 	type SeoFields,
-	type StudioSettings,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
@@ -247,7 +246,8 @@ export function PageWorkspace() {
 	const [ item, setItem ] = useState< PageListItem | null >( null );
 	const [ identity, setIdentity ] = useState( { title: '', link: '' } );
 	const [ seo, setSeo ] = useState< SeoFields | null >( null );
-	const [ settings, setSettings ] = useState< StudioSettings | null >( null );
+	const [ capabilities, setCapabilities ] =
+		useState< CapabilityManifest | null >( null );
 	const [ phrase, setPhrase ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ busy, setBusy ] = useState< 'content' | 'live' | '' >( '' );
@@ -267,7 +267,7 @@ export function PageWorkspace() {
 		Promise.all( [
 			fetchPages( { object_id: String( postId ), per_page: '1' } ),
 			fetchSeo( postId ),
-			fetchSettings(),
+			fetchCapabilities(),
 			fetchPostIdentity( postId ),
 		] )
 			.then( async ( [ list, fields, studio, post ] ) => {
@@ -276,7 +276,7 @@ export function PageWorkspace() {
 				}
 				setSeo( fields );
 				setPhrase( fields.focus_keyphrase || '' );
-				setSettings( studio );
+				setCapabilities( studio );
 				setIdentity( post );
 				const listed = list.items[ 0 ] || null;
 				setItem( listed );
@@ -320,10 +320,6 @@ export function PageWorkspace() {
 		setBusy( nextMode );
 		setError( '' );
 		try {
-			const saved = await saveSeo( postId, {
-				focus_keyphrase: phrase.trim(),
-			} );
-			setSeo( saved );
 			const next = await analysePost( postId, {
 				mode: nextMode,
 				keyphrase: phrase.trim(),
@@ -417,7 +413,20 @@ export function PageWorkspace() {
 								</p>
 							) : null }
 							<p data-testid="workspace-ownership">
-								{ workspaceOwnership( settings ) }
+								{ workspaceOwnership(
+									capabilities
+										? {
+												publishing:
+													capabilities.publishing,
+												detected:
+													capabilities.detected_name
+														? {
+																name: capabilities.detected_name,
+														  }
+														: null,
+										  }
+										: null
+								) }
 							</p>
 						</div>
 						<a
@@ -688,7 +697,7 @@ export function PageWorkspace() {
 										</h3>
 										<p className="seostudio-muted">
 											{ socialCaption(
-												!! settings?.publishing
+												!! capabilities?.publishing
 											) }
 										</p>
 										<SocialPreview

@@ -228,10 +228,31 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
 	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
 	await expect( page.getByTestId( 'readability-light' ) ).toBeVisible();
-	// Default Analysis-only mode must not claim the SEO Studio title is printed.
+	// Analysis-only mode must not present the title as something Update will print.
 	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
-		'saved but not printed'
+		'not printing tags'
 	);
+	// Analyse does not write SEO fields. The native save stores the phrase for the next load.
+	await page.waitForFunction( () => {
+		const select = (
+			window as unknown as {
+				wp: {
+					data: {
+						select: ( store: string ) => {
+							getEditedPostAttribute: ( key: string ) => {
+								_seostudio_focus_keyphrase?: string;
+							};
+						};
+					};
+				};
+			}
+		 ).wp.data.select( 'core/editor' );
+		return (
+			select.getEditedPostAttribute( 'meta' )
+				?._seostudio_focus_keyphrase === 'rank tracker'
+		);
+	} );
+	await saveDraft( page );
 } );
 
 test( 'editing the title updates the title assessment without a reload', async ( {
