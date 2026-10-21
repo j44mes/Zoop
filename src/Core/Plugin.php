@@ -25,6 +25,7 @@ use SEOStudio\Rest\PostSeoController;
 use SEOStudio\Rest\Responses;
 use SEOStudio\Rest\SettingsController;
 use SEOStudio\Rest\ToolsController;
+use SEOStudio\Rest\TopicController;
 use SEOStudio\Storage\KeyphraseHooks;
 
 /**
@@ -71,6 +72,7 @@ final class Plugin {
 		( new ContentScoresController() )->register();
 		( new AuditsController() )->register();
 		( new ArchitectureController() )->register();
+		( new TopicController() )->register();
 		( new SettingsController() )->register();
 		( new MigrationsController() )->register();
 		( new ToolsController() )->register();
@@ -82,20 +84,25 @@ final class Plugin {
 
 	private static function registerMeta(): void {
 		$keys = array(
-			'_seostudio_focus_keyphrase'    => 'string',
-			'_seostudio_related_keyphrases' => 'array',
-			'_seostudio_synonyms'           => 'array',
-			'_seostudio_title'              => 'string',
-			'_seostudio_description'        => 'string',
-			'_seostudio_canonical'          => 'string',
-			'_seostudio_robots'             => 'array',
-			'_seostudio_og_title'           => 'string',
-			'_seostudio_og_description'     => 'string',
-			'_seostudio_og_image'           => 'integer',
-			'_seostudio_cornerstone'        => 'boolean',
-			'_seostudio_content_selector'   => 'string',
-			'_seostudio_video_url'          => 'string',
-			'_seostudio_is_news'            => 'boolean',
+			'_seostudio_focus_keyphrase'     => 'string',
+			'_seostudio_related_keyphrases'  => 'array',
+			'_seostudio_synonyms'            => 'array',
+			'_seostudio_title'               => 'string',
+			'_seostudio_description'         => 'string',
+			'_seostudio_canonical'           => 'string',
+			'_seostudio_robots'              => 'array',
+			'_seostudio_og_title'            => 'string',
+			'_seostudio_og_description'      => 'string',
+			'_seostudio_og_image'            => 'integer',
+			'_seostudio_cornerstone'         => 'boolean',
+			'_seostudio_content_selector'    => 'string',
+			'_seostudio_video_url'           => 'string',
+			'_seostudio_is_news'             => 'boolean',
+			'_seostudio_primary_topic'       => 'string',
+			'_seostudio_page_role'           => 'string',
+			'_seostudio_search_intent'       => 'string',
+			'_seostudio_parent_topic'        => 'string',
+			'_seostudio_supporting_entities' => 'array',
 		);
 
 		foreach ( $keys as $key => $type ) {

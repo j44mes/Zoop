@@ -321,19 +321,20 @@ final class Graph {
 				$status = 'linked';
 			}
 			$rows[ $id ] = array(
-				'id'                     => $id,
-				'post_id'                => (int) $node['post_id'],
-				'title'                  => (string) $node['title'],
-				'url'                    => (string) $node['url'],
-				'analysed'               => (bool) $node['analysed'],
-				'depth'                  => $depth[ $id ] ?? null,
-				'referring_pages'        => $item['referring_pages'],
-				'contextual_referrers'   => $item['contextual_referrers'],
-				'template_referrers'     => $item['template_referrers'],
-				'contextual_occurrences' => $item['contextual_occurrences'],
-				'template_occurrences'   => $item['template_occurrences'],
-				'contextual_out'         => (int) ( $node['contextual_out'] ?? 0 ),
-				'status'                 => $status,
+				'id'                      => $id,
+				'post_id'                 => (int) $node['post_id'],
+				'title'                   => (string) $node['title'],
+				'url'                     => (string) $node['url'],
+				'analysed'                => (bool) $node['analysed'],
+				'depth'                   => $depth[ $id ] ?? null,
+				'referring_pages'         => $item['referring_pages'],
+				'contextual_referrers'    => $item['contextual_referrers'],
+				'template_referrers'      => $item['template_referrers'],
+				'contextual_occurrences'  => $item['contextual_occurrences'],
+				'template_occurrences'    => $item['template_occurrences'],
+				'contextual_out'          => (int) ( $node['contextual_out'] ?? 0 ),
+				'contextual_referrer_ids' => array_map( 'strval', array_keys( $this->incoming[ $id ]['contextual'] ?? array() ) ),
+				'status'                  => $status,
 			);
 		}
 		return $rows;

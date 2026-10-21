@@ -63,6 +63,7 @@ final class ArchitectureGraphTest extends TestCase {
 
 		$services = $this->find( $report['pages'], 'post:2' );
 		$this->assertSame( 1, $services['contextual_referrers'] );
+		$this->assertSame( array( 'post:1' ), $services['contextual_referrer_ids'] );
 		$this->assertSame( 2, $services['contextual_occurrences'] );
 		$this->assertSame( 1, $services['depth'] );
 		$this->assertSame( 'weak', $services['status'] );
