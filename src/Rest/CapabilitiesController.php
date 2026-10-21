@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
+use SEOStudio\Core\UpgradeNotice;
 use SEOStudio\Core\VersionIdentity;
 use SEOStudio\Integrations\Detector;
 use SEOStudio\Output\HeadOutput;
@@ -37,11 +38,12 @@ final class CapabilitiesController {
 		$active = ( new Detector() )->first();
 		return Responses::json(
 			array(
-				'manage'        => Capabilities::canManage(),
-				'edit_posts'    => current_user_can( 'edit_posts' ),
-				'publishing'    => ( new HeadOutput() )->publishing(),
-				'detected_name' => is_array( $active ) ? $active['name'] : '',
-				'version_label' => VersionIdentity::label(),
+				'manage'         => Capabilities::canManage(),
+				'edit_posts'     => current_user_can( 'edit_posts' ),
+				'publishing'     => ( new HeadOutput() )->publishing(),
+				'detected_name'  => is_array( $active ) ? $active['name'] : '',
+				'version_label'  => VersionIdentity::label(),
+				'upgrade_notice' => UpgradeNotice::payload(),
 			)
 		);
 	}

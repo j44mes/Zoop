@@ -24,6 +24,7 @@ use SEOStudio\Rest\KeyphrasesController;
 use SEOStudio\Rest\MigrationsController;
 use SEOStudio\Rest\ModelController;
 use SEOStudio\Rest\OverlapController;
+use SEOStudio\Rest\NoticesController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
 use SEOStudio\Rest\RecommendationsController;
@@ -90,6 +91,7 @@ final class Plugin {
 		( new SettingsController() )->register();
 		( new MigrationsController() )->register();
 		( new ToolsController() )->register();
+		( new NoticesController() )->register();
 	}
 
 	public static function activate(): void {

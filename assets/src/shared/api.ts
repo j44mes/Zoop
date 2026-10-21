@@ -389,16 +389,31 @@ export function startAudit(): Promise< AuditRun > {
 	} );
 }
 
+export interface UpgradeNoticePayload {
+	ruleset: number;
+	count: number;
+	message: string;
+	review_url: string;
+}
+
 export interface CapabilityManifest {
 	manage: boolean;
 	edit_posts: boolean;
 	publishing: boolean;
 	detected_name: string;
 	version_label?: string;
+	upgrade_notice?: UpgradeNoticePayload | null;
 }
 
 export function fetchCapabilities(): Promise< CapabilityManifest > {
 	return apiFetch( { path: '/seostudio/v1/capabilities' } );
+}
+
+export function dismissRulesetNotice(): Promise< { dismissed: boolean } > {
+	return apiFetch( {
+		path: '/seostudio/v1/notices/ruleset-retirement/dismiss',
+		method: 'POST',
+	} );
 }
 
 export function fetchSettings(): Promise< StudioSettings > {

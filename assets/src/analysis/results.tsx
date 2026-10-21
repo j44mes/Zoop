@@ -1,18 +1,20 @@
 import { __ } from '@wordpress/i18n';
 import type { ContentAnalysis } from './score-paper';
 import { AssessmentList } from '../shared/ui/AssessmentList';
-import { TrafficLight } from '../shared/ui/TrafficLight';
+import { EvidenceLights } from '../shared/ui/EvidenceLights';
 
 interface ContentResultsProps {
 	analysis: ContentAnalysis | null;
 	unavailable: boolean;
 	compact?: boolean;
+	onPageVerified?: boolean;
 }
 
 export function ContentResults( {
 	analysis,
 	unavailable,
 	compact = false,
+	onPageVerified = false,
 }: ContentResultsProps ) {
 	if ( unavailable ) {
 		return (
@@ -45,15 +47,11 @@ export function ContentResults( {
 	return (
 		<div className="seostudio-content">
 			<p>
-				<TrafficLight
-					rating={ analysis.seo.rating }
-					label={ __( 'SEO', 'seo-studio' ) }
-					testId="seo-light"
-				/>{ ' ' }
-				<TrafficLight
-					rating={ analysis.readability.rating }
-					label={ __( 'Readability', 'seo-studio' ) }
-					testId="readability-light"
+				<EvidenceLights
+					verified={ onPageVerified }
+					seoRating={ analysis.seo.rating }
+					readabilityRating={ analysis.readability.rating }
+					testIds
 				/>
 			</p>
 			{ compact ? (

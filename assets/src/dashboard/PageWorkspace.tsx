@@ -23,7 +23,7 @@ import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { historicalScoreLabel } from './score-state';
 import type { ListedAssessment } from '../shared/ui/AssessmentList';
 import { SocialPreview } from '../shared/ui/SocialPreview';
-import { TrafficLight } from '../shared/ui/TrafficLight';
+import { EvidenceLights } from '../shared/ui/EvidenceLights';
 import { editHref, editTarget } from './edit-route';
 import { socialCaption, workspaceOwnership } from './ownership-note';
 import { SearchAppearance } from './SearchAppearance';
@@ -604,18 +604,18 @@ export function PageWorkspace() {
 										) }
 									</p>
 									<div className="seostudio-statuses">
-										<TrafficLight
-											rating={ item?.seo_rating || null }
-											label={ __( 'SEO', 'seo-studio' ) }
-										/>
-										<TrafficLight
-											rating={
+										<EvidenceLights
+											verified={
+												!! record.presentation
+													?.definitive
+											}
+											seoRating={
+												item?.seo_rating || null
+											}
+											readabilityRating={
 												item?.readability_rating || null
 											}
-											label={ __(
-												'Readability',
-												'seo-studio'
-											) }
+											testIds
 										/>
 									</div>
 								</article>

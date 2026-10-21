@@ -177,6 +177,34 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Pages whose current score is allowed to be shown as definitive.
+	 *
+	 * Captured before retirement withholds evidence_ready.
+	 *
+	 * @return int[]
+	 */
+	public function currentDefinitiveIds(): array {
+		global $wpdb;
+
+		$pages = Tables::pages();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name; no user input.
+		$rows = $wpdb->get_col( "SELECT id FROM {$pages} WHERE onpage_state = 'current' AND evidence_ready = 1" );
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$ids = array();
+		foreach ( $rows as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
 	 * Clear current on-page caches that do not carry the given ruleset.
 	 *
 	 * JSON is decoded in PHP so retirement does not depend on database JSON
@@ -508,7 +536,7 @@ final class PagesRepository {
 
 		$order   = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
 		$columns = $details
-			? "pages.id, pages.object_id, pages.object_type, pages.url, pages.last_rendered_at, pages.last_error,
+			? "pages.id, pages.object_id, pages.object_type, pages.render_mode, pages.url, pages.last_rendered_at, pages.last_error,
 				posts.post_title, pages.focus_keyphrase AS focus_keyphrase,
 				pages.onpage_score AS onpage_score, pages.onpage_denominator AS onpage_denominator,
 				pages.onpage_rating AS onpage_rating, pages.onpage_state AS onpage_state,
@@ -670,6 +698,11 @@ final class PagesRepository {
 		// Same predicate as aggregate()'s scored column. Rows with a stored model stay included.
 		if ( 'unchecked' === ( $filters['score_state'] ?? '' ) ) {
 			$where[] = "NOT (pages.onpage_state = 'current' AND pages.evidence_ready = 1 AND pages.onpage_denominator > 0)";
+		}
+
+		if ( 'ruleset_retired' === ( $filters['score_state'] ?? '' ) ) {
+			$retired = isset( $filters['retirement_ids'] ) && is_array( $filters['retirement_ids'] ) ? array_map( 'intval', $filters['retirement_ids'] ) : array();
+			$where[] = "pages.missing_evidence = 'ruleset' AND pages.id IN (" . implode( ',', array( 0, ...$retired ) ) . ')';
 		}
 
 		if ( 'noindex' === ( $filters['visibility'] ?? '' ) ) {

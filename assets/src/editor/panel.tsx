@@ -515,6 +515,9 @@ export function Panel( {
 						analysis={ analysis }
 						unavailable={ workerDown }
 						compact
+						onPageVerified={
+							!! presentation?.definitive && ! preview
+						}
 					/>
 				</article>
 			</div>

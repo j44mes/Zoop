@@ -17,18 +17,32 @@ describe( 'architecture evidence actions', () => {
 		const hidden = renderToStaticMarkup(
 			<CoverageActions
 				reasons={ { ...emptyReasons, content_only: 26 } }
+				needsPublishedCheck={ 5 }
 				onAudit={ () => undefined }
 			/>
 		);
 		expect( hidden ).not.toContain( 'Run site audit' );
-		expect( hidden ).toContain( '26 pages need a published-page check' );
+		expect( hidden ).toContain( '5 pages need a published-page check' );
+		expect( hidden ).not.toContain(
+			'26 pages need a published-page check'
+		);
 		expect( hidden ).toContain( 'score_state=needs_published_check' );
 		expect( hidden ).not.toContain( 'score_state=unchecked' );
 		expect( hidden ).not.toContain( "haven't been analysed" );
 
+		const absent = renderToStaticMarkup(
+			<CoverageActions
+				reasons={ { ...emptyReasons, content_only: 4, stale_links: 1 } }
+				needsPublishedCheck={ null }
+				onAudit={ () => undefined }
+			/>
+		);
+		expect( absent ).toBe( '' );
+
 		const audit = renderToStaticMarkup(
 			<CoverageActions
 				reasons={ { ...emptyReasons, unanalysed: 2 } }
+				needsPublishedCheck={ 2 }
 				onAudit={ () => undefined }
 			/>
 		);
@@ -40,9 +54,9 @@ describe( 'architecture evidence actions', () => {
 	} );
 
 	it( 'hides the unverified heading until a row exists', () => {
-		expect(
-			renderToStaticMarkup( <UnverifiedLinks links={ [] } /> )
-		).toBe( '' );
+		expect( renderToStaticMarkup( <UnverifiedLinks links={ [] } /> ) ).toBe(
+			''
+		);
 		const html = renderToStaticMarkup(
 			<UnverifiedLinks
 				links={ [

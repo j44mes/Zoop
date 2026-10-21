@@ -29,6 +29,8 @@ final class Uninstaller {
 		Scheduler::unschedule();
 		delete_option( Settings::OPTION );
 		delete_option( Ruleset::OPTION );
+		delete_option( UpgradeNotice::OPTION );
+		delete_option( UpgradeNotice::PENDING );
 		delete_option( 'seostudio_detected_plugins' );
 		delete_option( 'seostudio_search_import' );
 	}
@@ -50,6 +52,7 @@ final class Uninstaller {
 		foreach ( self::metaKeys() as $key ) {
 			delete_metadata( 'post', 0, $key, '', true );
 		}
+		delete_metadata( 'user', 0, UpgradeNotice::META, '', true );
 	}
 
 	/**
