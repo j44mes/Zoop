@@ -14,7 +14,7 @@ describe( 'shared UI', () => {
 			renderToStaticMarkup(
 				<ScoreRing value={ null } denominator={ null } />
 			)
-		).toContain( 'Not scored' );
+		).toContain( 'Not analysed yet' );
 		expect(
 			renderToStaticMarkup(
 				<ScoreRing value={ 82 } denominator={ 100 } />
@@ -30,7 +30,7 @@ describe( 'shared UI', () => {
 		expect( html ).toContain( 'data-rating="green"' );
 		expect(
 			renderToStaticMarkup( <TrafficLight rating={ null } label="SEO" /> )
-		).toContain( 'Not scored' );
+		).toContain( 'Not analysed yet' );
 	} );
 
 	it( 'expands an assessment with its recommendation', () => {
@@ -51,8 +51,28 @@ describe( 'shared UI', () => {
 				] }
 			/>
 		);
+		expect( html ).toContain( 'Target phrase in SEO title' );
+		expect( html ).toContain( 'data-assessment="title.entire_keyphrase"' );
 		expect( html ).toContain( 'Include the full keyphrase in the title.' );
 		expect( html ).toContain( 'Poor' );
+		expect( html ).toContain( 'What Zoop found:' );
+	} );
+
+	it( 'does not call a skipped check “not analysed yet”', () => {
+		const html = renderToStaticMarkup(
+			<AssessmentList
+				items={ [
+					{
+						id: 'code.stylesheet',
+						status: 'not_checked',
+						explanation:
+							'A full-page fetch is required before the stylesheet check can run.',
+					},
+				] }
+			/>
+		);
+		expect( html ).toContain( 'Not checked in this mode' );
+		expect( html ).not.toContain( 'Not analysed yet' );
 	} );
 
 	it( 'shows category progress, previews, variables, and a run', () => {

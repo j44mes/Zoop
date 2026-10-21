@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { metadataNote, type MetadataOwner } from './metadata-note';
+import { requestedSection } from './section';
 export type { MetadataOwner } from './metadata-note';
 import { scoreInWorker } from '../analysis/client';
 import { paperFromModel } from '../analysis/paper';
@@ -25,6 +26,7 @@ import {
 	type PageModelResponse,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
+import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { CategoryBar } from '../shared/ui/CategoryBar';
 import { ScoreRing } from '../shared/ui/ScoreRing';
 import { SnippetPreview } from '../shared/ui/SnippetPreview';
@@ -38,6 +40,7 @@ interface PanelProps {
 	workerUrl: string;
 	permalink: string;
 	metadata?: MetadataOwner;
+	section?: string;
 }
 
 /**
@@ -66,6 +69,7 @@ export function Panel( {
 	workerUrl,
 	permalink,
 	metadata,
+	section = '',
 }: PanelProps ) {
 	const editorContent = useSelect( ( select ): string => {
 		const editor = select( 'core/editor' ) as
@@ -115,6 +119,33 @@ export function Panel( {
 	const [ selector, setSelector ] = useState( '' );
 	const [ mode, setMode ] = useState( 'content' );
 	const [ model, setModel ] = useState< PageModelResponse | null >( null );
+
+	useEffect( () => {
+		const name = requestedSection( section, window.location.search );
+		if ( ! name ) {
+			return;
+		}
+		const sectionSelector = `.seostudio-panel details[data-section="${ name }"]`;
+		const openSection = () => {
+			const node = document.querySelector( sectionSelector );
+			if ( ! ( node instanceof HTMLDetailsElement ) ) {
+				return false;
+			}
+			node.open = true;
+			node.scrollIntoView( { block: 'start', inline: 'nearest' } );
+			return true;
+		};
+		if ( openSection() ) {
+			return;
+		}
+		const observer = new MutationObserver( () => {
+			if ( openSection() ) {
+				observer.disconnect();
+			}
+		} );
+		observer.observe( document.body, { childList: true, subtree: true } );
+		return () => observer.disconnect();
+	}, [ section ] );
 
 	useEffect( () => {
 		if ( ! id ) {
@@ -242,7 +273,7 @@ export function Panel( {
 			return;
 		}
 		if ( ! keyphrase.trim() ) {
-			setError( __( 'Add a keyphrase first.', 'seo-studio' ) );
+			setError( __( 'Add a target phrase first.', 'seo-studio' ) );
 			return;
 		}
 		setBusy( true );
@@ -303,13 +334,23 @@ export function Panel( {
 		: home?.meta_description ?? ( description || editorExcerpt );
 	const previewUrl = home?.canonical || model?.url || permalink;
 
+	const findings = ( onpage?.assessments || [] ).filter(
+		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+	);
+	const analysisState = analysisStateOf( preview, mode, onpage );
+	const analysisLabel = analysisLabelOf( analysisState );
+
 	return (
 		<div className="seostudio-panel">
+			<p className="seostudio-status" data-state={ analysisState }>
+				{ analysisLabel }
+			</p>
 			{ preview ? (
 				<p className="seostudio-live" data-testid="preview-badge">
 					{ __( 'Unsaved preview', 'seo-studio' ) }
 				</p>
 			) : null }
+			<p data-testid="metadata-note">{ metadataNote( metadata ) }</p>
 			{ ! id ? (
 				<p>
 					{ __(
@@ -319,21 +360,38 @@ export function Panel( {
 				</p>
 			) : null }
 			<TextControl
-				label={ __( 'Keyphrase', 'seo-studio' ) }
+				label={ __( 'Target phrase', 'seo-studio' ) }
 				value={ keyphrase }
 				onChange={ setKeyphrase }
+				help={ __(
+					'The phrase this page should be understood by.',
+					'seo-studio'
+				) }
 			/>
-			<TextControl
-				label={ __( 'Related keyphrases', 'seo-studio' ) }
-				value={ related }
-				onChange={ setRelated }
-			/>
-			<TextControl
-				label={ __( 'Synonyms', 'seo-studio' ) }
-				value={ synonyms }
-				onChange={ setSynonyms }
-			/>
-			<div className="seostudio-scores">
+			<p className="seostudio-actions">
+				<Button
+					variant="primary"
+					disabled={ busy || ! id }
+					onClick={ () => persist( 'content' ) }
+				>
+					{ busy
+						? __( 'Analysing…', 'seo-studio' )
+						: __( 'Analyse page', 'seo-studio' ) }
+				</Button>
+				<Button
+					variant="secondary"
+					disabled={ busy || ! id }
+					onClick={ () => persist( 'live' ) }
+				>
+					{ __( 'Check published page', 'seo-studio' ) }
+				</Button>
+			</p>
+			{ error ? (
+				<Notice status="error" isDismissible={ false }>
+					{ error }
+				</Notice>
+			) : null }
+			<div className="seostudio-summary">
 				<article className="seostudio-card">
 					<h2>{ __( 'On-page', 'seo-studio' ) }</h2>
 					<ScoreRing
@@ -346,138 +404,206 @@ export function Panel( {
 					<ContentResults
 						analysis={ analysis }
 						unavailable={ workerDown }
+						compact
 					/>
 				</article>
 			</div>
-			{ onpage
-				? Object.entries( onpage.categories || {} ).map(
-						( [ name, bar ] ) => (
-							<CategoryBar
-								key={ name }
-								label={ name }
-								earned={ bar.earned }
-								max={ bar.max }
-							/>
-						)
-				  )
-				: null }
-			{ onpage ? (
-				<AssessmentList items={ onpage.assessments || [] } />
+			{ id ? (
+				<p>
+					<a
+						href={ `admin.php?page=seostudio&view=page&post=${ id }` }
+					>
+						{ __( 'Open full analysis', 'seo-studio' ) }
+					</a>
+				</p>
 			) : null }
-			<h2>{ __( 'Google', 'seo-studio' ) }</h2>
-			{ metadata?.publishesOwn && metadata.isHomepage ? (
-				<Notice status="info" isDismissible={ false }>
-					{ metadataNote( metadata ) }
-				</Notice>
+			{ findings.length > 0 ? (
+				<>
+					<h2>{ __( 'Important findings', 'seo-studio' ) }</h2>
+					<ul className="seostudio-findings">
+						{ findings.slice( 0, 3 ).map( ( row ) => (
+							<li key={ row.id }>
+								{ assessmentTitle( row.id ) }
+								{ row.recommendation
+									? `. ${ row.recommendation }`
+									: '' }
+							</li>
+						) ) }
+					</ul>
+				</>
 			) : null }
-			<SnippetPreview
-				title={ previewTitle }
-				url={ previewUrl }
-				description={ previewDescription }
-			/>
-			<SnippetPreview
-				title={ previewTitle }
-				url={ previewUrl }
-				description={ previewDescription }
-				viewport="mobile"
-			/>
-			<h2>{ __( 'Social', 'seo-studio' ) }</h2>
-			<SocialPreview
-				title={ ogTitle || previewTitle }
-				description={ ogDescription || previewDescription }
-			/>
-			<VariableInput
-				id="seostudio-title"
-				label={ __( 'SEO title', 'seo-studio' ) }
-				value={ title }
-				onChange={ setTitle }
-				hint={ `${ title.length } / 300` }
-			/>
-			<VariableInput
-				id="seostudio-description"
-				label={ __( 'Description', 'seo-studio' ) }
-				value={ description }
-				onChange={ setDescription }
-				multiline
-				hint={ `${ description.length }` }
-			/>
-			<TextControl
-				label={ __( 'Canonical', 'seo-studio' ) }
-				value={ canonical }
-				onChange={ setCanonical }
-			/>
-			<TextControl
-				label={ __( 'Video URL', 'seo-studio' ) }
-				value={ videoUrl }
-				onChange={ setVideoUrl }
-				help={ __(
-					'Adds a VideoObject node when Owner mode is printing tags.',
-					'seo-studio'
+			<details data-section="phrases">
+				<summary>{ __( 'More phrases', 'seo-studio' ) }</summary>
+				<TextControl
+					label={ __( 'Related phrases', 'seo-studio' ) }
+					value={ related }
+					onChange={ setRelated }
+					help={ __( 'Separate phrases with commas.', 'seo-studio' ) }
+				/>
+				<TextControl
+					label={ __( 'Synonyms', 'seo-studio' ) }
+					value={ synonyms }
+					onChange={ setSynonyms }
+					help={ __(
+						'Separate synonyms with commas.',
+						'seo-studio'
+					) }
+				/>
+			</details>
+			<details data-section="checks">
+				<summary>{ __( 'All on-page checks', 'seo-studio' ) }</summary>
+				{ onpage
+					? Object.entries( onpage.categories || {} ).map(
+							( [ name, bar ] ) => (
+								<CategoryBar
+									key={ name }
+									label={ name }
+									earned={ bar.earned }
+									max={ bar.max }
+								/>
+							)
+					  )
+					: null }
+				{ onpage ? (
+					<AssessmentList items={ onpage.assessments || [] } />
+				) : (
+					<p>
+						{ __(
+							'Analyse the page to see the checks.',
+							'seo-studio'
+						) }
+					</p>
 				) }
-			/>
-			<CheckboxControl
-				label={ __( 'News article', 'seo-studio' ) }
-				checked={ isNews }
-				onChange={ setIsNews }
-				help={ __(
-					'Prints NewsArticle instead of Article.',
-					'seo-studio'
-				) }
-			/>
-			<CheckboxControl
-				label={ __( 'Index', 'seo-studio' ) }
-				checked={ indexable }
-				onChange={ setIndexable }
-			/>
-			<CheckboxControl
-				label={ __( 'Follow', 'seo-studio' ) }
-				checked={ follow }
-				onChange={ setFollow }
-			/>
-			<TextControl
-				label={ __( 'Social title', 'seo-studio' ) }
-				value={ ogTitle }
-				onChange={ setOgTitle }
-			/>
-			<TextareaControl
-				label={ __( 'Social description', 'seo-studio' ) }
-				value={ ogDescription }
-				onChange={ setOgDescription }
-			/>
-			{ error ? (
-				<Notice status="error" isDismissible={ false }>
-					{ error }
-				</Notice>
-			) : null }
-			<p>
-				<Button
-					variant="primary"
-					disabled={ busy || ! id }
-					onClick={ () => persist( 'content' ) }
-				>
-					{ __( 'Analyse now', 'seo-studio' ) }
-				</Button>{ ' ' }
-				<Button
-					variant="secondary"
-					disabled={ busy || ! id }
-					onClick={ () => persist( 'live' ) }
-				>
-					{ __( 'Verify live', 'seo-studio' ) }
-				</Button>
-			</p>
-			<p>
-				{ __( 'Render:', 'seo-studio' ) } { mode }
-				{ selector
-					? `. ${ __( 'Selector:', 'seo-studio' ) } ${ selector }`
-					: '' }
-				{ '. ' }
-				{ blockEditor
-					? __( 'Block editor', 'seo-studio' )
-					: __( 'Classic editor', 'seo-studio' ) }
-			</p>
-			<p data-testid="metadata-note">{ metadataNote( metadata ) }</p>
+				<p className="seostudio-muted">
+					{ __( 'Render:', 'seo-studio' ) } { mode }
+					{ selector
+						? `. ${ __( 'Selector:', 'seo-studio' ) } ${ selector }`
+						: '' }
+					{ '. ' }
+					{ blockEditor
+						? __( 'Block editor', 'seo-studio' )
+						: __( 'Classic editor', 'seo-studio' ) }
+				</p>
+			</details>
+			<details data-section="search">
+				<summary>{ __( 'Search appearance', 'seo-studio' ) }</summary>
+				{ metadata?.publishesOwn && metadata.isHomepage ? (
+					<Notice status="info" isDismissible={ false }>
+						{ metadataNote( metadata ) }
+					</Notice>
+				) : null }
+				<SnippetPreview
+					title={ previewTitle }
+					url={ previewUrl }
+					description={ previewDescription }
+				/>
+				<SnippetPreview
+					title={ previewTitle }
+					url={ previewUrl }
+					description={ previewDescription }
+					viewport="mobile"
+				/>
+				<VariableInput
+					id="seostudio-title"
+					label={ __( 'SEO title', 'seo-studio' ) }
+					value={ title }
+					onChange={ setTitle }
+					hint={ `${ title.length } / 300` }
+				/>
+				<VariableInput
+					id="seostudio-description"
+					label={ __( 'Description', 'seo-studio' ) }
+					value={ description }
+					onChange={ setDescription }
+					multiline
+					hint={ `${ description.length }` }
+				/>
+				<TextControl
+					label={ __( 'Canonical', 'seo-studio' ) }
+					value={ canonical }
+					onChange={ setCanonical }
+				/>
+				<CheckboxControl
+					label={ __( 'Index', 'seo-studio' ) }
+					checked={ indexable }
+					onChange={ setIndexable }
+				/>
+				<CheckboxControl
+					label={ __( 'Follow', 'seo-studio' ) }
+					checked={ follow }
+					onChange={ setFollow }
+				/>
+			</details>
+			<details data-section="social">
+				<summary>{ __( 'Social appearance', 'seo-studio' ) }</summary>
+				<SocialPreview
+					title={ ogTitle || previewTitle }
+					description={ ogDescription || previewDescription }
+				/>
+				<TextControl
+					label={ __( 'Social title', 'seo-studio' ) }
+					value={ ogTitle }
+					onChange={ setOgTitle }
+				/>
+				<TextareaControl
+					label={ __( 'Social description', 'seo-studio' ) }
+					value={ ogDescription }
+					onChange={ setOgDescription }
+				/>
+			</details>
+			<details data-section="advanced">
+				<summary>{ __( 'Advanced', 'seo-studio' ) }</summary>
+				<TextControl
+					label={ __( 'Video URL', 'seo-studio' ) }
+					value={ videoUrl }
+					onChange={ setVideoUrl }
+					help={ __(
+						'Adds a VideoObject node when Zoop is printing tags.',
+						'seo-studio'
+					) }
+				/>
+				<CheckboxControl
+					label={ __( 'News article', 'seo-studio' ) }
+					checked={ isNews }
+					onChange={ setIsNews }
+					help={ __(
+						'Prints NewsArticle instead of Article when Zoop is printing tags.',
+						'seo-studio'
+					) }
+				/>
+			</details>
 		</div>
 	);
+}
+
+function analysisStateOf(
+	preview: boolean,
+	mode: string,
+	onpage: OnPageScore | null
+): string {
+	if ( preview ) {
+		return 'preview';
+	}
+	if ( mode === 'live' ) {
+		return 'live';
+	}
+	if ( onpage ) {
+		return 'saved';
+	}
+	return 'empty';
+}
+
+function analysisLabelOf( state: string ): string {
+	if ( state === 'preview' ) {
+		return __( 'Unsaved preview', 'seo-studio' );
+	}
+	if ( state === 'live' ) {
+		return __( 'Checked the published page', 'seo-studio' );
+	}
+	if ( state === 'saved' ) {
+		return __( 'Saved analysis', 'seo-studio' );
+	}
+	return __( 'Not analysed yet', 'seo-studio' );
 }
 
 function splitList( value: string ): string[] {

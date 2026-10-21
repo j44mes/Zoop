@@ -6,11 +6,13 @@ import { TrafficLight } from '../shared/ui/TrafficLight';
 interface ContentResultsProps {
 	analysis: ContentAnalysis | null;
 	unavailable: boolean;
+	compact?: boolean;
 }
 
 export function ContentResults( {
 	analysis,
 	unavailable,
+	compact = false,
 }: ContentResultsProps ) {
 	if ( unavailable ) {
 		return (
@@ -28,6 +30,18 @@ export function ContentResults( {
 		);
 	}
 
+	const checks = (
+		<AssessmentList
+			items={ [
+				...analysis.seo.assessments,
+				...analysis.readability.assessments.map( ( row ) => ( {
+					...row,
+					category: __( 'Readability', 'seo-studio' ),
+				} ) ),
+			] }
+		/>
+	);
+
 	return (
 		<div className="seostudio-content">
 			<p>
@@ -42,15 +56,16 @@ export function ContentResults( {
 					testId="readability-light"
 				/>
 			</p>
-			<AssessmentList
-				items={ [
-					...analysis.seo.assessments,
-					...analysis.readability.assessments.map( ( row ) => ( {
-						...row,
-						category: __( 'Readability', 'seo-studio' ),
-					} ) ),
-				] }
-			/>
+			{ compact ? (
+				<details>
+					<summary>
+						{ __( 'Content and readability checks', 'seo-studio' ) }
+					</summary>
+					{ checks }
+				</details>
+			) : (
+				checks
+			) }
 		</div>
 	);
 }

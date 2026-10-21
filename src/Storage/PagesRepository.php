@@ -277,13 +277,16 @@ final class PagesRepository {
 	 * Total and dashboard summary for the same filters, in one query.
 	 *
 	 * @param array<string, mixed> $filters
-	 * @return array{total: int, red: int, orange: int, green: int, average: ?int}
+	 * @return array{total: int, scored: int, unscored: int, failed: int, red: int, orange: int, green: int, average: ?int}
 	 */
 	public function aggregate( array $filters ): array {
 		global $wpdb;
 
 		$query = $this->listQuery( $filters );
 		$sql   = "SELECT COUNT(*) AS total,
+				SUM(pages.onpage_denominator > 0) AS scored,
+				SUM(pages.onpage_denominator IS NULL OR pages.onpage_denominator = 0) AS unscored,
+				SUM(pages.last_error IS NOT NULL AND pages.last_error <> '') AS failed,
 				SUM(pages.onpage_rating = 'red') AS red, SUM(pages.onpage_rating = 'orange') AS orange, SUM(pages.onpage_rating = 'green') AS green,
 				AVG(CASE WHEN pages.onpage_denominator > 0 THEN pages.onpage_score * 100 / pages.onpage_denominator END) AS average
 			{$query['sql']}";
@@ -291,11 +294,14 @@ final class PagesRepository {
 		$row   = is_array( $row ) ? $row : array();
 
 		return array(
-			'total'   => (int) ( $row['total'] ?? 0 ),
-			'red'     => (int) ( $row['red'] ?? 0 ),
-			'orange'  => (int) ( $row['orange'] ?? 0 ),
-			'green'   => (int) ( $row['green'] ?? 0 ),
-			'average' => isset( $row['average'] ) ? (int) round( (float) $row['average'] ) : null,
+			'total'    => (int) ( $row['total'] ?? 0 ),
+			'scored'   => (int) ( $row['scored'] ?? 0 ),
+			'unscored' => (int) ( $row['unscored'] ?? 0 ),
+			'failed'   => (int) ( $row['failed'] ?? 0 ),
+			'red'      => (int) ( $row['red'] ?? 0 ),
+			'orange'   => (int) ( $row['orange'] ?? 0 ),
+			'green'    => (int) ( $row['green'] ?? 0 ),
+			'average'  => isset( $row['average'] ) ? (int) round( (float) $row['average'] ) : null,
 		);
 	}
 
@@ -333,6 +339,11 @@ final class PagesRepository {
 
 		if ( isset( $filters['editable_sql'] ) && is_string( $filters['editable_sql'] ) ) {
 			$where[] = $filters['editable_sql'];
+		}
+
+		if ( isset( $filters['object_id'] ) && is_numeric( $filters['object_id'] ) && (int) $filters['object_id'] > 0 ) {
+			$where[]  = 'pages.object_id = %d';
+			$values[] = (int) $filters['object_id'];
 		}
 
 		if ( isset( $filters['post_type'] ) && is_string( $filters['post_type'] ) && '' !== $filters['post_type'] ) {

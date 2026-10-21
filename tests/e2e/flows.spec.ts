@@ -117,7 +117,7 @@ async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
 	} );
 	try {
 		await expect(
-			page.getByLabel( 'Keyphrase', { exact: true } )
+			page.getByLabel( 'Target phrase', { exact: true } )
 		).toBeVisible( { timeout: 20000 } );
 	} catch ( error ) {
 		throw new Error(
@@ -201,13 +201,11 @@ async function openEditor( page: Page, url: string ): Promise< void > {
 test( 'dashboard is available after activation', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await expect(
-		page.getByRole( 'heading', { name: 'SEO Studio' } )
-	).toBeVisible();
+	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
 	// Browser projects share one WordPress database, so another project may already have analysed a page.
 	await expect(
 		page
-			.getByText( 'No pages have been analysed yet' )
+			.getByText( 'No pages are stored yet' )
 			.or( page.getByRole( 'table' ) )
 	).toBeVisible();
 } );
@@ -224,9 +222,9 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	editedPostUrl = page.url();
 	await openSeoSidebar( page, errors );
 	await page
-		.getByLabel( 'Keyphrase', { exact: true } )
+		.getByLabel( 'Target phrase', { exact: true } )
 		.fill( 'rank tracker' );
-	await page.getByRole( 'button', { name: 'Analyse now' } ).click();
+	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
 	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
 	await expect( page.getByTestId( 'readability-light' ) ).toBeVisible();
@@ -243,7 +241,13 @@ test( 'editing the title updates the title assessment without a reload', async (
 	await login( page );
 	await openEditor( page, editedPostUrl );
 	await openSeoSidebar( page, errors );
-	const titleCheck = page.locator(
+	const checks = page.locator( 'details[data-section="checks"]' );
+	await checks.locator( '> summary' ).click();
+	await checks
+		.locator( '.seostudio-check-group > summary' )
+		.filter( { hasText: 'SEO title' } )
+		.click();
+	const titleCheck = checks.locator(
 		'details[data-assessment="title.entire_keyphrase"]'
 	);
 	await titleCheck.locator( 'summary' ).click();
@@ -261,7 +265,7 @@ test( 'editing the title updates the title assessment without a reload', async (
 test( 're-analyse all queues an audit', async ( { page } ) => {
 	await login( page );
 	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Re-analyse all' } ).click();
+	await page.getByRole( 'button', { name: 'Run website audit' } ).click();
 	await expect(
 		page.getByText(
 			/Audit queued\.|An audit is already running\.|An audit was started recently/
@@ -277,11 +281,13 @@ test( 're-analyse all queues an audit', async ( { page } ) => {
  * @param page Playwright page.
  */
 async function saveSettings( page: Page ): Promise< void > {
-	const saved = page.waitForResponse(
-		( response ) =>
-			response.url().includes( 'seostudio/v1/settings' ) &&
+	const saved = page.waitForResponse( ( response ) => {
+		const url = decodeURIComponent( response.url() );
+		return (
+			url.includes( 'seostudio/v1/settings' ) &&
 			response.request().method() !== 'GET'
-	);
+		);
+	} );
 	await page.getByRole( 'button', { name: 'Save settings' } ).click();
 	expect( ( await saved ).ok() ).toBe( true );
 	await expect(
@@ -311,13 +317,35 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 		).toHaveCount( 1 );
 	} finally {
 		await page.goto( settingsUrl );
-		await page
-			.getByRole( 'button', { name: 'Settings', exact: true } )
-			.click();
-		await page
-			.locator( '.seostudio-settings select' )
-			.first()
-			.selectOption( 'analysis' );
-		await saveSettings( page );
+		await page.waitForFunction(
+			() =>
+				!! (
+					window as unknown as {
+						wp?: {
+							apiFetch?: (
+								options: unknown
+							) => Promise< unknown >;
+						};
+					}
+				 ).wp?.apiFetch
+		);
+		await page.evaluate( () => {
+			const api = (
+				window as unknown as {
+					wp: {
+						apiFetch: ( options: {
+							path: string;
+							method: string;
+							data: { mode: string };
+						} ) => Promise< unknown >;
+					};
+				}
+			 ).wp.apiFetch;
+			return api( {
+				path: '/seostudio/v1/settings',
+				method: 'PUT',
+				data: { mode: 'analysis' },
+			} );
+		} );
 	}
 } );

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Admin;
 
 /**
- * Adds the SEO Studio overview screen.
+ * Adds the Zoop overview screen.
  */
 final class Menu {
 	public static function register(): void {
@@ -23,8 +23,8 @@ final class Menu {
 
 	public static function menu(): void {
 		add_menu_page(
-			__( 'SEO Studio', 'seo-studio' ),
-			__( 'SEO Studio', 'seo-studio' ),
+			__( 'Zoop', 'seo-studio' ),
+			__( 'Zoop', 'seo-studio' ),
 			'edit_posts',
 			'seostudio',
 			array( self::class, 'render' ),

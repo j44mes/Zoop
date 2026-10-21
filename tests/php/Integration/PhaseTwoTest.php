@@ -184,6 +184,9 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 		$summary = $list->get_data()['summary'];
 		$this->assertSame( $list->get_data()['total'], $summary['analysed'] );
 		$this->assertNotNull( $summary['average'] );
+		$this->assertGreaterThanOrEqual( 1, $summary['scored'] );
+		$this->assertArrayHasKey( 'unscored', $summary );
+		$this->assertArrayHasKey( 'failed', $summary );
 
 		update_post_meta( $post_id, '_seostudio_focus_keyphrase', 'unanalysed phrase' );
 		$list = $this->dispatch( new WP_REST_Request( 'GET', '/seostudio/v1/pages' ) );

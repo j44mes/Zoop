@@ -12,9 +12,12 @@ export function ScoreRing( { value, denominator }: ScoreRingProps ) {
 				className="seostudio-ring"
 				data-testid="onpage-score"
 				role="img"
-				aria-label={ __( 'Not scored', 'seo-studio' ) }
+				aria-label={ __( 'Not analysed yet', 'seo-studio' ) }
 			>
-				{ __( 'Not scored', 'seo-studio' ) }
+				<span aria-hidden="true">–</span>
+				<span className="screen-reader-text">
+					{ __( 'Not analysed yet', 'seo-studio' ) }
+				</span>
 			</div>
 		);
 	}

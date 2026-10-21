@@ -8,6 +8,7 @@ interface EditorConfig {
 	blockEditor: boolean;
 	workerUrl: string;
 	permalink: string;
+	section?: string;
 	metadata: MetadataOwner;
 }
 
@@ -25,7 +26,7 @@ if ( config?.blockEditor ) {
 			return (
 				<PluginSidebar
 					name="seostudio"
-					title={ __( 'SEO', 'seo-studio' ) }
+					title={ __( 'Zoop', 'seo-studio' ) }
 					icon="chart-bar"
 				>
 					<Panel
@@ -34,6 +35,7 @@ if ( config?.blockEditor ) {
 						workerUrl={ config.workerUrl }
 						permalink={ config.permalink }
 						metadata={ config.metadata }
+						section={ config.section || '' }
 					/>
 				</PluginSidebar>
 			);
