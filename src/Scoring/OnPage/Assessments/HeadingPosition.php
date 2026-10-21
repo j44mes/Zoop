@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -31,7 +32,12 @@ final class HeadingPosition implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
-		$match    = $normaliser->matchField( $page->firstH1(), $keyphrase );
+		$withheld = EvidenceGate::documentH1( $this, $page );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
+		$match    = $normaliser->matchField( $page->firstDocumentH1(), $keyphrase );
 		$position = $match->position;
 		$earned   = match ( $position ) {
 			1       => 5,
@@ -54,7 +60,7 @@ final class HeadingPosition implements Assessment {
 			5 === $earned
 				? __( 'No change needed.', 'seo-studio' )
 				: __( 'Move the keyphrase to the start of the H1.', 'seo-studio' ),
-			$page->firstH1()
+			$page->firstDocumentH1()
 		);
 	}
 }

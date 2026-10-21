@@ -34,22 +34,25 @@ jobs:
           npm ci
           npm run build
 
+      - name: Require the tag to match the plugin version
+        run: php scripts/check-release-tag.php "${GITHUB_REF_NAME}"
+
+      - name: Stamp the checked-out commit into the zip
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
       - name: Pack the plugin
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist/seo-studio
-          rsync -a \
-            --exclude ".git" \
-            --exclude "node_modules" \
-            --exclude "tests" \
-            --exclude "docs" \
-            --exclude ".github" \
-            --exclude "coverage" \
-            --exclude ".phpunit.cache" \
-            ./ dist/seo-studio/
-          (cd dist && zip -r "seo-studio-${version}.zip" seo-studio)
+          php scripts/package-plugin.php
+          sha256sum dist/seo-studio-*.zip | tee dist/SHA256SUMS
 
       - name: Attach the zip to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/seo-studio-*.zip
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: docs/release-notes.md
+          files: |
+            dist/seo-studio-*.zip
+            dist/SHA256SUMS

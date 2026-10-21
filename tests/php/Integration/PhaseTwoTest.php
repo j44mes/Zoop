@@ -23,7 +23,7 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 	}
 
@@ -53,7 +53,8 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 		$response = $this->dispatch( $request );
 		$this->assertSame( 200, $response->get_status() );
 		$data = $response->get_data();
-		$this->assertSame( 'rank tracker guide', $data['title_tag'] );
+		$this->assertSame( '', $data['title_tag'] );
+		$this->assertSame( 'not_observed', $data['title_evidence'] );
 		$this->assertArrayHasKey( 'onpage', $data );
 		$this->assertNull( ( new PagesRepository() )->findByObject( 'post', $post_id ) );
 	}
@@ -71,10 +72,12 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 			'keyphrase'       => 'guide',
 		);
 
-		// Analysis-only mode with no other SEO plugin prints the post title and excerpt.
+		// Analysis-only mode with no other SEO plugin has not observed a published title or description.
 		$data = $this->preview( $post_id, $body );
-		$this->assertSame( 'Unsaved post title', $data['title_tag'] );
-		$this->assertSame( 'Unsaved excerpt.', $data['meta_description'] );
+		$this->assertSame( '', $data['title_tag'] );
+		$this->assertSame( '', $data['meta_description'] );
+		$this->assertSame( 'not_observed', $data['title_evidence'] );
+		$this->assertSame( 'not_observed', $data['description_evidence'] );
 		$this->assertSame( 'estimated', $data['metadata_status'] );
 
 		// Owner mode prints SEO Studio's fields, with template variables expanded from the unsaved title.
@@ -183,8 +186,10 @@ final class PhaseTwoTest extends WP_UnitTestCase {
 		$this->assertSame( 'orange', $match['readability_rating'] );
 		$summary = $list->get_data()['summary'];
 		$this->assertSame( $list->get_data()['total'], $summary['analysed'] );
-		$this->assertNotNull( $summary['average'] );
-		$this->assertGreaterThanOrEqual( 1, $summary['scored'] );
+		$this->assertNull( $summary['average'] );
+		$this->assertSame( 0, $summary['scored'] );
+		$this->assertFalse( $match['presentation']['definitive'] );
+		$this->assertNull( $match['onpage']['score'] );
 		$this->assertArrayHasKey( 'unscored', $summary );
 		$this->assertArrayHasKey( 'failed', $summary );
 

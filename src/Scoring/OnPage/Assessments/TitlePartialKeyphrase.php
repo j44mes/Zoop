@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -31,15 +32,23 @@ final class TitlePartialKeyphrase implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
+		$withheld = EvidenceGate::fetchedTitle( $this, $page->titleEvidence );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
 		$match = $normaliser->matchField( $page->titleTag, $keyphrase );
 
 		return AssessmentResult::score(
 			$this,
 			$match->partial ? 2 : 0,
 			array( 'partial' => $match->partial ),
-			$match->partial
-				? __( 'Part of the keyphrase is in the title.', 'seo-studio' )
-				: __( 'None of the keyphrase words are in the title.', 'seo-studio' ),
+			EvidenceGate::note(
+				$match->partial
+					? __( 'Part of the keyphrase is in the title.', 'seo-studio' )
+					: __( 'None of the keyphrase words are in the title.', 'seo-studio' ),
+				$page->titleEvidence
+			),
 			$match->partial
 				? __( 'No change needed.', 'seo-studio' )
 				: __( 'Use at least one word from the keyphrase in the title.', 'seo-studio' ),

@@ -22,6 +22,7 @@ const statusWord: Record< string, string > = {
 	partial: __( 'Ok', 'seo-studio' ),
 	fail: __( 'Poor', 'seo-studio' ),
 	not_checked: __( 'Not checked in this mode', 'seo-studio' ),
+	not_applicable: __( 'Not applicable', 'seo-studio' ),
 	red: __( 'Poor', 'seo-studio' ),
 	orange: __( 'Ok', 'seo-studio' ),
 	green: __( 'Good', 'seo-studio' ),
@@ -120,7 +121,10 @@ function categoryLabel( category: string ): string {
 
 function groupNote( rows: ListedAssessment[] ): string {
 	const attention = rows.filter(
-		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+		( row ) =>
+			row.status !== 'pass' &&
+			row.status !== 'not_checked' &&
+			row.status !== 'not_applicable'
 	).length;
 	if ( attention > 0 ) {
 		return sprintf(
@@ -131,7 +135,10 @@ function groupNote( rows: ListedAssessment[] ): string {
 	}
 	if (
 		rows.length > 0 &&
-		rows.every( ( row ) => row.status === 'not_checked' )
+		rows.every(
+			( row ) =>
+				row.status === 'not_checked' || row.status === 'not_applicable'
+		)
 	) {
 		return __( 'Not checked in this mode', 'seo-studio' );
 	}

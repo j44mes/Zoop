@@ -47,10 +47,12 @@ final class Commands {
 		}
 
 		Upgrader::maybeUpgrade();
-		$model   = ( new Renderer() )->renderPost( $post_id );
-		$score   = ( new Scorer() )->score( $model, $keyphrase );
-		$page_id = ( new PagesRepository() )->storeModel( $post_id, $model, $model->inputHash() );
-		( new ScoresRepository() )->insert( $page_id, $keyphrase, $score, SEOSTUDIO_VERSION );
+		$pages    = new PagesRepository();
+		$rendered = ( new Renderer() )->renderPost( $post_id );
+		$page_id  = $pages->storeModel( $post_id, $rendered, $rendered->inputHash() );
+		$model    = $pages->loadModel( $post_id ) ?? $rendered;
+		$score    = ( new Scorer() )->score( $model, $keyphrase );
+		( new ScoresRepository() )->insert( $page_id, $keyphrase, $score, SEOSTUDIO_VERSION, $model->inputHash() );
 		( new KeyphrasesIndex() )->replacePrimary( $post_id, $keyphrase );
 		\WP_CLI::line( sprintf( 'On-page score: %d/%d', $score->earned, $score->denominator ) );
 		\WP_CLI::line( sprintf( 'Page id: %d', $page_id ) );
@@ -88,15 +90,37 @@ final class Commands {
 		}
 	}
 
-	public static function openapi(): void {
-		$routes = array(
+	/**
+	 * Routes the OpenAPI document and `wp seostudio openapi` both describe.
+	 *
+	 * @return string[]
+	 */
+	public static function routeCatalogue(): array {
+		return array(
 			'GET /seostudio/v1/pages',
 			'GET /seostudio/v1/pages/{page_id}',
-			'POST /seostudio/v1/analyse/{object_type}/{object_id}',
 			'POST /seostudio/v1/pages/{page_id}/analyse',
+			'POST /seostudio/v1/pages/{page_id}/content-scores',
+			'POST /seostudio/v1/analyse/{object_type}/{object_id}',
+			'GET /seostudio/v1/posts/{post_id}/appearance',
+			'PUT /seostudio/v1/posts/{post_id}/appearance',
+			'POST /seostudio/v1/posts/{post_id}/appearance/apply',
+			'POST /seostudio/v1/posts/{post_id}/appearance/restore',
 			'GET /seostudio/v1/posts/{post_id}/seo',
 			'PUT /seostudio/v1/posts/{post_id}/seo',
+			'POST /seostudio/v1/posts/{post_id}/model',
+			'GET /seostudio/v1/posts/{post_id}/topic',
+			'PUT /seostudio/v1/posts/{post_id}/topic',
 			'GET /seostudio/v1/keyphrases/usage',
+			'GET /seostudio/v1/architecture',
+			'POST /seostudio/v1/architecture/aliases',
+			'GET /seostudio/v1/overlap',
+			'GET /seostudio/v1/search-console',
+			'POST /seostudio/v1/search-console',
+			'GET /seostudio/v1/recommendations',
+			'GET /seostudio/v1/capabilities',
+			'POST /seostudio/v1/notices/ruleset-retirement/dismiss',
+			'POST /seostudio/v1/notices/legacy-scores/dismiss',
 			'POST /seostudio/v1/audits',
 			'GET /seostudio/v1/audits/{run_id}',
 			'DELETE /seostudio/v1/audits/{run_id}',
@@ -107,9 +131,10 @@ final class Commands {
 			'POST /seostudio/v1/migrations',
 			'GET /seostudio/v1/export',
 			'POST /seostudio/v1/import',
-			'POST /seostudio/v1/posts/{post_id}/model',
-			'POST /seostudio/v1/pages/{page_id}/content-scores',
 		);
-		\WP_CLI::line( (string) wp_json_encode( $routes, JSON_PRETTY_PRINT ) );
+	}
+
+	public static function openapi(): void {
+		\WP_CLI::line( (string) wp_json_encode( self::routeCatalogue(), JSON_PRETTY_PRINT ) );
 	}
 }

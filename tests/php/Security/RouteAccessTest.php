@@ -25,6 +25,10 @@ final class RouteAccessTest extends WP_UnitTestCase {
 	private const CONTRIBUTOR_ALLOWED = array(
 		'GET /seostudio/v1/pages',
 		'GET /seostudio/v1/keyphrases/usage',
+		'GET /seostudio/v1/capabilities',
+		'GET /seostudio/v1/recommendations',
+		'POST /seostudio/v1/notices/ruleset-retirement/dismiss',
+		'POST /seostudio/v1/notices/legacy-scores/dismiss',
 	);
 
 	private int $postId = 0;
@@ -36,7 +40,7 @@ final class RouteAccessTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 
 		$author       = self::factory()->user->create( array( 'role' => 'author' ) );

@@ -30,7 +30,7 @@ Content words are the tokens that are not in the English function-word list (`sr
 |  | Partial coverage | 5 | Above 70%: 5; 50–70%: 3; below: 0 |
 |  | Every word | 2 | Coverage is exactly 100% and the keyphrase has content words |
 | Meta (5) | Meta description | 5 | Entire match: 5; coverage at least 50%: 3; otherwise 0. An empty description is 0 |
-| Media (4) | Image alt | 4 | Entire match in any alt: 4; partial: 2; no images or no matching alt: 0 |
+| Media (4) | Image alt | 4 | Entire match in any HTML or template alt: 4; partial: 2; no images or no matching alt: 0. CSS backgrounds are not scored. The recommendation asks for an accurate description and does not tell the user to insert the target phrase. |
 | Code (6) | Separate CSS | 3 | A stylesheet is linked. See the code-check rule below |
 |  | Visible text | 3 | Visible-text bytes / HTML bytes at least 2%: 3; at least 1%: 1; otherwise 0 |
 | URL (10) | Keyphrase in the path | 5 | Root path `/`: 5. All content words in the path: 5. Coverage above half: 3. Otherwise 0 |

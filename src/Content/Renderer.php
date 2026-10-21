@@ -41,12 +41,14 @@ final class Renderer {
 	 * @param array<string, mixed> $context
 	 */
 	public function renderResolved( string $html, AnalysisContext $analysis, array $context = array() ): PageModel {
-		$resolved                    = $this->resolver->resolve( $analysis );
-		$context['metadata_status']  = 'estimated';
-		$context['render_mode']      = (string) ( $context['render_mode'] ?? 'content' );
-		$context['title_tag']        = $resolved['title_tag'];
-		$context['meta_description'] = $resolved['meta_description'];
-		$context['canonical']        = $resolved['canonical'];
+		$resolved                        = $this->resolver->evidence( $analysis );
+		$context['metadata_status']      = 'estimated';
+		$context['render_mode']          = (string) ( $context['render_mode'] ?? 'content' );
+		$context['title_tag']            = $resolved['title_tag'];
+		$context['meta_description']     = $resolved['meta_description'];
+		$context['title_evidence']       = $resolved['title_evidence'];
+		$context['description_evidence'] = $resolved['description_evidence'];
+		$context['canonical']            = $resolved['canonical'];
 		if ( 'content' === $context['render_mode'] ) {
 			return $this->fromContent( $html, $context );
 		}
@@ -77,6 +79,23 @@ final class Renderer {
 				'page_type'        => $post->post_type,
 				'content_selector' => $this->selectorFor( $post ),
 			)
+		);
+	}
+
+	/**
+	 * Title and description a visitor would receive from the current publisher.
+	 *
+	 * @return array{title: string, description: string, url: string}
+	 */
+	public function publishedFields( \WP_Post $post ): array {
+		$url      = get_permalink( $post );
+		$url      = is_string( $url ) ? $url : '';
+		$resolved = $this->resolver->resolve( $this->contextFor( $post, $url ) );
+
+		return array(
+			'title'       => $resolved['title_tag'],
+			'description' => $resolved['meta_description'],
+			'url'         => $url,
 		);
 	}
 

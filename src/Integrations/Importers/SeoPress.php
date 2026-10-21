@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Appearance\ProposalStore;
 use SEOStudio\Storage\SeoMeta;
 
 /**
@@ -77,6 +78,12 @@ final class SeoPress {
 			if ( '' !== $description ) {
 				SeoMeta::store( $post_id, '_seostudio_description', $description );
 			}
+			( new ProposalStore() )->syncImported(
+				$post_id,
+				isset( $converted ) ? $converted : null,
+				'' !== $description ? $description : null
+			);
+			unset( $converted );
 			$phrase = $this->text( $post_id, '_seopress_analysis_target_kw' );
 			if ( '' !== $phrase ) {
 				SeoMeta::store( $post_id, '_seostudio_focus_keyphrase', $phrase );

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Integrations\Importers;
 
+use SEOStudio\Appearance\ProposalStore;
 use SEOStudio\Storage\SeoMeta;
 
 /**
@@ -74,7 +75,14 @@ final class Yoast {
 					++$review;
 				}
 			}
-			$this->write( $post_id, '_seostudio_description', $expand->convert( $this->text( $post_id, '_yoast_wpseo_metadesc' ) ) );
+			$description = $expand->convert( $this->text( $post_id, '_yoast_wpseo_metadesc' ) );
+			$this->write( $post_id, '_seostudio_description', $description );
+			( new ProposalStore() )->syncImported(
+				$post_id,
+				isset( $converted ) ? $converted : null,
+				'' !== $description ? $description : null
+			);
+			unset( $converted );
 			$this->write( $post_id, '_seostudio_focus_keyphrase', $this->text( $post_id, '_yoast_wpseo_focuskw' ) );
 			$this->write( $post_id, '_seostudio_canonical', $this->text( $post_id, '_yoast_wpseo_canonical' ) );
 			$noindex  = '1' === $this->text( $post_id, '_yoast_wpseo_meta-robots-noindex' );

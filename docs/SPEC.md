@@ -58,6 +58,8 @@ SEO Studio installs on any WordPress 6.x site, works with any theme or page buil
 
 **Out of scope permanently.** Rank tracking, backlink data, copying either vendor's visual design or wording.
 
+**Amendment (19 October 2026).** The read-only site architecture report is implemented. It inventories published pages, separates contextual and template links, and withholds orphans unless every published page has a stored analysis. It does not suggest anchor text or edit content. Topic suggestions are implemented as corrections the user can save. They are derived from the target phrase, heading, title, and link graph. Cannibalisation levels are implemented from the target phrase, topic, and title words. A shared phrase is not treated as proof of harm. Search Console evidence is a CSV import, not an OAuth connection. Prioritised recommendations order stored evidence and do not edit pages. A shared target phrase is an observation. It is not automatically a high-priority cannibalisation problem. The larger evidence and search-ownership design is described in `docs/search-intelligence.md` and is not built yet.
+
 ## Architecture
 
 One content pipeline produces a normalised page model; two independent engines score it; a job queue runs the pipeline in batches; a React admin reads everything over the REST API. The Wincher-style engine runs in PHP so scores can be stored and compared. The Yoast-style engine runs in the browser because `yoastseo` is JavaScript and shared hosts have no Node.js.

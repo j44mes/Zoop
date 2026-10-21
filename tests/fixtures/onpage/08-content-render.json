@@ -15,8 +15,12 @@
         "render_mode": "content"
     },
     "expect": {
-        "denominator": 94,
+        "denominator": 76,
         "assessments": {
+            "headings.h1_count": {
+                "earned": 0,
+                "status": "not_checked"
+            },
             "code.stylesheet": {
                 "earned": 0,
                 "status": "not_checked"

@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   repository-baseline:
@@ -13,6 +14,28 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Check the version contract
+        run: php scripts/validate-version.php
+
+      - name: Require a scoring ruleset bump
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
+            git fetch --no-tags --deepen=1 origin || true
+          fi
+          base="$(php scripts/resolve-ruleset-base.php)"
+          git fetch --no-tags origin "${base}"
+          php scripts/check-ruleset-bump.php "${base}"
 
       - name: Check cloud-coding documentation exists
         shell: bash

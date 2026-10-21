@@ -1,35 +1,15 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { assertSignedIn, expect, test } from './fixtures';
 
 test.describe.configure( { mode: 'serial' } );
 
 let editedPostUrl = '';
 
-async function login( page: Page ): Promise< void > {
-	// Land on the plugin screen rather than the WordPress dashboard, whose widgets make outbound
-	// requests. A lost session comes back as wp-login.php?reauth=1, so try once more.
-	const target =
-		'/wp-login.php?redirect_to=' +
-		encodeURIComponent( '/wp-admin/admin.php?page=seostudio' );
-	for ( let attempt = 0; attempt < 2; attempt++ ) {
-		await page.goto( target, { waitUntil: 'domcontentloaded' } );
-		if ( page.url().includes( '/wp-admin/' ) ) {
-			return;
-		}
-		await page.locator( '#user_login' ).fill( 'admin' );
-		await page.locator( '#user_pass' ).fill( 'password' );
-		await page.locator( '#wp-submit' ).click();
-		try {
-			await page.waitForURL( '**/wp-admin/**', {
-				timeout: 20000,
-				waitUntil: 'commit',
-			} );
-			return;
-		} catch ( error ) {
-			if ( attempt === 1 ) {
-				throw error;
-			}
-		}
+function versionLabel(): RegExp {
+	if ( process.env.REQUIRE_BUILD_STAMP === '1' ) {
+		return /Zoop 0\.6\.0-beta\.1 \(build [0-9a-f]{7}\)/;
 	}
+	return /Zoop 0\.6\.0-beta\.1(?: \(build [0-9a-f]{7}\))?/;
 }
 
 async function editorDiagnostics( page: Page ): Promise< string > {
@@ -117,7 +97,7 @@ async function openSeoSidebar( page: Page, errors: string[] ): Promise< void > {
 	} );
 	try {
 		await expect(
-			page.getByLabel( 'Target phrase', { exact: true } )
+			page.getByLabel( 'Focus keyphrase', { exact: true } )
 		).toBeVisible( { timeout: 20000 } );
 	} catch ( error ) {
 		throw new Error(
@@ -169,7 +149,8 @@ async function saveDraft( page: Page ): Promise< void > {
  * @param url  Editor URL to open.
  */
 async function openEditor( page: Page, url: string ): Promise< void > {
-	await page.goto( url );
+	await page.goto( url, { waitUntil: 'domcontentloaded' } );
+	await assertSignedIn( page );
 	await page.waitForFunction(
 		() => !! ( window as unknown as { wp?: { data?: unknown } } ).wp?.data
 	);
@@ -199,22 +180,42 @@ async function openEditor( page: Page, url: string ): Promise< void > {
 }
 
 test( 'dashboard is available after activation', async ( { page } ) => {
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
+	await page.goto( '/wp-admin/admin.php?page=seostudio', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
 	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
-	// Browser projects share one WordPress database, so another project may already have analysed a page.
+	await expect( page.locator( '.seostudio-version' ).first() ).toHaveText(
+		versionLabel()
+	);
+	// Browser projects share one WordPress database, so a later project may already have stored a page.
+	const firstRun = page.getByRole( 'region', {
+		name: 'No pages checked yet',
+	} );
+	const pages = page.getByRole( 'region', { name: 'Pages', exact: true } );
 	await expect(
-		page
-			.getByText( 'No pages are stored yet' )
-			.or( page.getByRole( 'table' ) )
+		firstRun
+			.getByRole( 'heading', { name: 'No pages checked yet' } )
+			.or( pages.getByRole( 'table' ) )
 	).toBeVisible();
+	await expect( page.getByTestId( 'ruleset-upgrade-notice' ) ).toHaveCount(
+		0
+	);
+	if ( await firstRun.isVisible() ) {
+		await expect(
+			firstRun.getByRole( 'button', { name: 'Open a page' } )
+		).toBeVisible();
+		await expect(
+			page.getByRole( 'heading', { name: 'Suggested next steps' } )
+		).toHaveCount( 0 );
+		await expect( pages ).toHaveCount( 0 );
+	}
 } );
 
 test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	page,
 } ) => {
 	const errors = watchPageErrors( page );
-	await login( page );
 	await openEditor( page, '/wp-admin/post-new.php' );
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'Welcome note' );
@@ -222,23 +223,169 @@ test( 'the block editor accepts a keyphrase and shows both scores', async ( {
 	editedPostUrl = page.url();
 	await openSeoSidebar( page, errors );
 	await page
-		.getByLabel( 'Target phrase', { exact: true } )
+		.getByLabel( 'Focus keyphrase', { exact: true } )
 		.fill( 'rank tracker' );
 	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
 	await expect( page.getByTestId( 'onpage-score' ) ).toBeVisible();
-	await expect( page.getByTestId( 'seo-light' ) ).toBeVisible();
-	await expect( page.getByTestId( 'readability-light' ) ).toBeVisible();
-	// Default Analysis-only mode must not claim the SEO Studio title is printed.
-	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
-		'saved but not printed'
+	await expect( page.getByTestId( 'score-presentation' ) ).toContainText(
+		'Content checked. Needs a published-page check to score.'
 	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveAttribute(
+		'data-rating',
+		'grey'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
+	// Analysis-only mode must not present the title as something Update will print.
+	await expect( page.getByTestId( 'metadata-note' ) ).toContainText(
+		'not printing tags'
+	);
+	// Analyse does not write SEO fields. The native save stores the phrase for the next load.
+	await page.waitForFunction( () => {
+		const select = (
+			window as unknown as {
+				wp: {
+					data: {
+						select: ( store: string ) => {
+							getEditedPostAttribute: ( key: string ) => {
+								_seostudio_focus_keyphrase?: string;
+							};
+						};
+					};
+				};
+			}
+		 ).wp.data.select( 'core/editor' );
+		return (
+			select.getEditedPostAttribute( 'meta' )
+				?._seostudio_focus_keyphrase === 'rank tracker'
+		);
+	} );
+	await saveDraft( page );
+} );
+
+test( 'pages and the workspace withhold a verified SEO light', async ( {
+	page,
+} ) => {
+	const postId = new URL(
+		editedPostUrl,
+		'http://example.test'
+	).searchParams.get( 'post' );
+	expect( postId ).toBeTruthy();
+	await page.goto( '/wp-admin/admin.php?page=seostudio&section=pages', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	const table = page.getByRole( 'table' );
+	// Saving the draft after analysis can mark that score out of date.
+	// The list still must not present SEO as verified.
+	await expect( table ).toContainText( 'SEO: Not verified' );
+	await expect( table ).toContainText( 'Content check' );
+	await expect( table ).not.toContainText( 'SEO: Good' );
+	await page.goto(
+		`/wp-admin/admin.php?page=seostudio&view=page&post=${ postId }`,
+		{ waitUntil: 'domcontentloaded' }
+	);
+	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
+	await expect(
+		page.getByText(
+			'Content checked. Needs a published-page check to score.',
+			{ exact: true }
+		)
+	).toBeVisible();
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveAttribute(
+		'data-rating',
+		'grey'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect( page.locator( '.seostudio-pill' ) ).toHaveCount( 0 );
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
+} );
+
+test( 'the classic editor withholds a verified SEO light after a content check', async ( {
+	page,
+} ) => {
+	await page.goto( '/wp-admin/post-new.php', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	await page.waitForFunction(
+		() =>
+			!! (
+				window as unknown as {
+					wp?: {
+						apiFetch?: ( options: unknown ) => Promise< unknown >;
+					};
+				}
+			 ).wp?.apiFetch
+	);
+	const postId = await page.evaluate( async () => {
+		const created = await (
+			window as unknown as {
+				wp: {
+					apiFetch: ( options: {
+						path: string;
+						method: string;
+						data: {
+							title: string;
+							content: string;
+							status: string;
+						};
+					} ) => Promise< { id: number } >;
+				};
+			}
+		 ).wp.apiFetch( {
+			path: '/wp/v2/posts',
+			method: 'POST',
+			data: {
+				title: 'Classic note',
+				content: '<p>Body copy for the page.</p>',
+				status: 'draft',
+			},
+		} );
+		return created.id;
+	} );
+	await page.goto(
+		`/wp-admin/post.php?post=${ postId }&action=edit&seostudio_editor=classic`,
+		{ waitUntil: 'domcontentloaded' }
+	);
+	await expect( page.locator( '#seostudio-metabox' ) ).toBeVisible();
+	await expect( page.locator( '.block-editor' ) ).toHaveCount( 0 );
+	await page
+		.getByLabel( 'Focus keyphrase', { exact: true } )
+		.fill( 'rank tracker' );
+	await page.getByRole( 'button', { name: 'Analyse page' } ).click();
+	await expect( page.getByTestId( 'score-presentation' ) ).toContainText(
+		'Content checked. Needs a published-page check to score.'
+	);
+	await expect( page.getByTestId( 'seo-light' ) ).toHaveText(
+		'SEO: Not verified'
+	);
+	await expect( page.getByTestId( 'readability-light' ) ).toContainText(
+		'Content check'
+	);
+	await expect(
+		page.getByRole( 'button', { name: 'Check published page' } ).first()
+	).toBeVisible();
 } );
 
 test( 'editing the title updates the title assessment without a reload', async ( {
 	page,
 } ) => {
 	const errors = watchPageErrors( page );
-	await login( page );
 	await openEditor( page, editedPostUrl );
 	await openSeoSidebar( page, errors );
 	const checks = page.locator( 'details[data-section="checks"]' );
@@ -252,20 +399,33 @@ test( 'editing the title updates the title assessment without a reload', async (
 	);
 	await titleCheck.locator( 'summary' ).click();
 	await expect(
-		titleCheck.getByText( 'Include the full keyphrase in the title.' )
+		titleCheck.getByText(
+			'This check did not run because the value was not observed.'
+		)
 	).toBeVisible();
-	// Analysis-only mode prints the post title, so that is the title the score must follow.
+	// Analysis-only mode has not observed the published title. Editing the post
+	// title must not make Zoop treat that text as the published title.
 	const canvas = page.frameLocator( 'iframe[name="editor-canvas"]' );
 	await canvas.getByLabel( 'Add title' ).fill( 'rank tracker welcome' );
+	await expect( canvas.getByText( 'rank tracker welcome' ) ).toBeVisible();
+	await expect(
+		titleCheck.getByText(
+			'This check did not run because the value was not observed.'
+		)
+	).toBeVisible();
 	await expect(
 		page.getByText( 'The full keyphrase is in the title.' )
-	).toBeVisible();
+	).toHaveCount( 0 );
 } );
 
 test( 're-analyse all queues an audit', async ( { page } ) => {
-	await login( page );
-	await page.goto( '/wp-admin/admin.php?page=seostudio' );
-	await page.getByRole( 'button', { name: 'Run website audit' } ).click();
+	await page.goto( '/wp-admin/admin.php?page=seostudio', {
+		waitUntil: 'domcontentloaded',
+	} );
+	await assertSignedIn( page );
+	await page
+		.getByRole( 'button', { name: 'Refresh content analysis' } )
+		.click();
 	await expect(
 		page.getByText(
 			/Audit queued\.|An audit is already running\.|An audit was started recently/
@@ -296,14 +456,17 @@ async function saveSettings( page: Page ): Promise< void > {
 }
 
 test( 'owner mode prints the home description', async ( { page } ) => {
-	await login( page );
 	const settingsUrl = '/wp-admin/admin.php?page=seostudio';
 	try {
-		await page.goto( settingsUrl );
+		await page.goto( settingsUrl, { waitUntil: 'domcontentloaded' } );
+		await assertSignedIn( page );
 		await page
 			.getByRole( 'button', { name: 'Settings', exact: true } )
 			.click();
 		const settings = page.locator( '.seostudio-settings' );
+		await expect( settings.locator( '.seostudio-version' ) ).toHaveText(
+			versionLabel()
+		);
 		await settings.locator( 'select' ).first().selectOption( 'owner' );
 		await settings
 			.getByLabel( 'Home description' )

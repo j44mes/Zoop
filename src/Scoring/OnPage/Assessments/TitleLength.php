@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -32,6 +33,11 @@ final class TitleLength implements Assessment {
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
 		unset( $keyphrase, $normaliser );
+		$withheld = EvidenceGate::fetchedTitle( $this, $page->titleEvidence );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
 		$title  = trim( $page->titleTag );
 		$length = mb_strlen( $title );
 		if ( '' === $title ) {
@@ -48,10 +54,13 @@ final class TitleLength implements Assessment {
 			$this,
 			$earned,
 			array( 'length' => $length ),
-			sprintf(
-				/* translators: %d: title length in characters */
-				__( 'The title is %d characters. The full score is 30 to 60.', 'seo-studio' ),
-				$length
+			EvidenceGate::note(
+				sprintf(
+					/* translators: %d: title length in characters */
+					__( 'The title is %d characters. The full score is 30 to 60.', 'seo-studio' ),
+					$length
+				),
+				$page->titleEvidence
 			),
 			6 === $earned
 				? __( 'No change needed.', 'seo-studio' )

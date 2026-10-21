@@ -17,11 +17,12 @@ final class PageModel {
 	 * __construct.
 	 *
 	 * @param string[]                                                              $h1
+	 * @param string[]                                                              $documentH1
 	 * @param array<int, array{level: int, text: string, order: int}>             $headings
 	 * @param string[]                                                              $paragraphs
 	 * @param string[]                                                              $sentences
-	 * @param array<int, array{href: string, anchor: string, internal: bool, nofollow: bool}> $links
-	 * @param array<int, array{src: string, alt: string, in_body: bool}>           $images
+	 * @param array<int, array{href: string, anchor: string, internal: bool, nofollow: bool, kind?: string}> $links
+	 * @param array<int, array{src: string, alt: string, in_body: bool, kind?: string, source?: string}> $images
 	 */
 	public function __construct(
 		public readonly string $url = '',
@@ -31,6 +32,8 @@ final class PageModel {
 		public readonly string $canonical = '',
 		public readonly string $robots = '',
 		public readonly array $h1 = array(),
+		public readonly array $documentH1 = array(),
+		public readonly string $documentH1Evidence = 'not_observed',
 		public readonly array $headings = array(),
 		public readonly string $bodyText = '',
 		public readonly int $wordCount = 0,
@@ -47,7 +50,12 @@ final class PageModel {
 		public readonly string $contentSelectorUsed = '',
 		public readonly string $renderedAt = '',
 		public readonly string $pageType = '',
-		public readonly string $metadataStatus = 'estimated'
+		public readonly string $metadataStatus = 'estimated',
+		public readonly string $titleEvidence = 'observed',
+		public readonly string $descriptionEvidence = 'observed',
+		public readonly string $robotsMeta = '',
+		public readonly string $robotsHttp = '',
+		public readonly string $linkSourceHash = ''
 	) {}
 
 	/**
@@ -76,6 +84,8 @@ final class PageModel {
 			canonical: $this->canonical,
 			robots: $this->robots,
 			h1: $this->h1,
+			documentH1: $this->documentH1,
+			documentH1Evidence: $this->documentH1Evidence,
 			headings: $this->headings,
 			bodyText: $this->bodyText,
 			wordCount: $this->wordCount,
@@ -92,7 +102,12 @@ final class PageModel {
 			contentSelectorUsed: $this->contentSelectorUsed,
 			renderedAt: $this->renderedAt,
 			pageType: $this->pageType,
-			metadataStatus: $this->metadataStatus
+			metadataStatus: $this->metadataStatus,
+			titleEvidence: $this->titleEvidence,
+			descriptionEvidence: $this->descriptionEvidence,
+			robotsMeta: $this->robotsMeta,
+			robotsHttp: $this->robotsHttp,
+			linkSourceHash: $this->linkSourceHash
 		);
 	}
 
@@ -119,10 +134,17 @@ final class PageModel {
 			if ( ! is_array( $image ) ) {
 				continue;
 			}
+			$in_body = (bool) ( $image['in_body'] ?? false );
+			$kind    = (string) ( $image['kind'] ?? '' );
+			if ( ! in_array( $kind, array( 'html', 'template', 'css_background', 'unverified' ), true ) ) {
+				$kind = $in_body ? 'html' : 'template';
+			}
 			$images[] = array(
 				'src'     => (string) ( $image['src'] ?? '' ),
 				'alt'     => (string) ( $image['alt'] ?? '' ),
-				'in_body' => (bool) ( $image['in_body'] ?? false ),
+				'in_body' => $in_body,
+				'kind'    => $kind,
+				'source'  => (string) ( $image['source'] ?? '' ),
 			);
 		}
 
@@ -131,17 +153,34 @@ final class PageModel {
 			if ( ! is_array( $link ) ) {
 				continue;
 			}
+			$kind = (string) ( $link['kind'] ?? '' );
+			if ( ! in_array( $kind, array( 'contextual', 'template' ), true ) ) {
+				// Older stored rows only contained content-root links.
+				$kind = 'contextual';
+			}
 			$links[] = array(
 				'href'     => (string) ( $link['href'] ?? '' ),
 				'anchor'   => (string) ( $link['anchor'] ?? '' ),
 				'internal' => (bool) ( $link['internal'] ?? false ),
 				'nofollow' => (bool) ( $link['nofollow'] ?? false ),
+				'kind'     => $kind,
 			);
 		}
 
 		$h1 = array();
 		foreach ( (array) ( $data['h1'] ?? array() ) as $text ) {
 			$h1[] = (string) $text;
+		}
+
+		$document_h1       = array();
+		$document_evidence = MetadataEvidence::known( isset( $data['document_h1_evidence'] ) ? (string) $data['document_h1_evidence'] : null, MetadataEvidence::NOT_OBSERVED );
+		if ( MetadataEvidence::OBSERVED === $document_evidence && isset( $data['document_h1'] ) && is_array( $data['document_h1'] ) ) {
+			foreach ( $data['document_h1'] as $text ) {
+				$document_h1[] = (string) $text;
+			}
+		} else {
+			$document_evidence = MetadataEvidence::NOT_OBSERVED;
+			$document_h1       = array();
 		}
 
 		$has_css = $data['has_external_css'] ?? null;
@@ -156,6 +195,8 @@ final class PageModel {
 			canonical: (string) ( $data['canonical'] ?? '' ),
 			robots: (string) ( $data['robots'] ?? '' ),
 			h1: $h1,
+			documentH1: $document_h1,
+			documentH1Evidence: $document_evidence,
 			headings: $headings,
 			bodyText: (string) ( $data['body_text'] ?? '' ),
 			wordCount: (int) ( $data['word_count'] ?? 0 ),
@@ -172,7 +213,12 @@ final class PageModel {
 			contentSelectorUsed: (string) ( $data['content_selector_used'] ?? '' ),
 			renderedAt: (string) ( $data['rendered_at'] ?? '' ),
 			pageType: (string) ( $data['page_type'] ?? '' ),
-			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' )
+			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' ),
+			titleEvidence: MetadataEvidence::known( array_key_exists( 'title_evidence', $data ) ? (string) $data['title_evidence'] : null, MetadataEvidence::OBSERVED ),
+			descriptionEvidence: MetadataEvidence::known( array_key_exists( 'description_evidence', $data ) ? (string) $data['description_evidence'] : null, MetadataEvidence::OBSERVED ),
+			robotsMeta: (string) ( $data['robots_meta'] ?? '' ),
+			robotsHttp: (string) ( $data['robots_http'] ?? '' ),
+			linkSourceHash: (string) ( $data['link_source_hash'] ?? '' )
 		);
 	}
 
@@ -190,6 +236,8 @@ final class PageModel {
 			'canonical'             => $this->canonical,
 			'robots'                => $this->robots,
 			'h1'                    => $this->h1,
+			'document_h1'           => $this->documentH1,
+			'document_h1_evidence'  => $this->documentH1Evidence,
 			'headings'              => $this->headings,
 			'body_text'             => $this->bodyText,
 			'word_count'            => $this->wordCount,
@@ -207,6 +255,11 @@ final class PageModel {
 			'content_selector_used' => $this->contentSelectorUsed,
 			'rendered_at'           => $this->renderedAt,
 			'page_type'             => $this->pageType,
+			'title_evidence'        => $this->titleEvidence,
+			'description_evidence'  => $this->descriptionEvidence,
+			'robots_meta'           => $this->robotsMeta,
+			'robots_http'           => $this->robotsHttp,
+			'link_source_hash'      => $this->linkSourceHash,
 		);
 	}
 
@@ -215,7 +268,7 @@ final class PageModel {
 	 */
 	public function inputHash(): string {
 		$data = $this->toArray();
-		unset( $data['rendered_at'] );
+		unset( $data['rendered_at'], $data['link_source_hash'] );
 		if ( function_exists( 'wp_json_encode' ) ) {
 			$encoded = wp_json_encode( $data );
 		} else {
@@ -228,6 +281,13 @@ final class PageModel {
 
 	public function firstH1(): string {
 		return $this->h1[0] ?? '';
+	}
+
+	/**
+	 * First H1 observed in the full document. Empty unless document H1 evidence is observed.
+	 */
+	public function firstDocumentH1(): string {
+		return $this->documentH1[0] ?? '';
 	}
 
 	/**

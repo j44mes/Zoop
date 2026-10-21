@@ -13,6 +13,8 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMXPath;
+use SEOStudio\Architecture\SiteBoundary;
+use SEOStudio\Architecture\UrlKey;
 
 /**
  * Extracts the fields both scoring engines read.
@@ -32,13 +34,9 @@ final class Extractor {
 		$root     = $this->selectRoot( $document, $render_mode, $selector );
 		$body     = $this->textOf( $root['node'] );
 		$url      = (string) ( $context['url'] ?? '' );
-		$title    = array_key_exists( 'title_tag', $context )
-			? (string) $context['title_tag']
-			: $this->textOfFirst( $document, '//title' );
-		$meta     = array_key_exists( 'meta_description', $context )
-			? (string) $context['meta_description']
-			: $this->metaContent( $document, 'description' );
-
+		$live     = 'live' === $render_mode;
+		$title    = $this->titled( $document, $context, $live );
+		$meta     = $this->described( $document, $context, $live );
 		$headings = $this->headings( $root['node'] );
 		$h1       = array();
 		foreach ( $headings as $heading ) {
@@ -46,8 +44,12 @@ final class Extractor {
 				$h1[] = $heading['text'];
 			}
 		}
-
-		$live      = 'live' === $render_mode;
+		$document_h1       = array();
+		$document_evidence = MetadataEvidence::NOT_OBSERVED;
+		if ( $live ) {
+			$document_h1       = $this->documentH1s( $document );
+			$document_evidence = MetadataEvidence::OBSERVED;
+		}
 		$path      = Urls::component( $url, PHP_URL_PATH );
 		$pieces    = preg_split( '/\s+/', trim( $body ) );
 		$lang_attr = $document->documentElement?->getAttribute( 'lang' );
@@ -56,8 +58,8 @@ final class Extractor {
 			array(
 				'url'                   => $url,
 				'slug'                  => trim( is_string( $path ) ? $path : '', '/' ),
-				'title_tag'             => $title,
-				'meta_description'      => $meta,
+				'title_tag'             => $title['value'],
+				'meta_description'      => $meta['value'],
 				'canonical'             => array_key_exists( 'canonical', $context )
 					? (string) $context['canonical']
 					: $this->attributeOfFirst( $document, '//link[contains(@rel, "canonical")]', 'href' ),
@@ -67,14 +69,22 @@ final class Extractor {
 					: $this->metaContent( $document, 'robots' ) ) . ', ' . (string) ( $context['http_robots'] ?? '' ),
 					', '
 				),
+				'robots_meta'           => $live
+					? ( array_key_exists( 'robots', $context ) ? (string) $context['robots'] : $this->metaContent( $document, 'robots' ) )
+					: '',
+				'robots_http'           => $live ? (string) ( $context['http_robots'] ?? '' ) : '',
 				'h1'                    => $h1,
+				'document_h1'           => $document_h1,
+				'document_h1_evidence'  => $document_evidence,
+				'title_evidence'        => $title['evidence'],
+				'description_evidence'  => $meta['evidence'],
 				'headings'              => $headings,
 				'body_text'             => $body,
 				'word_count'            => '' === trim( $body ) ? 0 : count( is_array( $pieces ) ? $pieces : array() ),
 				'paragraphs'            => $this->paragraphs( $root['node'] ),
 				'sentences'             => $this->sentences( $body ),
-				'links'                 => $this->links( $root['node'], $url ),
-				'images'                => $this->images( $document, $root['node'] ),
+				'links'                 => $this->links( $document, $root['node'], $url ),
+				'images'                => $this->images( $document, $root['node'], $html ),
 				'has_external_css'      => $live ? $this->hasStylesheet( $document ) : null,
 				'html_bytes'            => $live ? strlen( $html ) : null,
 				'visible_text_bytes'    => $live ? strlen( $this->textOf( $document->documentElement ?? $document ) ) : null,
@@ -364,17 +374,20 @@ final class Extractor {
 	}
 
 	/**
-	 * Collect links under the content root.
+	 * Collect links in the document and mark whether they sit in the content area.
 	 *
-	 * @return array<int, array{href: string, anchor: string, internal: bool, nofollow: bool}>
+	 * Links inside the content root are contextual. Links in the header, footer, or navigation are template links.
+	 * Content mode still prefers main or article, and otherwise uses the body. Theme chrome that is absent from the post HTML is not in that render.
+	 *
+	 * @return array<int, array{href: string, anchor: string, internal: bool, nofollow: bool, kind: string}>
 	 */
-	private function links( DOMNode $root, string $pageUrl ): array {
-		$links     = array();
-		$host_part = Urls::component( $pageUrl, PHP_URL_HOST );
-		$host      = is_string( $host_part ) ? $host_part : '';
+	private function links( DOMDocument $document, DOMNode $root, string $pageUrl ): array {
+		$links = array();
+		$body  = $document->getElementsByTagName( 'body' )->item( 0 );
+		$scope = $body instanceof DOMNode ? $body : $document;
 		$this->walk(
-			$root,
-			function ( DOMNode $node ) use ( &$links, $host ): void {
+			$scope,
+			function ( DOMNode $node ) use ( &$links, $root, $pageUrl ): void {
 				if ( ! $node instanceof DOMElement || 'a' !== strtolower( $node->tagName ) ) {
 					return;
 				}
@@ -382,14 +395,13 @@ final class Extractor {
 				if ( '' === $href ) {
 					return;
 				}
-				$link_part = Urls::component( $href, PHP_URL_HOST );
-				$link_host = is_string( $link_part ) ? $link_part : '';
-				$rel       = strtolower( $node->getAttribute( 'rel' ) );
-				$links[]   = array(
+				$rel     = strtolower( $node->getAttribute( 'rel' ) );
+				$links[] = array(
 					'href'     => $href,
 					'anchor'   => $this->textOf( $node ),
-					'internal' => '' === $link_host || ( '' !== $host && 0 === strcasecmp( $link_host, $host ) ),
-					'nofollow' => str_contains( $rel, 'nofollow' ),
+					'internal' => $this->linkIsInternal( $href, $pageUrl ),
+					'kind'     => $this->linkKind( $node, $root ),
+					'nofollow' => $this->relHas( $rel, 'nofollow' ),
 				);
 			}
 		);
@@ -397,23 +409,285 @@ final class Extractor {
 	}
 
 	/**
-	 * Collect images from the document.
-	 *
-	 * @return array<int, array{src: string, alt: string, in_body: bool}>
+	 * Relative links stay internal. Absolute links use the public boundary and trusted aliases.
 	 */
-	private function images( DOMDocument $document, DOMNode $root ): array {
+	private function linkIsInternal( string $href, string $pageUrl ): bool {
+		if ( str_starts_with( $href, '#' ) || preg_match( '#^(mailto|tel|javascript|data):#i', $href ) ) {
+			return false;
+		}
+		$link_part = Urls::component( $href, PHP_URL_HOST );
+		$link_host = is_string( $link_part ) ? $link_part : '';
+		$scheme    = 1 === preg_match( '#^[a-z][a-z0-9+.-]*:#i', $href );
+		if ( '' === $link_host && ! $scheme ) {
+			return true;
+		}
+		$home     = $this->linkHome( $pageUrl );
+		$absolute = UrlKey::absolute( $href, '' !== $pageUrl ? $pageUrl : $home );
+		return '' !== $absolute && SiteBoundary::contains( $absolute, $home );
+	}
+
+	/**
+	 * Public site root. Without WordPress, the page address supplies the host and port.
+	 */
+	private function linkHome( string $pageUrl ): string {
+		if ( function_exists( 'home_url' ) ) {
+			return (string) home_url( '/' );
+		}
+		$parts = Urls::parts( $pageUrl );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return $pageUrl;
+		}
+		$origin = strtolower( (string) $parts['scheme'] ) . '://' . strtolower( (string) $parts['host'] );
+		if ( isset( $parts['port'] ) ) {
+			$origin .= ':' . (int) $parts['port'];
+		}
+		return $origin . '/';
+	}
+
+	/**
+	 * Content links are contextual, except WordPress previous/next post navigation.
+	 */
+	private function linkKind( DOMElement $node, DOMNode $root ): string {
+		if ( ! $this->contains( $root, $node ) || $this->postNavigationLink( $node ) ) {
+			return 'template';
+		}
+		return 'contextual';
+	}
+
+	/**
+	 * Post-navigation blocks and previous/next links inside those containers.
+	 *
+	 * An editorial link that merely says rel="next" stays contextual.
+	 */
+	private function postNavigationLink( DOMElement $node ): bool {
+		$rel     = strtolower( $node->getAttribute( 'rel' ) );
+		$in_nav  = false;
+		$current = $node;
+		while ( $current instanceof DOMElement ) {
+			if ( $this->hasClassToken( $current, 'wp-block-post-navigation-link' ) ) {
+				return true;
+			}
+			if ( $this->hasClassToken( $current, 'post-navigation' ) ) {
+				$in_nav = true;
+			}
+			$label = strtolower( trim( $current->getAttribute( 'aria-label' ) ) );
+			if ( 'nav' === strtolower( $current->tagName ) && str_contains( $label, 'post navigation' ) ) {
+				$in_nav = true;
+			}
+			$parent  = $current->parentNode;
+			$current = $parent instanceof DOMElement ? $parent : null;
+		}
+		return $in_nav && ( $this->relHas( $rel, 'prev' ) || $this->relHas( $rel, 'next' ) );
+	}
+
+	private function relHas( string $rel, string $token ): bool {
+		$parts = preg_split( '/\s+/', trim( $rel ) );
+		return is_array( $parts ) && in_array( $token, $parts, true );
+	}
+
+	private function hasClassToken( DOMElement $node, string $token ): bool {
+		$classes = preg_split( '/\s+/', trim( $node->getAttribute( 'class' ) ) );
+		return is_array( $classes ) && in_array( $token, $classes, true );
+	}
+
+	/**
+	 * Collect HTML images, inline CSS backgrounds, and checks that could not be completed.
+	 *
+	 * Stylesheets linked from the page are not downloaded. A CSS background is never given an alt score.
+	 *
+	 * @return array<int, array{src: string, alt: string, in_body: bool, kind: string, source: string}>
+	 */
+	private function images( DOMDocument $document, DOMNode $root, string $html ): array {
 		$images = array();
 		foreach ( $document->getElementsByTagName( 'img' ) as $image ) {
 			if ( ! $image instanceof DOMElement ) {
 				continue;
 			}
+			$resolved = $this->imageAddress( $image );
+			$in_body  = $this->contains( $root, $image );
 			$images[] = array(
-				'src'     => $image->getAttribute( 'src' ),
+				'src'     => $resolved['src'],
 				'alt'     => $image->getAttribute( 'alt' ),
-				'in_body' => $this->contains( $root, $image ),
+				'in_body' => $in_body,
+				'kind'    => '' === $resolved['src'] ? 'unverified' : ( $in_body ? 'html' : 'template' ),
+				'source'  => $resolved['source'],
 			);
 		}
+
+		foreach ( $document->getElementsByTagName( '*' ) as $element ) {
+			if ( ! $element instanceof DOMElement ) {
+				continue;
+			}
+			$style = $element->getAttribute( 'style' );
+			foreach ( $this->backgroundUrls( $style ) as $url ) {
+				$images[] = array(
+					'src'     => $url,
+					'alt'     => '',
+					'in_body' => $this->contains( $root, $element ),
+					'kind'    => 'css_background',
+					'source'  => 'inline',
+				);
+			}
+			if ( $this->unverifiedBackground( $element, $style ) ) {
+				$images[] = array(
+					'src'     => '',
+					'alt'     => '',
+					'in_body' => $this->contains( $root, $element ),
+					'kind'    => 'unverified',
+					'source'  => 'divi',
+				);
+			}
+		}
+
+		$blocks = $this->styleBlockBackgrounds( $html );
+		foreach ( $blocks['urls'] as $url ) {
+			$images[] = array(
+				'src'     => $url,
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'css_background',
+				'source'  => 'style',
+			);
+		}
+		if ( $blocks['unchecked'] ) {
+			$images[] = array(
+				'src'     => '',
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'unverified',
+				'source'  => 'style',
+			);
+		}
+		if ( $this->hasStylesheet( $document ) ) {
+			$images[] = array(
+				'src'     => '',
+				'alt'     => '',
+				'in_body' => false,
+				'kind'    => 'unverified',
+				'source'  => 'stylesheet',
+			);
+		}
+
 		return $images;
+	}
+
+	/**
+	 * Prefer a normal src, then a lazy-load address, then the first srcset candidate.
+	 *
+	 * @return array{src: string, source: string}
+	 */
+	private function imageAddress( DOMElement $image ): array {
+		$src = trim( $image->getAttribute( 'src' ) );
+		if ( '' !== $src && ! str_starts_with( $src, 'data:' ) ) {
+			return array(
+				'src'    => $src,
+				'source' => 'src',
+			);
+		}
+		foreach ( array( 'data-src', 'data-lazy-src' ) as $attribute ) {
+			$lazy = trim( $image->getAttribute( $attribute ) );
+			if ( '' !== $lazy && ! str_starts_with( $lazy, 'data:' ) ) {
+				return array(
+					'src'    => $lazy,
+					'source' => 'data-src',
+				);
+			}
+		}
+		$srcset = $this->firstSrcsetUrl( $image->getAttribute( 'srcset' ) );
+		if ( '' === $srcset ) {
+			$parent = $image->parentNode;
+			if ( $parent instanceof DOMElement && 'picture' === strtolower( $parent->tagName ) ) {
+				foreach ( $parent->getElementsByTagName( 'source' ) as $source ) {
+					if ( $source instanceof DOMElement ) {
+						$srcset = $this->firstSrcsetUrl( $source->getAttribute( 'srcset' ) );
+						if ( '' !== $srcset ) {
+							break;
+						}
+					}
+				}
+			}
+		}
+		if ( '' !== $srcset ) {
+			return array(
+				'src'    => $srcset,
+				'source' => 'srcset',
+			);
+		}
+		return array(
+			'src'    => '',
+			'source' => 'missing',
+		);
+	}
+
+	private function firstSrcsetUrl( string $srcset ): string {
+		$candidate = trim( explode( ',', $srcset )[0] ?? '' );
+		$parts     = preg_split( '/\s+/', $candidate );
+		$url       = is_array( $parts ) ? trim( (string) ( $parts[0] ?? '' ) ) : '';
+		return str_starts_with( $url, 'data:' ) ? '' : $url;
+	}
+
+	/**
+	 * Addresses inside CSS url() values. Data URIs are skipped.
+	 *
+	 * @return string[]
+	 */
+	private function backgroundUrls( string $style ): array {
+		if ( ! preg_match_all( '/url\(\s*([\'"]?)([^\'")]+)\1\s*\)/i', $style, $matches ) ) {
+			return array();
+		}
+		$urls = array();
+		foreach ( $matches[2] as $url ) {
+			$url = trim( html_entity_decode( (string) $url, ENT_QUOTES ) );
+			if ( '' === $url || str_starts_with( strtolower( $url ), 'data:' ) ) {
+				continue;
+			}
+			$urls[] = $url;
+		}
+		return $urls;
+	}
+
+	/**
+	 * A Divi background section whose address is not in this HTML.
+	 */
+	private function unverifiedBackground( DOMElement $element, string $style ): bool {
+		$class = strtolower( $element->getAttribute( 'class' ) );
+		if ( ! str_contains( $class, 'et_pb_with_background' ) ) {
+			return false;
+		}
+		return array() === $this->backgroundUrls( $style );
+	}
+
+	/**
+	 * Background addresses written in style blocks. A very large block is left unverified.
+	 *
+	 * @return array{urls: string[], unchecked: bool}
+	 */
+	private function styleBlockBackgrounds( string $html ): array {
+		if ( ! preg_match_all( '/<style\b[^>]*>(.*?)<\/style>/is', $html, $blocks ) ) {
+			return array(
+				'urls'      => array(),
+				'unchecked' => false,
+			);
+		}
+		$total = 0;
+		$urls  = array();
+		foreach ( $blocks[1] as $css ) {
+			$css    = (string) $css;
+			$total += strlen( $css );
+			if ( $total > 100000 ) {
+				return array(
+					'urls'      => array(),
+					'unchecked' => true,
+				);
+			}
+			foreach ( $this->backgroundUrls( $css ) as $url ) {
+				$urls[] = $url;
+			}
+		}
+		return array(
+			'urls'      => array_values( array_unique( $urls ) ),
+			'unchecked' => false,
+		);
 	}
 
 	private function hasStylesheet( DOMDocument $document ): bool {
@@ -439,10 +713,107 @@ final class Extractor {
 		return trim( is_string( $text ) ? $text : '' );
 	}
 
-	private function textOfFirst( DOMDocument $document, string $query ): string {
-		$nodes = ( new DOMXPath( $document ) )->query( $query );
+	/**
+	 * Title text and the evidence for it.
+	 *
+	 * @param array<string, mixed> $context
+	 * @return array{value: string, evidence: string}
+	 */
+	private function titled( DOMDocument $document, array $context, bool $live ): array {
+		if ( array_key_exists( 'title_tag', $context ) ) {
+			return array(
+				'value'    => (string) $context['title_tag'],
+				'evidence' => MetadataEvidence::known(
+					isset( $context['title_evidence'] ) ? (string) $context['title_evidence'] : null,
+					MetadataEvidence::CALCULATED
+				),
+			);
+		}
+
+		$found = $this->titleText( $document );
+		if ( null === $found ) {
+			return array(
+				'value'    => '',
+				'evidence' => $live ? MetadataEvidence::OBSERVED_ABSENT : MetadataEvidence::NOT_OBSERVED,
+			);
+		}
+
+		return array(
+			'value'    => $found,
+			'evidence' => MetadataEvidence::OBSERVED,
+		);
+	}
+
+	/**
+	 * Description text and the evidence for it.
+	 *
+	 * @param array<string, mixed> $context
+	 * @return array{value: string, evidence: string}
+	 */
+	private function described( DOMDocument $document, array $context, bool $live ): array {
+		if ( array_key_exists( 'meta_description', $context ) ) {
+			return array(
+				'value'    => (string) $context['meta_description'],
+				'evidence' => MetadataEvidence::known(
+					isset( $context['description_evidence'] ) ? (string) $context['description_evidence'] : null,
+					MetadataEvidence::CALCULATED
+				),
+			);
+		}
+
+		$found = $this->descriptionTag( $document );
+		if ( null === $found ) {
+			return array(
+				'value'    => '',
+				'evidence' => $live ? MetadataEvidence::OBSERVED_ABSENT : MetadataEvidence::NOT_OBSERVED,
+			);
+		}
+
+		return array(
+			'value'    => $found,
+			'evidence' => MetadataEvidence::OBSERVED,
+		);
+	}
+
+	private function titleText( DOMDocument $document ): ?string {
+		$nodes = ( new DOMXPath( $document ) )->query( '//title' );
 		$node  = false !== $nodes ? $nodes->item( 0 ) : null;
-		return $node instanceof DOMNode ? $this->textOf( $node ) : '';
+		if ( ! $node instanceof DOMNode ) {
+			return null;
+		}
+
+		return $this->textOf( $node );
+	}
+
+	private function descriptionTag( DOMDocument $document ): ?string {
+		foreach ( $document->getElementsByTagName( 'meta' ) as $meta ) {
+			if ( $meta instanceof DOMElement && 0 === strcasecmp( $meta->getAttribute( 'name' ), 'description' ) ) {
+				return $meta->getAttribute( 'content' );
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Every H1 in the document, including those outside the content root.
+	 *
+	 * @return string[]
+	 */
+	private function documentH1s( DOMDocument $document ): array {
+		$nodes = ( new DOMXPath( $document ) )->query( '//h1' );
+		$texts = array();
+		if ( false === $nodes ) {
+			return $texts;
+		}
+
+		foreach ( $nodes as $node ) {
+			if ( $node instanceof DOMNode ) {
+				$texts[] = $this->textOf( $node );
+			}
+		}
+
+		return $texts;
 	}
 
 	private function metaContent( DOMDocument $document, string $name ): string {

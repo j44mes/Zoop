@@ -24,7 +24,7 @@ use WP_UnitTestCase;
 final class ExternalCronTest extends WP_UnitTestCase {
 	public function test_external_runner_completes_and_repeats_a_sweep_after_a_failure(): void {
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		$this->assertTrue( Scheduler::cronDisabled() );
 		$this->assertFalse( Scheduler::inline() );
 		register_post_type( 'queue_fixture', array( 'public' => true ) );

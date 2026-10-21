@@ -17,6 +17,27 @@ describe( 'shared UI', () => {
 		).toContain( 'Not analysed yet' );
 		expect(
 			renderToStaticMarkup(
+				<ScoreRing
+					value={ null }
+					denominator={ null }
+					label="Not enough evidence yet"
+				/>
+			)
+		).toContain( 'Not enough evidence yet' );
+		expect(
+			renderToStaticMarkup(
+				<ScoreRing
+					value={ null }
+					denominator={ null }
+					label="Not enough evidence yet"
+				/>
+			)
+		).toContain( 'is-unavailable' );
+		expect(
+			renderToStaticMarkup( <ScoreRing value={ 0 } denominator={ 80 } /> )
+		).toContain( '>0<' );
+		expect(
+			renderToStaticMarkup(
 				<ScoreRing value={ 82 } denominator={ 100 } />
 			)
 		).toContain( '82' );

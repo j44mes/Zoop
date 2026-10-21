@@ -8,41 +8,53 @@ import {
 	fetchPages,
 	fetchPostIdentity,
 	fetchSeo,
-	fetchSettings,
-	saveSeo,
+	fetchCapabilities,
+	type CapabilityManifest,
 	type PageListItem,
 	type PageRecord,
 	type SeoFields,
-	type StudioSettings,
 } from '../shared/api';
 import { AssessmentList } from '../shared/ui/AssessmentList';
-import { assessmentTitle } from '../shared/ui/assessment-labels';
-import type { ListedAssessment } from '../shared/ui/AssessmentList';
-import { SnippetPreview } from '../shared/ui/SnippetPreview';
-import { SocialPreview } from '../shared/ui/SocialPreview';
-import { TrafficLight } from '../shared/ui/TrafficLight';
-import { editHref, editTarget } from './edit-route';
 import {
-	snippetCaption,
-	socialCaption,
-	workspaceOwnership,
-} from './ownership-note';
+	EvidenceReadiness,
+	readinessText,
+} from '../shared/ui/EvidenceReadiness';
+import { assessmentTitle } from '../shared/ui/assessment-labels';
+import { historicalScoreLabel } from './score-state';
+import type { ListedAssessment } from '../shared/ui/AssessmentList';
+import { SocialPreview } from '../shared/ui/SocialPreview';
+import { EvidenceLights } from '../shared/ui/EvidenceLights';
+import { editHref, editTarget } from './edit-route';
+import { socialCaption, workspaceOwnership } from './ownership-note';
+import { SearchAppearance } from './SearchAppearance';
+import {
+	imageKind,
+	imageKindLabel,
+	imageModeNote,
+	imageNote,
+	type ReportedImage,
+} from './image-report';
 import { recommendationHeading, whyItMatters } from './recommendation-copy';
+import { TopicPanel } from './TopicPanel';
 
 function queryValue( name: string ): string {
 	return new URLSearchParams( window.location.search ).get( name ) || '';
 }
 
-export function pageWorkspaceUrl( postId: number ): string {
-	return `admin.php?page=seostudio&view=page&post=${ postId }`;
-}
+export { pageWorkspaceUrl } from './page-link';
 
 export function isPageWorkspace(): boolean {
 	return queryValue( 'view' ) === 'page';
 }
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type WorkspaceTab = 'recommendations' | 'checks' | 'search' | 'advanced';
+type WorkspaceTab =
+	| 'recommendations'
+	| 'checks'
+	| 'images'
+	| 'topic'
+	| 'search'
+	| 'advanced';
 
 function messageOf( error: unknown, fallback: string ): string {
 	if ( error && typeof error === 'object' && 'message' in error ) {
@@ -139,9 +151,90 @@ function RecommendationCards( {
 	);
 }
 
+function ImageReport( {
+	images,
+	renderMode,
+}: {
+	images: ReportedImage[];
+	renderMode: string;
+} ) {
+	const counts: Record< string, number > = {
+		html: 0,
+		template: 0,
+		css_background: 0,
+		unverified: 0,
+	};
+	images.forEach( ( image ) => {
+		counts[ imageKind( image ) ] += 1;
+	} );
+	return (
+		<section>
+			<h3>{ __( 'Images on this page', 'seo-studio' ) }</h3>
+			<p className="seostudio-muted">{ imageModeNote( renderMode ) }</p>
+			<ul className="seostudio-saved">
+				<li>
+					{ sprintf(
+						/* translators: %d: number of HTML images. */
+						__( 'HTML images: %d', 'seo-studio' ),
+						counts.html
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of template images. */
+						__( 'Template images: %d', 'seo-studio' ),
+						counts.template
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of CSS background images. */
+						__( 'CSS backgrounds: %d', 'seo-studio' ),
+						counts.css_background
+					) }
+				</li>
+				<li>
+					{ sprintf(
+						/* translators: %d: number of images that could not be verified. */
+						__( 'Not verified: %d', 'seo-studio' ),
+						counts.unverified
+					) }
+				</li>
+			</ul>
+			{ images.length === 0 ? (
+				<p>
+					{ __(
+						'No images were found in this analysis.',
+						'seo-studio'
+					) }
+				</p>
+			) : (
+				<ol className="seostudio-cards">
+					{ images.map( ( image, index ) => (
+						<li
+							className="seostudio-panel-card"
+							key={ `${ image.kind || 'image' }-${ index }` }
+						>
+							<p className="seostudio-kicker">
+								{ imageKindLabel( imageKind( image ) ) }
+							</p>
+							{ image.src ? (
+								<p className="seostudio-url">{ image.src }</p>
+							) : null }
+							<p>{ imageNote( image ) }</p>
+						</li>
+					) ) }
+				</ol>
+			) }
+		</section>
+	);
+}
+
 const tabs: Array< { id: WorkspaceTab; label: string } > = [
 	{ id: 'recommendations', label: __( 'Recommendations', 'seo-studio' ) },
 	{ id: 'checks', label: __( 'All checks', 'seo-studio' ) },
+	{ id: 'images', label: __( 'Images', 'seo-studio' ) },
+	{ id: 'topic', label: __( 'Topic', 'seo-studio' ) },
 	{ id: 'search', label: __( 'Search appearance', 'seo-studio' ) },
 	{ id: 'advanced', label: __( 'Advanced', 'seo-studio' ) },
 ];
@@ -156,7 +249,8 @@ export function PageWorkspace() {
 	const [ item, setItem ] = useState< PageListItem | null >( null );
 	const [ identity, setIdentity ] = useState( { title: '', link: '' } );
 	const [ seo, setSeo ] = useState< SeoFields | null >( null );
-	const [ settings, setSettings ] = useState< StudioSettings | null >( null );
+	const [ capabilities, setCapabilities ] =
+		useState< CapabilityManifest | null >( null );
 	const [ phrase, setPhrase ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ busy, setBusy ] = useState< 'content' | 'live' | '' >( '' );
@@ -176,7 +270,7 @@ export function PageWorkspace() {
 		Promise.all( [
 			fetchPages( { object_id: String( postId ), per_page: '1' } ),
 			fetchSeo( postId ),
-			fetchSettings(),
+			fetchCapabilities(),
 			fetchPostIdentity( postId ),
 		] )
 			.then( async ( [ list, fields, studio, post ] ) => {
@@ -185,7 +279,7 @@ export function PageWorkspace() {
 				}
 				setSeo( fields );
 				setPhrase( fields.focus_keyphrase || '' );
-				setSettings( studio );
+				setCapabilities( studio );
 				setIdentity( post );
 				const listed = list.items[ 0 ] || null;
 				setItem( listed );
@@ -229,10 +323,6 @@ export function PageWorkspace() {
 		setBusy( nextMode );
 		setError( '' );
 		try {
-			const saved = await saveSeo( postId, {
-				focus_keyphrase: phrase.trim(),
-			} );
-			setSeo( saved );
 			const next = await analysePost( postId, {
 				mode: nextMode,
 				keyphrase: phrase.trim(),
@@ -251,14 +341,22 @@ export function PageWorkspace() {
 		}
 	}
 
-	const onpage = record?.scores.find( ( row ) => row.engine === 'onpage' );
+	const onpageScores = ( record?.scores || [] ).filter(
+		( row ) => row.engine === 'onpage'
+	);
+	const onpage = onpageScores.find( ( row ) => row.current === true ) ?? null;
+	const historical =
+		onpageScores.find( ( row ) => row.current === false ) ?? null;
 	const analysed = !! onpage && onpage.denominator > 0;
 	const details = onpage?.details as
 		| { assessments?: ListedAssessment[] }
 		| undefined;
 	const assessments = details?.assessments || [];
 	const findings = assessments.filter(
-		( row ) => row.status !== 'pass' && row.status !== 'not_checked'
+		( row ) =>
+			row.status !== 'pass' &&
+			row.status !== 'not_checked' &&
+			row.status !== 'not_applicable'
 	);
 	const cards = findings.slice( 0, 3 );
 	const model = record?.page_model;
@@ -266,6 +364,15 @@ export function PageWorkspace() {
 	const title =
 		identity.title || item?.title || __( 'Untitled', 'seo-studio' );
 	const url = model?.url || item?.url || identity.link || record?.url || '';
+
+	function focusKeyphrase() {
+		const field = document.getElementById( 'seostudio-focus-keyphrase' );
+		if ( field instanceof HTMLInputElement ) {
+			field.focus();
+			return;
+		}
+		field?.querySelector( 'input' )?.focus();
+	}
 
 	function onTabKey( event: KeyboardEvent< HTMLDivElement > ) {
 		if ( event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' ) {
@@ -326,7 +433,20 @@ export function PageWorkspace() {
 								</p>
 							) : null }
 							<p data-testid="workspace-ownership">
-								{ workspaceOwnership( settings ) }
+								{ workspaceOwnership(
+									capabilities
+										? {
+												publishing:
+													capabilities.publishing,
+												detected:
+													capabilities.detected_name
+														? {
+																name: capabilities.detected_name,
+														  }
+														: null,
+										  }
+										: null
+								) }
 							</p>
 						</div>
 						<a
@@ -345,8 +465,9 @@ export function PageWorkspace() {
 						<>
 							<div className="seostudio-command">
 								<TextControl
+									id="seostudio-focus-keyphrase"
 									label={ __(
-										'Target phrase',
+										'Focus keyphrase',
 										'seo-studio'
 									) }
 									value={ phrase }
@@ -398,38 +519,84 @@ export function PageWorkspace() {
 											'seo-studio'
 										) }
 									</p>
-									<p
-										className="seostudio-score-figure"
-										data-testid="onpage-score"
-									>
-										{ onpage?.score }{ ' ' }
-										<span>
-											{ sprintf(
-												/* translators: %d: points available for this page. */
-												__( 'of %d', 'seo-studio' ),
-												onpage?.denominator || 0
-											) }
-										</span>
-										<span className="screen-reader-text">
-											{ sprintf(
-												/* translators: 1: points earned, 2: points available. */
-												__(
-													'%1$d of %2$d',
-													'seo-studio'
-												),
-												onpage?.score || 0,
-												onpage?.denominator || 0
-											) }
-										</span>
-									</p>
-									<p
-										className="seostudio-pill"
-										data-rating={
-											onpage?.rating || 'orange'
+									<EvidenceReadiness
+										presentation={ record.presentation }
+										busy={ busy !== '' }
+										editorUrl={ `post.php?post=${ postId }&action=edit` }
+										onCheckPublished={ () =>
+											analyse( 'live' )
 										}
+										onAddKeyphrase={ focusKeyphrase }
 									>
-										{ scoreWord( onpage?.rating ) }
-									</p>
+										<p
+											className={
+												record.presentation?.definitive
+													? 'seostudio-score-figure'
+													: 'seostudio-score-figure is-unavailable'
+											}
+											data-testid="onpage-score"
+										>
+											{ record.presentation
+												?.definitive ? (
+												record.presentation.headline
+											) : (
+												<span
+													className="seostudio-score-unavailable"
+													aria-hidden="true"
+												>
+													–
+												</span>
+											) }{ ' ' }
+											{ record.presentation?.definitive &&
+											record.presentation.explanation ? (
+												<span>
+													{
+														record.presentation
+															.explanation
+													}
+												</span>
+											) : null }
+											{ ! record.presentation
+												?.definitive &&
+											record.presentation?.headline ? (
+												<span className="seostudio-muted">
+													{
+														record.presentation
+															.headline
+													}
+												</span>
+											) : null }
+											{ record.presentation
+												?.verified_label ? (
+												<span className="seostudio-muted">
+													{
+														record.presentation
+															.verified_label
+													}
+												</span>
+											) : null }
+											<span className="screen-reader-text">
+												{ readinessText(
+													record.presentation
+												) }
+											</span>
+										</p>
+										{ record.presentation?.definitive &&
+										record.presentation.content_rating ? (
+											<p
+												className="seostudio-pill"
+												data-rating={
+													record.presentation
+														.content_rating
+												}
+											>
+												{ scoreWord(
+													record.presentation
+														.content_rating
+												) }
+											</p>
+										) : null }
+									</EvidenceReadiness>
 									<p className="seostudio-muted">
 										{ __(
 											'Points from the checks Zoop could score. This is not a ranking.',
@@ -437,18 +604,18 @@ export function PageWorkspace() {
 										) }
 									</p>
 									<div className="seostudio-statuses">
-										<TrafficLight
-											rating={ item?.seo_rating || null }
-											label={ __( 'SEO', 'seo-studio' ) }
-										/>
-										<TrafficLight
-											rating={
+										<EvidenceLights
+											verified={
+												!! record.presentation
+													?.definitive
+											}
+											seoRating={
+												item?.seo_rating || null
+											}
+											readabilityRating={
 												item?.readability_rating || null
 											}
-											label={ __(
-												'Readability',
-												'seo-studio'
-											) }
+											testIds
 										/>
 									</div>
 								</article>
@@ -545,78 +712,21 @@ export function PageWorkspace() {
 										<AssessmentList items={ assessments } />
 									</>
 								) : null }
+								{ tab === 'images' ? (
+									<ImageReport
+										images={ model?.images || [] }
+										renderMode={ record.render_mode || '' }
+									/>
+								) : null }
+								{ tab === 'topic' ? (
+									<TopicPanel postId={ postId } />
+								) : null }
 								{ tab === 'search' ? (
-									<>
-										<h3>
-											{ __(
-												'Search appearance',
-												'seo-studio'
-											) }
-										</h3>
-										<p className="seostudio-muted">
-											{ snippetCaption(
-												record.render_mode || ''
-											) }
-										</p>
-										<div className="seostudio-preview-row">
-											<SnippetPreview
-												title={ model?.title_tag || '' }
-												url={ url }
-												description={
-													model?.meta_description ||
-													''
-												}
-											/>
-											<SnippetPreview
-												title={ model?.title_tag || '' }
-												url={ url }
-												description={
-													model?.meta_description ||
-													''
-												}
-												viewport="mobile"
-											/>
-										</div>
-										<h3>
-											{ __(
-												'Saved in Zoop',
-												'seo-studio'
-											) }
-										</h3>
-										<p className="seostudio-muted">
-											{ socialCaption(
-												!! settings?.publishing
-											) }
-										</p>
-										<ul className="seostudio-saved">
-											<li>
-												{ sprintf(
-													/* translators: %s: saved SEO title, or a dash when empty. */
-													__(
-														'SEO title: %s',
-														'seo-studio'
-													),
-													seo?.title || '–'
-												) }
-											</li>
-											<li>
-												{ sprintf(
-													/* translators: %s: saved description, or a dash when empty. */
-													__(
-														'Description: %s',
-														'seo-studio'
-													),
-													seo?.description || '–'
-												) }
-											</li>
-										</ul>
-										<SocialPreview
-											title={ seo?.og_title || '' }
-											description={
-												seo?.og_description || ''
-											}
-										/>
-									</>
+									<SearchAppearance
+										postId={ postId }
+										pageTitle={ title }
+										assessments={ assessments }
+									/>
 								) : null }
 								{ tab === 'advanced' ? (
 									<>
@@ -646,6 +756,23 @@ export function PageWorkspace() {
 												) }
 											</a>
 										</p>
+										<h3>
+											{ __(
+												'Social appearance',
+												'seo-studio'
+											) }
+										</h3>
+										<p className="seostudio-muted">
+											{ socialCaption(
+												!! capabilities?.publishing
+											) }
+										</p>
+										<SocialPreview
+											title={ seo?.og_title || '' }
+											description={
+												seo?.og_description || ''
+											}
+										/>
 									</>
 								) : null }
 							</div>
@@ -663,7 +790,8 @@ export function PageWorkspace() {
 								) }
 							</p>
 							<TextControl
-								label={ __( 'Target phrase', 'seo-studio' ) }
+								id="seostudio-focus-keyphrase"
+								label={ __( 'Focus keyphrase', 'seo-studio' ) }
 								value={ phrase }
 								onChange={ setPhrase }
 								help={
@@ -707,11 +835,19 @@ export function PageWorkspace() {
 									'seo-studio'
 								) }
 							</p>
-							<p className="seostudio-muted">
-								{ __(
-									'This page has not been analysed yet. Add a target phrase, then choose Analyse page.',
-									'seo-studio'
-								) }
+							<p
+								className="seostudio-muted"
+								data-testid="score-freshness"
+							>
+								{ historical
+									? historicalScoreLabel(
+											historical.score,
+											historical.denominator
+									  )
+									: __(
+											'This page has not been analysed yet. Add a target phrase, then choose Analyse page.',
+											'seo-studio'
+									  ) }
 							</p>
 						</section>
 					) }

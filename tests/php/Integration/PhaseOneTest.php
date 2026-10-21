@@ -26,7 +26,7 @@ final class PhaseOneTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 	}
 
@@ -49,7 +49,8 @@ final class PhaseOneTest extends WP_UnitTestCase {
 	public function test_registered_meta_is_hidden_from_the_core_rest_api(): void {
 		$keys = get_registered_meta_keys( 'post' );
 		$this->assertArrayHasKey( '_seostudio_focus_keyphrase', $keys );
-		$this->assertFalse( $keys['_seostudio_focus_keyphrase']['show_in_rest'] );
+		$this->assertArrayHasKey( '_seostudio_title', $keys );
+		$this->assertNotFalse( $keys['_seostudio_title']['show_in_rest'] );
 
 		$post_id = self::factory()->post->create(
 			array(
@@ -236,11 +237,14 @@ final class PhaseOneTest extends WP_UnitTestCase {
 		$page_id    = $repository->storeModel( $post_id, $model, $model->inputHash() );
 		$loaded     = $repository->loadModel( $post_id );
 		$this->assertNotNull( $loaded );
-		$this->assertSame( $model->toArray(), $loaded->toArray() );
+		$expected                        = $model->toArray();
+		$expected['link_source_hash']    = \SEOStudio\Architecture\LinkSource::current( $post_id );
+		$this->assertNotSame( '', $expected['link_source_hash'] );
+		$this->assertSame( $expected, $loaded->toArray() );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		$response = $this->dispatch( new WP_REST_Request( 'GET', '/seostudio/v1/pages/' . $page_id ) );
-		$this->assertSame( $model->toArray(), $response->get_data()['page_model'] );
+		$this->assertSame( $expected, $response->get_data()['page_model'] );
 	}
 
 	public function test_invalid_seo_fields_name_the_field(): void {

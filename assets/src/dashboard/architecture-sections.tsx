@@ -1,0 +1,131 @@
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { pageWorkspaceUrl } from './page-link';
+
+interface CoverageReasons {
+	unanalysed: number;
+	content_only: number;
+	stale_links: number;
+	navigation_limited: boolean;
+	navigation_note: string;
+}
+
+interface UnverifiedLink {
+	from_id: string;
+	from_title: string;
+	href: string;
+	kind: string;
+	anchor: string;
+	occurrences: number;
+}
+
+// A site audit is offered only when pages still need content analysis.
+// Published-link gaps use the server count and the existing page-level check.
+export function CoverageActions( {
+	reasons,
+	needsPublishedCheck,
+	onAudit,
+}: {
+	reasons: CoverageReasons | null;
+	needsPublishedCheck: number | null;
+	onAudit: () => void;
+} ) {
+	const unanalysed = reasons?.unanalysed ?? 0;
+	const showLink =
+		typeof needsPublishedCheck === 'number' && needsPublishedCheck > 0;
+	if ( unanalysed < 1 && ! showLink ) {
+		return null;
+	}
+	return (
+		<>
+			{ unanalysed > 0 ? (
+				<p>
+					<button type="button" onClick={ onAudit }>
+						{ __( 'Run site audit', 'seo-studio' ) }
+					</button>{ ' ' }
+					<span className="seostudio-muted">
+						{ __(
+							'This checks page content. To count orphans, Zoop also needs to check the published pages.',
+							'seo-studio'
+						) }
+					</span>
+				</p>
+			) : null }
+			{ showLink ? (
+				<p>
+					<a href="admin.php?page=seostudio&section=pages&score_state=needs_published_check">
+						{ sprintf(
+							/* translators: %d: pages that need a published-page check. */
+							_n(
+								'%d page needs a published-page check',
+								'%d pages need a published-page check',
+								needsPublishedCheck,
+								'seo-studio'
+							),
+							needsPublishedCheck
+						) }
+					</a>
+				</p>
+			) : null }
+		</>
+	);
+}
+
+// Unverified destinations. The heading is omitted when there are none.
+export function UnverifiedLinks( { links }: { links: UnverifiedLink[] } ) {
+	if ( links.length === 0 ) {
+		return null;
+	}
+	return (
+		<>
+			<h3>{ __( "Links Zoop couldn't verify", 'seo-studio' ) }</h3>
+			<p className="seostudio-muted">
+				{ __(
+					'These addresses are on this site and did not match a local WordPress route. They are not confirmed broken links.',
+					'seo-studio'
+				) }
+			</p>
+			<div className="seostudio-table-wrap">
+				<table className="seostudio-table">
+					<thead>
+						<tr>
+							<th>{ __( 'From', 'seo-studio' ) }</th>
+							<th>{ __( 'Address', 'seo-studio' ) }</th>
+							<th>{ __( 'Anchor', 'seo-studio' ) }</th>
+							<th>{ __( 'Times linked', 'seo-studio' ) }</th>
+						</tr>
+					</thead>
+					<tbody>
+						{ links.map( ( link ) => (
+							<tr
+								key={ `${ link.from_id }-${ link.href }-${ link.kind }` }
+							>
+								<td>
+									<SourceLink
+										fromId={ link.from_id }
+										title={ link.from_title }
+									/>
+								</td>
+								<td>{ link.href }</td>
+								<td>{ link.anchor || '' }</td>
+								<td>{ link.occurrences }</td>
+							</tr>
+						) ) }
+					</tbody>
+				</table>
+			</div>
+		</>
+	);
+}
+
+function sourcePostId( fromId: string ): number {
+	const match = /post:(\d+)$/.exec( fromId );
+	return match ? Number( match[ 1 ] ) : 0;
+}
+
+function SourceLink( { fromId, title }: { fromId: string; title: string } ) {
+	const postId = sourcePostId( fromId );
+	if ( postId < 1 ) {
+		return <>{ title }</>;
+	}
+	return <a href={ pageWorkspaceUrl( postId ) }>{ title || fromId }</a>;
+}

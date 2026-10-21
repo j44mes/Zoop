@@ -1,9 +1,40 @@
 declare module '@wordpress/api-fetch' {
-	export default function apiFetch< T >( options: {
+	interface ApiFetchOptions {
+		path?: string;
+		url?: string;
+		method?: string;
+		data?: unknown;
+		headers?: Record< string, string > | Headers;
+	}
+
+	function apiFetch< T >( options: {
 		path: string;
 		method?: string;
 		data?: unknown;
+		headers?: Record< string, string >;
 	} ): Promise< T >;
+
+	namespace apiFetch {
+		function use(
+			middleware: (
+				options: ApiFetchOptions,
+				next: ( options: ApiFetchOptions ) => Promise< unknown >
+			) => Promise< unknown >
+		): void;
+	}
+
+	export default apiFetch;
+}
+
+declare module '@wordpress/core-data' {
+	export function useEntityProp(
+		kind: string,
+		name: string,
+		prop: string
+	): [
+		Record< string, unknown > | undefined,
+		( value: Record< string, unknown > ) => void,
+	];
 }
 
 declare module '@wordpress/components' {

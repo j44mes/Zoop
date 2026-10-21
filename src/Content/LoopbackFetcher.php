@@ -111,16 +111,99 @@ final class LoopbackFetcher {
 			);
 		}
 
+		if ( $this->isLocalhost( $url ) ) {
+			return $this->pinnedRequest( $url, $args );
+		}
+
+		return $this->remote( $url, $args );
+	}
+
+	/**
+	 * Download localhost only after the connection is pinned to loopback.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @throws FetchBlockedException When the connection cannot be pinned to loopback.
+	 */
+	private function pinnedRequest( string $url, array $args ): array {
+		if ( $this->proxyWouldCarry( $url ) ) {
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+		}
+
+		$last = null;
+		foreach ( array( '127.0.0.1', '::1' ) as $address ) {
+			$pin = new LoopbackPin( $url, $address );
+			$pin->arm();
+			try {
+				$response = wp_remote_get( $url, $args );
+				if ( is_wp_error( $response ) ) {
+					if ( ! $pin->dialIsGuaranteed() ) {
+						throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+					}
+					$last = $response;
+					continue;
+				}
+
+				$pin->assertSafe();
+				return $this->remoteResult( $response );
+			} finally {
+				$pin->disarm();
+			}
+		}
+
+		unset( $last );
+		throw new FetchBlockedException( 'Fetch failed.' );
+	}
+
+	/**
+	 * Download a public host with the normal WordPress transport.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @throws FetchBlockedException When the transport fails.
+	 */
+	private function remote( string $url, array $args ): array {
 		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {
 			throw new FetchBlockedException( 'Fetch failed.' );
 		}
 
+		return $this->remoteResult( $response );
+	}
+
+	/**
+	 * Normalise a WordPress HTTP response.
+	 *
+	 * @param array<string, mixed> $response
+	 * @return array{code: int, location: string, body: string, robots: string}
+	 */
+	private function remoteResult( array $response ): array {
 		return array(
 			'code'     => (int) wp_remote_retrieve_response_code( $response ),
 			'location' => (string) wp_remote_retrieve_header( $response, 'location' ),
 			'body'     => (string) wp_remote_retrieve_body( $response ),
 			'robots'   => implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ),
 		);
+	}
+
+	/**
+	 * Whether the URL host is the literal name localhost.
+	 */
+	private function isLocalhost( string $url ): bool {
+		$parts = Urls::parts( trim( $url ) );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return false;
+		}
+
+		return 'localhost' === strtolower( rtrim( (string) $parts['host'], '.' ) );
+	}
+
+	private function proxyWouldCarry( string $url ): bool {
+		if ( ! class_exists( 'WP_HTTP_Proxy' ) ) {
+			return false;
+		}
+
+		$proxy = new \WP_HTTP_Proxy();
+		return $proxy->is_enabled() && $proxy->send_through_proxy( $url );
 	}
 }

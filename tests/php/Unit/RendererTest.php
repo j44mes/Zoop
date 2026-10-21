@@ -19,15 +19,15 @@ use SEOStudio\Content\TemplateValues;
  */
 final class RendererTest extends TestCase {
 	protected function setUp(): void {
-		$GLOBALS['seostudio_post'] = new \WP_Post( 7, 'post', '<main><h1>Hello</h1><p>Body copy for the renderer.</p></main>' );
-		$GLOBALS['seostudio_permalink'] = 'https://example.test/hello';
-		$GLOBALS['seostudio_have_posts'] = true;
-		$GLOBALS['seostudio_settings'] = array(
+		$GLOBALS['seostudio_post']        = new \WP_Post( 7, 'post', '<main><h1>Hello</h1><p>Body copy for the renderer.</p></main>' );
+		$GLOBALS['seostudio_permalink']   = 'https://example.test/hello';
+		$GLOBALS['seostudio_have_posts']  = true;
+		$GLOBALS['seostudio_settings']    = array(
 			'mode'                 => 'owner',
 			'site_title_separator' => '|',
 			'content_selectors'    => array( 'post' => 'section' ),
 		);
-		$GLOBALS['seostudio_meta'] = array(
+		$GLOBALS['seostudio_meta']        = array(
 			7 => array(
 				'_seostudio_title'            => '%%title%% %%category%%',
 				'_seostudio_description'      => 'Stored description',
@@ -35,9 +35,9 @@ final class RendererTest extends TestCase {
 				'_seostudio_content_selector' => '.entry',
 			),
 		);
-		$GLOBALS['seostudio_categories'] = array( (object) array( 'name' => 'Garden' ) );
+		$GLOBALS['seostudio_categories']  = array( (object) array( 'name' => 'Garden' ) );
 		$GLOBALS['seostudio_has_excerpt'] = true;
-		$GLOBALS['seostudio_excerpt'] = 'Excerpt text';
+		$GLOBALS['seostudio_excerpt']     = 'Excerpt text';
 	}
 
 	public function testFromContentMarksTheRenderMode(): void {
@@ -59,7 +59,7 @@ final class RendererTest extends TestCase {
 			'',
 			null
 		);
-		$model = ( new Renderer() )->renderResolved(
+		$model   = ( new Renderer() )->renderResolved(
 			'<html><body><main><p>Live copy.</p></main></body></html>',
 			$context,
 			array(
@@ -69,9 +69,11 @@ final class RendererTest extends TestCase {
 		);
 
 		$this->assertSame( 'live', $model->renderMode );
-		$this->assertSame( 'Post title', $model->titleTag );
+		$this->assertSame( '', $model->titleTag );
+		$this->assertSame( 'not_observed', $model->titleEvidence );
 		$this->assertSame( 'estimated', $model->metadataStatus );
-		$this->assertSame( 'Excerpt', $model->metaDescription );
+		$this->assertSame( '', $model->metaDescription );
+		$this->assertSame( 'not_observed', $model->descriptionEvidence );
 	}
 
 	public function testRenderPostExpandsOwnerMetadataAndPrefersThePostSelector(): void {
@@ -94,7 +96,7 @@ final class RendererTest extends TestCase {
 
 	public function testSiteSelectorIsUsedWhenThePostHasNone(): void {
 		$GLOBALS['seostudio_meta'][7]['_seostudio_content_selector'] = '';
-		$GLOBALS['seostudio_post'] = new \WP_Post( 7, 'post', '<section><p>Section copy.</p></section>' );
+		$GLOBALS['seostudio_post']                                   = new \WP_Post( 7, 'post', '<section><p>Section copy.</p></section>' );
 		$model = ( new Renderer() )->renderPost( 7 );
 		$this->assertSame( 'section', $model->contentSelectorUsed );
 		$this->assertStringContainsString( 'Section copy.', $model->bodyText );
@@ -102,10 +104,10 @@ final class RendererTest extends TestCase {
 
 	public function testANonArraySelectorMapIsIgnored(): void {
 		$GLOBALS['seostudio_meta'][7]['_seostudio_content_selector'] = array( 'nope' );
-		$GLOBALS['seostudio_settings']['content_selectors'] = 'nope';
-		$GLOBALS['seostudio_categories'] = array();
-		$GLOBALS['seostudio_permalink'] = false;
-		$GLOBALS['seostudio_has_excerpt'] = false;
+		$GLOBALS['seostudio_settings']['content_selectors']          = 'nope';
+		$GLOBALS['seostudio_categories']                             = array();
+		$GLOBALS['seostudio_permalink']                              = false;
+		$GLOBALS['seostudio_has_excerpt']                            = false;
 
 		$model = ( new Renderer() )->renderPost( 7 );
 		$this->assertSame( '', $model->url );
@@ -115,8 +117,32 @@ final class RendererTest extends TestCase {
 
 	public function testAnEmptyQueryRendersNoContent(): void {
 		$GLOBALS['seostudio_have_posts'] = false;
-		$model = ( new Renderer() )->renderPost( 7 );
+		$model                           = ( new Renderer() )->renderPost( 7 );
 		$this->assertSame( '', $model->bodyText );
+	}
+
+	public function testPublishedFieldsUseTheResolvedOwnerTitle(): void {
+		$post   = new \WP_Post( 7, 'post', '<p>Body.</p>' );
+		$fields = ( new Renderer() )->publishedFields( $post );
+		$this->assertSame( 'Hello Garden', $fields['title'] );
+		$this->assertSame( 'Stored description', $fields['description'] );
+		$this->assertSame( 'https://example.test/hello', $fields['url'] );
+	}
+
+	public function testRenderDraftKeepsAnUnsavedTitle(): void {
+		$post  = new \WP_Post( 7, 'post', '<p>Body.</p>' );
+		$model = ( new Renderer() )->renderDraft(
+			$post,
+			'<main><p>Draft copy.</p></main>',
+			array(
+				'post_title'      => 'Draft title',
+				'seo_title'       => 'Draft SEO title',
+				'seo_description' => 'Draft description',
+			)
+		);
+		$this->assertSame( 'Draft SEO title', $model->titleTag );
+		$this->assertSame( 'Draft description', $model->metaDescription );
+		$this->assertStringContainsString( 'Draft copy.', $model->bodyText );
 	}
 
 	public function testAMissingPostThrows(): void {

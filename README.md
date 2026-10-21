@@ -18,11 +18,15 @@ The unit tests do not boot WordPress.
 composer install
 ```
 
-Copy this directory to `wp-content/plugins/` and activate Zoop. For a production tree, install without dev dependencies:
+Copy this directory to `wp-content/plugins/` and activate Zoop. A source build uses:
 
 ```bash
 composer install --no-dev --optimize-autoloader
+npm install
+npm run build
 ```
+
+A zip exists only after a future tag runs the release workflow. `0.6.0-beta.1` is a prerelease candidate. Do not install `seo-studio-0.5.0.zip` as the current build, and do not expect this branch to publish a zip.
 
 ## Commands
 
@@ -72,4 +76,4 @@ wp seostudio openapi
 
 ## Licence
 
-GPL-2.0-or-later. See `seo-studio.php`.
+GPL-3.0-or-later. See `seo-studio.php`. The readme says GPLv3 or later.

@@ -29,7 +29,7 @@ final class CorrectionPassTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		do_action( 'rest_api_init' );
 		Detector::clearForce();
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
@@ -49,14 +49,18 @@ final class CorrectionPassTest extends WP_UnitTestCase {
 			$this->assertSame( 0, $secret['total'] );
 			$this->assertSame(
 				array(
-					'analysed' => 0,
-					'scored'   => 0,
-					'unscored' => 0,
-					'failed'   => 0,
-					'average'  => null,
-					'red'      => 0,
-					'orange'   => 0,
-					'green'    => 0,
+					'analysed'         => 0,
+					'scored'           => 0,
+					'unscored'         => 0,
+					'needs_reanalysis' => 0,
+					'not_analysed'     => 0,
+					'failed'           => 0,
+					'average'          => null,
+					'red'               => 0,
+					'orange'            => 0,
+					'green'             => 0,
+					'reanalysis_notice'  => '0 pages have changed or need checking again.',
+					'search_discouraged' => false,
 				),
 				$secret['summary']
 			);
@@ -167,7 +171,9 @@ final class CorrectionPassTest extends WP_UnitTestCase {
 		$this->assertSame( 'Example tagline', $model->metaDescription );
 		$settings['mode'] = 'analysis';
 		update_option( Settings::OPTION, $settings );
-		$this->assertSame( 'Page title', ( new Renderer() )->renderPost( $post )->titleTag );
+		$analysis = ( new Renderer() )->renderPost( $post );
+		$this->assertSame( '', $analysis->titleTag );
+		$this->assertSame( 'not_observed', $analysis->titleEvidence );
 	}
 
 	private function analysedPost( string $title, string $status = 'publish' ): int {

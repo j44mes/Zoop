@@ -2,19 +2,41 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SEO Studio",
-    "version": "0.5.0"
+    "version": "0.6.0-beta.1"
   },
   "paths": {
     "/seostudio/v1/pages": { "get": { "summary": "List analysed pages", "responses": { "200": { "description": "Page list" } } } },
     "/seostudio/v1/pages/{page_id}": { "get": { "summary": "One analysed page", "responses": { "200": { "description": "Page record" } } } },
     "/seostudio/v1/analyse/{object_type}/{object_id}": { "post": { "summary": "Analyse an object", "responses": { "200": { "description": "Page record" } } } },
     "/seostudio/v1/pages/{page_id}/analyse": { "post": { "summary": "Re-analyse a page", "responses": { "200": { "description": "Page record" } } } },
+    "/seostudio/v1/pages/{page_id}/content-scores": { "post": { "summary": "Store a content-analysis score without making it a verified on-page score", "responses": { "200": { "description": "Content score stored" } } } },
+    "/seostudio/v1/posts/{post_id}/appearance": {
+      "get": { "summary": "Read the search-appearance proposal", "responses": { "200": { "description": "Published title and description, the saved proposal, and whether Zoop can apply it" } } },
+      "put": { "summary": "Save a title and description proposal", "responses": { "200": { "description": "Proposal stored without publishing" } } }
+    },
+    "/seostudio/v1/posts/{post_id}/appearance/apply": { "post": { "summary": "Publish a confirmed proposal when Zoop prints the tags", "responses": { "200": { "description": "Zoop fields updated and the live HTML checked" }, "409": { "description": "Zoop is not the publisher" } } } },
+    "/seostudio/v1/posts/{post_id}/appearance/restore": { "post": { "summary": "Restore the previous Zoop title and description", "responses": { "200": { "description": "Previous values restored and the live HTML checked" }, "409": { "description": "Zoop is not the publisher" } } } },
     "/seostudio/v1/posts/{post_id}/seo": {
       "get": { "summary": "Read SEO fields", "responses": { "200": { "description": "SEO fields" } } },
       "put": { "summary": "Save SEO fields", "responses": { "200": { "description": "SEO fields" } } }
     },
     "/seostudio/v1/posts/{post_id}/model": { "post": { "summary": "Preview unsaved content", "responses": { "200": { "description": "Page model" } } } },
     "/seostudio/v1/keyphrases/usage": { "get": { "summary": "Keyphrase usage", "responses": { "200": { "description": "Posts" } } } },
+    "/seostudio/v1/architecture": { "get": { "summary": "Internal-link architecture report", "responses": { "200": { "description": "Inventory, link graph, and incomplete-crawl state" } } } },
+    "/seostudio/v1/architecture/aliases": { "post": { "summary": "Trust or forget a host alias", "responses": { "200": { "description": "Alias updated" } } } },
+    "/seostudio/v1/overlap": { "get": { "summary": "Overlap observations", "responses": { "200": { "description": "Observed overlap, with a separate conclusion that competition is not established" } } } },
+    "/seostudio/v1/search-console": {
+      "get": { "summary": "Imported Search Console rows", "responses": { "200": { "description": "Import summary, including how many rows name a usable page address" } } },
+      "post": { "summary": "Import a Search Console CSV", "responses": { "200": { "description": "Import summary, including how many rows name a usable page address" }, "400": { "description": "Unreadable file" } } }
+    },
+    "/seostudio/v1/recommendations": { "get": { "summary": "Prioritised review list", "responses": { "200": { "description": "Structural issues ahead of phrase overlap. Imported impressions are not treated as commercial value." } } } },
+    "/seostudio/v1/capabilities": { "get": { "summary": "What the current user may open", "responses": { "200": { "description": "Capabilities, detected plugin, and upgrade explanations" } } } },
+    "/seostudio/v1/notices/ruleset-retirement/dismiss": { "post": { "summary": "Hide the scoring-rules notice for this user", "responses": { "200": { "description": "Dismissed" } } } },
+    "/seostudio/v1/notices/legacy-scores/dismiss": { "post": { "summary": "Hide the saved-score explanation for this user", "responses": { "200": { "description": "Dismissed" } } } },
+    "/seostudio/v1/posts/{post_id}/topic": {
+      "get": { "summary": "Topic suggestions and corrections", "responses": { "200": { "description": "Suggestions, saved values, and effective values" } } },
+      "put": { "summary": "Save topic corrections", "responses": { "200": { "description": "Updated topic" } } }
+    },
     "/seostudio/v1/audits": { "post": { "summary": "Queue a site audit", "responses": { "202": { "description": "Run" }, "409": { "description": "Already running" }, "429": { "description": "Rate limited" } } } },
     "/seostudio/v1/audits/{run_id}": {
       "get": { "summary": "Audit progress", "responses": { "200": { "description": "Run" } } },

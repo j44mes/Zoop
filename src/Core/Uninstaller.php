@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Core;
 
 use SEOStudio\Jobs\Scheduler;
+use SEOStudio\Scoring\OnPage\Ruleset;
 
 /**
  * The flag drops tables and meta. Without it, only the option and scheduled jobs go.
@@ -27,7 +28,12 @@ final class Uninstaller {
 	public static function removeOptionsAndJobs(): void {
 		Scheduler::unschedule();
 		delete_option( Settings::OPTION );
+		delete_option( Ruleset::OPTION );
+		delete_option( UpgradeNotice::OPTION );
+		delete_option( UpgradeNotice::PENDING );
+		delete_option( LegacyScoreNotice::OPTION );
 		delete_option( 'seostudio_detected_plugins' );
+		delete_option( 'seostudio_search_import' );
 	}
 
 	public static function deleteStoredData(): void {
@@ -38,6 +44,7 @@ final class Uninstaller {
 			$wpdb->prefix . 'seostudio_keyphrases',
 			$wpdb->prefix . 'seostudio_audit_runs',
 			$wpdb->prefix . 'seostudio_pages',
+			$wpdb->prefix . 'seostudio_search_rows',
 		);
 		foreach ( $tables as $table ) {
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names.
@@ -46,6 +53,8 @@ final class Uninstaller {
 		foreach ( self::metaKeys() as $key ) {
 			delete_metadata( 'post', 0, $key, '', true );
 		}
+		delete_metadata( 'user', 0, UpgradeNotice::META, '', true );
+		delete_metadata( 'user', 0, LegacyScoreNotice::META, '', true );
 	}
 
 	/**
@@ -60,6 +69,17 @@ final class Uninstaller {
 			'_seostudio_synonyms',
 			'_seostudio_title',
 			'_seostudio_description',
+			'_seostudio_title_proposal',
+			'_seostudio_description_proposal',
+			'_seostudio_appearance_revision',
+			'_seostudio_appearance_saved',
+			'_seostudio_suggestion_baseline_title',
+			'_seostudio_suggestion_baseline_description',
+			'_seostudio_suggestion_baseline_saved',
+			'_seostudio_title_previous',
+			'_seostudio_description_previous',
+			'_seostudio_appearance_previous_saved',
+			'_seostudio_appearance_previous_target',
 			'_seostudio_canonical',
 			'_seostudio_robots',
 			'_seostudio_og_title',
@@ -69,6 +89,12 @@ final class Uninstaller {
 			'_seostudio_content_selector',
 			'_seostudio_video_url',
 			'_seostudio_is_news',
+			'_seostudio_primary_topic',
+			'_seostudio_primary_topic_origin',
+			'_seostudio_page_role',
+			'_seostudio_search_intent',
+			'_seostudio_parent_topic',
+			'_seostudio_supporting_entities',
 		);
 	}
 }

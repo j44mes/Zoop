@@ -21,7 +21,16 @@ if ( ! class_exists( 'WP_Post' ) ) {
 	 * Stand-in for a WordPress post.
 	 */
 	final class WP_Post {
-		public function __construct( public int $ID, public string $post_type, public string $post_content ) {}
+		public function __construct(
+			public int $ID,
+			public string $post_type,
+			public string $post_content,
+			public string $post_title = '',
+			public string $post_excerpt = '',
+			public string $post_status = 'publish',
+			public string $post_password = '',
+			public string $post_name = ''
+		) {}
 	}
 }
 
@@ -52,14 +61,114 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 	}
 }
 
+if ( ! function_exists( 'seostudio_run_hook' ) ) {
+	/**
+	 * Invoke unit-test hooks in priority order.
+	 *
+	 * @param callable(callable): void $invoke
+	 */
+	function seostudio_run_hook( string $hook, callable $invoke ): void {
+		$groups = $GLOBALS['seostudio_hooks'][ $hook ] ?? array();
+		if ( ! is_array( $groups ) ) {
+			return;
+		}
+
+		ksort( $groups, SORT_NUMERIC );
+		foreach ( $groups as $callbacks ) {
+			if ( ! is_array( $callbacks ) ) {
+				continue;
+			}
+			foreach ( $callbacks as $callback ) {
+				if ( is_callable( $callback ) ) {
+					$invoke( $callback );
+				}
+			}
+		}
+	}
+}
+
 if ( ! function_exists( 'wp_remote_get' ) ) {
 	/**
 	 * @param array<string, mixed> $args
 	 * @return mixed
 	 */
 	function wp_remote_get( $url, $args = array() ) {
+		$GLOBALS['seostudio_remote_calls'] = (int) ( $GLOBALS['seostudio_remote_calls'] ?? 0 ) + 1;
+		if ( ! empty( $GLOBALS['seostudio_run_http_hooks'] ) ) {
+			$handle = function_exists( 'curl_init' ) ? curl_init() : new stdClass();
+			seostudio_run_hook(
+				'http_api_curl',
+				static function ( callable $callback ) use ( &$handle, $args, $url ): void {
+					$callback( $handle, $args, $url );
+				}
+			);
+			seostudio_run_hook(
+				'requests-curl.before_send',
+				static function ( callable $callback ) use ( &$handle ): void {
+					$callback( $handle );
+				}
+			);
+			$info = $GLOBALS['seostudio_curl_info'] ?? array( 'primary_ip' => '127.0.0.1' );
+			seostudio_run_hook(
+				'requests-curl.after_request',
+				static function ( callable $callback ) use ( $info ): void {
+					$callback( array(), $info );
+				}
+			);
+			seostudio_run_hook(
+				'requests-fsockopen.remote_socket',
+				static function ( callable $callback ): void {
+					$socket = (string) ( $GLOBALS['seostudio_remote_socket'] ?? 'tcp://localhost:80' );
+					$callback( $socket );
+					$GLOBALS['seostudio_remote_socket'] = $socket;
+					$GLOBALS['seostudio_socket_log'][]  = $socket;
+				}
+			);
+			$uri = (string) ( $GLOBALS['seostudio_remote_socket'] ?? '' );
+			seostudio_run_hook(
+				'requests-fsockopen.after_request',
+				static function ( callable $callback ) use ( $uri ): void {
+					$callback( array(), array( 'uri' => $uri ) );
+				}
+			);
+		}
 		unset( $url, $args );
+		if ( isset( $GLOBALS['seostudio_remote_responses'] ) && is_array( $GLOBALS['seostudio_remote_responses'] ) && array() !== $GLOBALS['seostudio_remote_responses'] ) {
+			return array_shift( $GLOBALS['seostudio_remote_responses'] );
+		}
+
 		return $GLOBALS['seostudio_remote_response'] ?? new WP_Error( 'http', 'failed' );
+	}
+}
+
+if ( ! class_exists( 'WP_Hook' ) ) {
+	/**
+	 * Minimal stand-in for the WordPress hook registry.
+	 */
+	class WP_Hook {
+		/**
+		 * @var array<int, array<string, array{function: callable, accepted_args: int}>>
+		 */
+		public array $callbacks = array();
+	}
+}
+
+if ( ! class_exists( 'WP_HTTP_Proxy' ) ) {
+	/**
+	 * Stand-in toggled by the local-observation tests.
+	 */
+	class WP_HTTP_Proxy {
+		public function is_enabled(): bool {
+			return ! empty( $GLOBALS['seostudio_proxy_enabled'] );
+		}
+
+		/**
+		 * @param string $uri
+		 */
+		public function send_through_proxy( $uri ): bool {
+			unset( $uri );
+			return ! empty( $GLOBALS['seostudio_proxy_send'] );
+		}
 	}
 }
 
@@ -120,6 +229,35 @@ if ( ! function_exists( 'wp_reset_postdata' ) ) {
 	function wp_reset_postdata(): void {}
 }
 
+if ( ! function_exists( 'add_action' ) ) {
+	/**
+	 * @param callable $callback
+	 */
+	function add_action( string $hook, $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+		unset( $accepted_args );
+		$GLOBALS['seostudio_hooks'][ $hook ][ $priority ][] = $callback;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'remove_action' ) ) {
+	/**
+	 * @param callable $callback
+	 */
+	function remove_action( string $hook, $callback, int $priority = 10 ): bool {
+		$hooks = $GLOBALS['seostudio_hooks'][ $hook ][ $priority ] ?? array();
+		$GLOBALS['seostudio_hooks'][ $hook ][ $priority ] = array_values(
+			array_filter(
+				$hooks,
+				static function ( $registered ) use ( $callback ): bool {
+					return $registered !== $callback;
+				}
+			)
+		);
+		return true;
+	}
+}
+
 if ( ! function_exists( 'get_option' ) ) {
 	/**
 	 * @param mixed $default
@@ -128,6 +266,9 @@ if ( ! function_exists( 'get_option' ) ) {
 	function get_option( string $name, $default = false ) {
 		if ( 'seostudio_settings' === $name ) {
 			return $GLOBALS['seostudio_settings'] ?? $default;
+		}
+		if ( 'home' === $name || 'siteurl' === $name ) {
+			return $GLOBALS['seostudio_home'] ?? $default;
 		}
 
 		return $default;

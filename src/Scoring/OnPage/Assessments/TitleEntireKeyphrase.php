@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -31,15 +32,23 @@ final class TitleEntireKeyphrase implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
+		$withheld = EvidenceGate::fetchedTitle( $this, $page->titleEvidence );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
 		$match = $normaliser->matchField( $page->titleTag, $keyphrase );
 
 		return AssessmentResult::score(
 			$this,
 			$match->entire ? 6 : 0,
 			array( 'entire' => $match->entire ),
-			$match->entire
-				? __( 'The full keyphrase is in the title.', 'seo-studio' )
-				: __( 'The full keyphrase is missing from the title.', 'seo-studio' ),
+			EvidenceGate::note(
+				$match->entire
+					? __( 'The full keyphrase is in the title.', 'seo-studio' )
+					: __( 'The full keyphrase is missing from the title.', 'seo-studio' ),
+				$page->titleEvidence
+			),
 			$match->entire
 				? __( 'No change needed.', 'seo-studio' )
 				: __( 'Include the full keyphrase in the title.', 'seo-studio' ),
