@@ -3,6 +3,7 @@ import {
 	depthLabel,
 } from '../../assets/src/dashboard/architecture-copy';
 import { overlapLevel } from '../../assets/src/dashboard/overlap-copy';
+import { priorityKind } from '../../assets/src/dashboard/priorities-copy';
 import {
 	topicIntentLabel,
 	topicRoleLabel,
@@ -43,6 +44,15 @@ describe( 'overlap copy', () => {
 		expect( overlapLevel( 'insufficient' ) ).toBe(
 			'Insufficient evidence'
 		);
+	} );
+} );
+
+describe( 'priority copy', () => {
+	it( 'names the evidence without calling it an automatic edit', () => {
+		expect( priorityKind( 'overlap' ) ).toBe( 'Overlap' );
+		expect( priorityKind( 'unresolved' ) ).toBe( 'Unresolved link' );
+		expect( priorityKind( 'page' ) ).toBe( 'Link graph' );
+		expect( priorityKind( 'search' ) ).toBe( 'Search evidence' );
 	} );
 } );
 

@@ -23,6 +23,7 @@ use SEOStudio\Rest\ModelController;
 use SEOStudio\Rest\OverlapController;
 use SEOStudio\Rest\PagesController;
 use SEOStudio\Rest\PostSeoController;
+use SEOStudio\Rest\RecommendationsController;
 use SEOStudio\Rest\Responses;
 use SEOStudio\Rest\SearchConsoleController;
 use SEOStudio\Rest\SettingsController;
@@ -77,6 +78,7 @@ final class Plugin {
 		( new TopicController() )->register();
 		( new OverlapController() )->register();
 		( new SearchConsoleController() )->register();
+		( new RecommendationsController() )->register();
 		( new SettingsController() )->register();
 		( new MigrationsController() )->register();
 		( new ToolsController() )->register();

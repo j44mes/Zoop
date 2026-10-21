@@ -79,3 +79,7 @@ Orphan pages are listed only when an administrator can see every published page 
 ## Search Console
 
 `POST /seostudio/v1/search-console` stores a performance export. The file needs query, clicks, and impressions columns. Page and position are kept when they are present. At most 5,000 query rows are stored, and a new import replaces the previous one. Zoop does not use OAuth and does not connect to Search Console. The summary says the rows came from a file.
+
+## Priorities
+
+`GET /seostudio/v1/recommendations` orders stored evidence for review. A shared target phrase is priority 1. An unresolved internal address, and an orphan or weakly linked page that also has imported impressions, are priority 2. An orphan or weakly linked page without that demand, and a shared topic that is only Medium, are priority 3. When no file has been imported, the list says to import one before treating demand as evidence. Orphans stay off the list until the architecture crawl is complete. Low title overlap stays on the Overlap screen. The list does not edit pages, and search figures are described as an imported file.
