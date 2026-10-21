@@ -34,7 +34,13 @@ final class MediaAlt implements Assessment {
 		$entire   = false;
 		$partial  = false;
 		$evidence = '';
+		$scored   = 0;
 		foreach ( $page->images as $image ) {
+			$kind = (string) ( $image['kind'] ?? 'html' );
+			if ( ! in_array( $kind, array( 'html', 'template' ), true ) ) {
+				continue;
+			}
+			++$scored;
 			$alt = trim( $image['alt'] );
 			if ( '' === $alt ) {
 				continue;
@@ -63,16 +69,16 @@ final class MediaAlt implements Assessment {
 			$this,
 			$earned,
 			array(
-				'images'  => count( $page->images ),
+				'images'  => $scored,
 				'entire'  => $entire,
 				'partial' => $partial,
 			),
 			4 === $earned
-				? __( 'An image alt contains the full keyphrase.', 'seo-studio' )
-				: __( 'No image alt contains the full keyphrase.', 'seo-studio' ),
+				? __( 'An image description contains the full target phrase.', 'seo-studio' )
+				: __( 'No image description contains the full target phrase.', 'seo-studio' ),
 			4 === $earned
-				? __( 'No change needed.', 'seo-studio' )
-				: __( 'Describe an image with alt text that includes the keyphrase.', 'seo-studio' ),
+				? __( 'Check that the description still says what the image shows.', 'seo-studio' )
+				: __( 'Describe what an informative image shows. Leave the description empty when the image is decorative. Repeating the target phrase is optional.', 'seo-studio' ),
 			$evidence
 		);
 	}
