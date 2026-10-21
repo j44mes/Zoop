@@ -109,6 +109,7 @@ final class Commands {
 			'POST /seostudio/v1/import',
 			'POST /seostudio/v1/posts/{post_id}/model',
 			'POST /seostudio/v1/pages/{page_id}/content-scores',
+			'GET /seostudio/v1/architecture',
 		);
 		\WP_CLI::line( (string) wp_json_encode( $routes, JSON_PRETTY_PRINT ) );
 	}

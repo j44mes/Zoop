@@ -1,3 +1,7 @@
+import {
+	architectureStatus,
+	depthLabel,
+} from '../../assets/src/dashboard/architecture-copy';
 import { editHref, editTarget } from '../../assets/src/dashboard/edit-route';
 import {
 	imageKind,
@@ -14,6 +18,17 @@ import {
 	socialCaption,
 	workspaceOwnership,
 } from '../../assets/src/dashboard/ownership-note';
+
+describe( 'architecture copy', () => {
+	it( 'names link states without treating a missing crawl as an orphan', () => {
+		expect( architectureStatus( 'orphan' ) ).toBe( 'Orphan' );
+		expect( architectureStatus( 'weak' ) ).toBe( 'Weakly linked' );
+		expect( architectureStatus( 'template_only' ) ).toBe( 'Template only' );
+		expect( architectureStatus( 'unknown' ) ).toBe( 'Not enough data' );
+		expect( depthLabel( null ) ).toBe( 'Not reached' );
+		expect( depthLabel( 2 ) ).toBe( '2' );
+	} );
+} );
 
 describe( 'page workspace copy', () => {
 	it( 'names the plugin that controls live tags', () => {

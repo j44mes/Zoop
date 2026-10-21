@@ -61,3 +61,9 @@ Importers for Yoast, Rank Math, and SEOPress copy into `_seostudio_*` keys. They
 ## Builders
 
 `GutenbergAdapter`, `DiviAdapter`, and `ElementorAdapter` report how content is reached. The Divi 5 Visual Builder panel is a no-go in `docs/divi5-spike.md` because Divi is not installed here. The classic meta box remains the panel for Divi and Elementor.
+
+## Site architecture
+
+`GET /seostudio/v1/architecture` builds a read-only link graph for administrators. The inventory is every published public post except attachments. Contextual links come from the stored page model. Links inside the content root are contextual. Links outside it are template links. Content mode prefers `main` or `article` and otherwise uses the body, and `the_content` does not include the theme header or footer. Navigation menus are template links even when a page has only been analysed from its content. A repeated link on the same page counts once as a referring page and again in the occurrence total.
+
+Orphan pages are listed only when an administrator can see every published page and every one of those pages has a stored analysis. Otherwise the report keeps the orphan count empty and says why. A weakly linked page has exactly one unique contextual referring page. A page linked only from the template or a menu is reported separately. Crawl depth is a breadth-first walk from the front page, and from navigation targets when the front page is the blog index. An unresolved internal address does not match a published page. Zoop does not request it. System addresses such as `wp-admin` and feeds are ignored. The report does not edit content, insert links, or claim that a search engine has indexed anything.

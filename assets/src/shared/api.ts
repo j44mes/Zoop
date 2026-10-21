@@ -292,3 +292,57 @@ export function startMigration(
 		data: { source },
 	} );
 }
+
+export interface ArchitecturePage {
+	id: string;
+	post_id: number;
+	title: string;
+	url: string;
+	analysed: boolean;
+	depth: number | null;
+	referring_pages: number;
+	contextual_referrers: number;
+	template_referrers: number;
+	contextual_occurrences: number;
+	template_occurrences: number;
+	status: string;
+}
+
+export interface ArchitectureReport {
+	coverage: {
+		complete: boolean;
+		inventory: number;
+		analysed: number;
+		missing: number;
+		withheld: boolean;
+	};
+	counts: {
+		inventory: number;
+		analysed: number;
+		orphans: number | null;
+		weak: number;
+		template_only: number;
+		unknown: number;
+		unresolved: number;
+		unreachable: number;
+		navigation: number;
+	};
+	deepest: ArchitecturePage | null;
+	orphans: ArchitecturePage[];
+	weak: ArchitecturePage[];
+	template_only: ArchitecturePage[];
+	unresolved: Array< {
+		from_id: string;
+		from_title: string;
+		href: string;
+		kind: string;
+		anchor: string;
+		occurrences: number;
+	} >;
+	limited: boolean;
+	notes: string[];
+}
+
+export function fetchArchitecture(): Promise< ArchitectureReport > {
+	return apiFetch( { path: '/seostudio/v1/architecture' } );
+}
