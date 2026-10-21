@@ -108,7 +108,10 @@ final class ReadinessPresentationTest extends TestCase {
 		}
 		$stale = CheckPresentation::fromAssessment( array( 'id' => 'title.exists', 'status' => 'pass', 'explanation' => 'Old.' ), false );
 		$this->assertSame( 'out_of_date', $stale['state'] );
-		$this->assertSame( 'Out of date', ScorePresentation::fromRow( array( 'onpage_state' => 'needs_reanalysis', 'has_published_snapshot' => 1 ) )['headline'] );
+		$this->assertSame( 'Out of date', ScorePresentation::fromRow( array( 'onpage_state' => 'needs_reanalysis', 'has_published_snapshot' => 1, 'missing_evidence' => 'ruleset' ) )['headline'] );
+		$ruleset = ScorePresentation::missingItems( 'ruleset' );
+		$this->assertSame( 'Scores need checking against the current rules.', $ruleset[0]['label'] );
+		$this->assertSame( 'check_published', $ruleset[0]['action'] );
 		$this->assertSame( 'Indexable', ScorePresentation::searchLabel( 'indexable' ) );
 		$this->assertSame( 'This page is not public', ScorePresentation::searchLabel( 'not_public' ) );
 		$this->assertStringContainsString( 'stay away', ScorePresentation::searchExplanation( 'site_discouraged', '' ) );

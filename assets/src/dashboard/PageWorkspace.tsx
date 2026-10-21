@@ -41,9 +41,7 @@ function queryValue( name: string ): string {
 	return new URLSearchParams( window.location.search ).get( name ) || '';
 }
 
-export function pageWorkspaceUrl( postId: number ): string {
-	return `admin.php?page=seostudio&view=page&post=${ postId }`;
-}
+export { pageWorkspaceUrl } from './page-link';
 
 export function isPageWorkspace(): boolean {
 	return queryValue( 'view' ) === 'page';

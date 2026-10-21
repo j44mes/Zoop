@@ -5,6 +5,13 @@ test.describe.configure( { mode: 'serial' } );
 
 let editedPostUrl = '';
 
+function versionLabel(): RegExp {
+	if ( process.env.REQUIRE_BUILD_STAMP === '1' ) {
+		return /Zoop 0\.6\.0-dev\.1 \(build [0-9a-f]{7}\)/;
+	}
+	return /Zoop 0\.6\.0-dev\.1(?: \(build [0-9a-f]{7}\))?/;
+}
+
 async function editorDiagnostics( page: Page ): Promise< string > {
 	const details = await page.evaluate( () => {
 		const wp = (
@@ -178,6 +185,9 @@ test( 'dashboard is available after activation', async ( { page } ) => {
 	} );
 	await assertSignedIn( page );
 	await expect( page.getByRole( 'heading', { name: 'Zoop' } ) ).toBeVisible();
+	await expect( page.locator( '.seostudio-version' ).first() ).toHaveText(
+		versionLabel()
+	);
 	// Browser projects share one WordPress database, so a later project may already have stored a page.
 	const firstRun = page.getByRole( 'region', {
 		name: 'No pages checked yet',
@@ -325,6 +335,9 @@ test( 'owner mode prints the home description', async ( { page } ) => {
 			.getByRole( 'button', { name: 'Settings', exact: true } )
 			.click();
 		const settings = page.locator( '.seostudio-settings' );
+		await expect( settings.locator( '.seostudio-version' ) ).toHaveText(
+			versionLabel()
+		);
 		await settings.locator( 'select' ).first().selectOption( 'owner' );
 		await settings
 			.getByLabel( 'Home description' )

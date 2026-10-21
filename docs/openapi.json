@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SEO Studio",
-    "version": "0.5.0"
+    "version": "0.6.0-dev.1"
   },
   "paths": {
     "/seostudio/v1/pages": { "get": { "summary": "List analysed pages", "responses": { "200": { "description": "Page list" } } } },

@@ -53,7 +53,7 @@ final class LinkSource {
 	public static function navigationLimitation(): string {
 		$blocks = self::blockNavigationParts();
 		if ( ! empty( $blocks['limited'] ) ) {
-			return __( 'A navigation block has no stored reference, so Zoop cannot confirm that every theme menu was included. This is the state at the last published-page check, not a continuous reading of the theme.', 'seo-studio' );
+			return __( 'A navigation block has no stored reference. Zoop uses links from fresh published pages and does not invent menu edges. Orphan counts wait until those pages have been checked.', 'seo-studio' );
 		}
 		return '';
 	}
@@ -129,16 +129,18 @@ final class LinkSource {
 	/**
 	 * Navigation posts referenced by the active block templates.
 	 *
-	 * @return array{ids: int[], limited: bool}
+	 * @return array{ids: int[], inline: list<array{href: string, anchor: string}>, limited: bool}
 	 */
 	public static function referencedBlockNavigation(): array {
 		if ( ! function_exists( 'get_block_templates' ) ) {
 			return array(
 				'ids'     => array(),
+				'inline'  => array(),
 				'limited' => false,
 			);
 		}
 		$ids       = array();
+		$inline    = array();
 		$limited   = false;
 		$templates = array_merge(
 			get_block_templates( array(), 'wp_template' ),
@@ -150,10 +152,12 @@ final class LinkSource {
 			$limited  = $limited || $expanded['limited'];
 			$scan     = self::scanNavigation( $expanded['content'] );
 			$ids      = array_merge( $ids, $scan['ids'] );
+			$inline   = array_merge( $inline, $scan['inline'] );
 			$limited  = $limited || $scan['limited'];
 		}
 		return array(
 			'ids'     => array_values( array_unique( $ids ) ),
+			'inline'  => $inline,
 			'limited' => $limited,
 		);
 	}
@@ -207,30 +211,77 @@ final class LinkSource {
 	}
 
 	/**
-	 * Read navigation block references out of template markup.
+	 * Read navigation block references and inline links out of template markup.
 	 *
-	 * @return array{ids: int[], limited: bool}
+	 * A block without a stored ref is uncertain only when it also has no inline links.
+	 * Fresh published HTML can still establish those links.
+	 *
+	 * @return array{ids: int[], inline: list<array{href: string, anchor: string}>, limited: bool}
 	 */
 	private static function scanNavigation( string $content ): array {
 		$ids     = array();
+		$inline  = array();
 		$limited = false;
-		if ( ! preg_match_all( '/<!--\s*wp:navigation\b([^>]*)-->/', $content, $matches ) ) {
+		if ( ! preg_match_all( '/<!--\s*wp:navigation\b([^>]*?)(\/)?-->/', $content, $matches, PREG_OFFSET_CAPTURE ) ) {
 			return array(
 				'ids'     => array(),
+				'inline'  => array(),
 				'limited' => false,
 			);
 		}
-		foreach ( $matches[1] as $attrs ) {
-			if ( preg_match( '/"ref"\s*:\s*(\d+)/', (string) $attrs, $ref ) ) {
+		foreach ( $matches[0] as $index => $found ) {
+			$attrs    = (string) ( $matches[1][ $index ][0] ?? '' );
+			$is_empty = '/' === (string) ( $matches[2][ $index ][0] ?? '' );
+			if ( preg_match( '/"ref"\s*:\s*(\d+)/', $attrs, $ref ) ) {
 				$ids[] = (int) $ref[1];
 				continue;
 			}
-			$limited = true;
+			$inner = '';
+			if ( ! $is_empty ) {
+				$start = (int) $found[1] + strlen( (string) $found[0] );
+				$end   = strpos( $content, '<!-- /wp:navigation', $start );
+				$inner = false === $end ? '' : substr( $content, $start, $end - $start );
+			}
+			$links = self::inlineNavigationLinks( $inner );
+			if ( array() === $links ) {
+				$limited = true;
+				continue;
+			}
+			$inline = array_merge( $inline, $links );
 		}
 		return array(
 			'ids'     => $ids,
+			'inline'  => $inline,
 			'limited' => $limited,
 		);
+	}
+
+	/**
+	 * Navigation-link blocks written inside a navigation block.
+	 *
+	 * @return list<array{href: string, anchor: string}>
+	 */
+	private static function inlineNavigationLinks( string $content ): array {
+		$links = array();
+		if ( ! preg_match_all( '/wp:navigation-link\s+(\{.*?\})/s', $content, $matches ) ) {
+			return array();
+		}
+		foreach ( $matches[1] as $json ) {
+			$decoded = json_decode( (string) $json, true );
+			if ( ! is_array( $decoded ) ) {
+				continue;
+			}
+			$href = (string) ( $decoded['url'] ?? '' );
+			if ( '' === $href ) {
+				continue;
+			}
+			$links[] = array(
+				'href'   => $href,
+				'anchor' => (string) ( $decoded['label'] ?? '' ),
+			);
+		}
+
+		return $links;
 	}
 
 	/**

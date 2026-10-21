@@ -15,6 +15,9 @@ venv/
 __pycache__/
 *.py[cod]
 
+# Generated from the checked-out commit. WordPress reads it and does not call Git.
+/seo-studio-build.php
+
 # Build output and caches
 .next/
 .nuxt/

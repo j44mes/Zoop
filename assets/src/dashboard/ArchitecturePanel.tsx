@@ -2,18 +2,29 @@ import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	fetchArchitecture,
+	startAudit,
 	trustAlias,
 	type ArchitecturePage,
 	type ArchitectureReport,
 } from '../shared/api';
-import { architectureStatus, depthLabel } from './architecture-copy';
-import { pageWorkspaceUrl } from './PageWorkspace';
+import {
+	CoverageActions,
+	UnverifiedLinks,
+} from './architecture-sections';
+import {
+	architectureStatus,
+	depthCountLabel,
+	depthLabel,
+	orphanCountLabel,
+} from './architecture-copy';
+import { pageWorkspaceUrl } from './page-link';
 
 export function ArchitecturePanel() {
 	const [ report, setReport ] = useState< ArchitectureReport | null >( null );
 	const [ error, setError ] = useState( '' );
 	const [ trustError, setTrustError ] = useState( '' );
 	const [ pendingHost, setPendingHost ] = useState( '' );
+	const [ auditNotice, setAuditNotice ] = useState( '' );
 
 	function load() {
 		return fetchArchitecture()
@@ -80,10 +91,26 @@ export function ArchitecturePanel() {
 		);
 	}
 
-	const orphans =
-		report.counts.orphans === null
-			? __( 'Hidden', 'seo-studio' )
-			: String( report.counts.orphans );
+	const orphans = orphanCountLabel( report.counts.orphans );
+	const depthKnown = report.counts.unreachable !== null;
+
+	function runAudit() {
+		setAuditNotice( '' );
+		startAudit()
+			.then( () => {
+				setAuditNotice(
+					__(
+						'Audit queued. This analyses page content and does not restore published-link evidence.',
+						'seo-studio'
+					)
+				);
+			} )
+			.catch( () => {
+				setAuditNotice(
+					__( 'The site audit could not be queued.', 'seo-studio' )
+				);
+			} );
+	}
 
 	return (
 		<div className="seostudio-architecture">
@@ -128,6 +155,11 @@ export function ArchitecturePanel() {
 				</p>
 			) ) }
 			{ trustError ? <p role="alert">{ trustError }</p> : null }
+			<CoverageActions
+				reasons={ report.coverage.reasons ?? null }
+				onAudit={ runAudit }
+			/>
+			{ auditNotice ? <p role="status">{ auditNotice }</p> : null }
 			{ report.limited ? (
 				<p className="seostudio-muted">
 					{ __(
@@ -148,6 +180,21 @@ export function ArchitecturePanel() {
 				<article>
 					<h2>{ __( 'Orphans', 'seo-studio' ) }</h2>
 					<p>{ orphans }</p>
+					{ report.counts.orphans === null &&
+					report.orphan_explanation ? (
+						<p className="seostudio-muted">
+							{ report.orphan_explanation }
+						</p>
+					) : null }
+				</article>
+				<article>
+					<h2>{ __( 'No verified path', 'seo-studio' ) }</h2>
+					<p>{ depthCountLabel( report.counts.unreachable ) }</p>
+					{ report.depth_explanation ? (
+						<p className="seostudio-muted">
+							{ report.depth_explanation }
+						</p>
+					) : null }
 				</article>
 				<article>
 					<h2>{ __( 'Weakly linked', 'seo-studio' ) }</h2>
@@ -166,16 +213,14 @@ export function ArchitecturePanel() {
 				title={ __( 'Orphans', 'seo-studio' ) }
 				empty={
 					report.counts.orphans === null
-						? __(
-								'Orphans stay hidden until the inventory is complete.',
-								'seo-studio'
-						  )
+						? __( 'Orphans are not counted yet.', 'seo-studio' )
 						: __(
 								'No orphan pages in this inventory.',
 								'seo-studio'
 						  )
 				}
 				pages={ report.orphans }
+				depthKnown={ depthKnown }
 			/>
 			<PageList
 				title={ __( 'Weakly linked', 'seo-studio' ) }
@@ -184,6 +229,7 @@ export function ArchitecturePanel() {
 					'seo-studio'
 				) }
 				pages={ report.weak }
+				depthKnown={ depthKnown }
 			/>
 			<PageList
 				title={ __( 'Linked from the template only', 'seo-studio' ) }
@@ -192,6 +238,7 @@ export function ArchitecturePanel() {
 					'seo-studio'
 				) }
 				pages={ report.template_only }
+				depthKnown={ depthKnown }
 			/>
 			{ report.unresolved.length > 0 ||
 			( report.unverified ?? [] ).length > 0 ? (
@@ -243,46 +290,7 @@ export function ArchitecturePanel() {
 					</table>
 				</div>
 			) }
-			<h3>{ __( "Links Zoop couldn't verify", 'seo-studio' ) }</h3>
-			{ ( report.unverified ?? [] ).length === 0 ? null : (
-				<p className="seostudio-muted">
-					{ __(
-						'These addresses are on this site and did not match a local WordPress route. They are not confirmed broken links.',
-						'seo-studio'
-					) }
-				</p>
-			) }
-			{ ( report.unverified ?? [] ).length === 0 ? null : (
-				<div className="seostudio-table-wrap">
-					<table className="seostudio-table">
-						<thead>
-							<tr>
-								<th>{ __( 'From', 'seo-studio' ) }</th>
-								<th>{ __( 'Address', 'seo-studio' ) }</th>
-								<th>{ __( 'Anchor', 'seo-studio' ) }</th>
-								<th>{ __( 'Times linked', 'seo-studio' ) }</th>
-							</tr>
-						</thead>
-						<tbody>
-							{ ( report.unverified ?? [] ).map( ( link ) => (
-								<tr
-									key={ `${ link.from_id }-${ link.href }-${ link.kind }` }
-								>
-									<td>
-										<SourceLink
-											fromId={ link.from_id }
-											title={ link.from_title }
-										/>
-									</td>
-									<td>{ link.href }</td>
-									<td>{ link.anchor || '' }</td>
-									<td>{ link.occurrences }</td>
-								</tr>
-							) ) }
-						</tbody>
-					</table>
-				</div>
-			) }
+			<UnverifiedLinks links={ report.unverified ?? [] } />
 		</div>
 	);
 }
@@ -291,10 +299,12 @@ function PageList( {
 	title,
 	empty,
 	pages,
+	depthKnown,
 }: {
 	title: string;
 	empty: string;
 	pages: ArchitecturePage[];
+	depthKnown: boolean;
 } ) {
 	return (
 		<section>
@@ -334,7 +344,9 @@ function PageList( {
 											page.title || page.url
 										) }
 									</td>
-									<td>{ depthLabel( page.depth ) }</td>
+									<td>
+										{ depthLabel( page.depth, depthKnown ) }
+									</td>
 									<td>{ page.contextual_referrers }</td>
 									<td>{ page.contextual_occurrences }</td>
 									<td>{ page.template_referrers }</td>

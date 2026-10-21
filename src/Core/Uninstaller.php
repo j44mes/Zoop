@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SEOStudio\Core;
 
 use SEOStudio\Jobs\Scheduler;
+use SEOStudio\Scoring\OnPage\Ruleset;
 
 /**
  * The flag drops tables and meta. Without it, only the option and scheduled jobs go.
@@ -27,6 +28,7 @@ final class Uninstaller {
 	public static function removeOptionsAndJobs(): void {
 		Scheduler::unschedule();
 		delete_option( Settings::OPTION );
+		delete_option( Ruleset::OPTION );
 		delete_option( 'seostudio_detected_plugins' );
 		delete_option( 'seostudio_search_import' );
 	}

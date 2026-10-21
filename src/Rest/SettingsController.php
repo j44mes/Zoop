@@ -11,6 +11,7 @@ namespace SEOStudio\Rest;
 
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\Settings;
+use SEOStudio\Core\VersionIdentity;
 use SEOStudio\Integrations\Detector;
 use SEOStudio\Output\HeadOutput;
 use WP_Error;
@@ -119,10 +120,11 @@ final class SettingsController {
 	 * @return array<string, mixed>
 	 */
 	private function payload(): array {
-		$settings               = Settings::all();
-		$settings['publishing'] = ( new HeadOutput() )->publishing();
-		$active                 = ( new Detector() )->first();
-		$settings['detected']   = null === $active ? null : $active;
+		$settings                  = Settings::all();
+		$settings['publishing']    = ( new HeadOutput() )->publishing();
+		$active                    = ( new Detector() )->first();
+		$settings['detected']      = null === $active ? null : $active;
+		$settings['version_label'] = VersionIdentity::label();
 		return $settings;
 	}
 }

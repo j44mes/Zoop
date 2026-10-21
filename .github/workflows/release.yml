@@ -34,6 +34,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Stamp the checked-out commit into the zip
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
       - name: Pack the plugin
         run: |
           version="${GITHUB_REF_NAME#v}"

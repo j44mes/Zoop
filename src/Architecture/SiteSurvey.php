@@ -90,25 +90,22 @@ final class SiteSurvey {
 			if ( $post_id <= 0 ) {
 				continue;
 			}
-			$permalink  = get_permalink( $post_id );
-			$row        = $stored[ $post_id ] ?? null;
-			$model      = is_array( $row ) ? (array) ( $row['model'] ?? array() ) : array();
-			$analysed   = is_array( $row ) && ! empty( $row['analysed'] );
-			$link_fresh = is_array( $row ) && LinkSource::isFresh( $model, $post_id, $navigation_hash );
-			if ( $link_fresh ) {
+			$permalink = get_permalink( $post_id );
+			$row       = $stored[ $post_id ] ?? null;
+			$reason    = LinkCoverage::reason( is_array( $row ) ? $row : null, $post_id, $navigation_hash );
+			if ( LinkCoverage::FRESH === $reason ) {
 				++$fresh;
-			} elseif ( $analysed && 'live' === (string) ( $row['render_mode'] ?? '' ) ) {
+			} elseif ( LinkCoverage::STALE === $reason ) {
 				++$stale_links;
-			}
-			if ( $analysed ) {
-				if ( 'live' !== (string) ( $row['render_mode'] ?? '' ) ) {
-					++$content;
-				}
+			} elseif ( LinkCoverage::CONTENT_ONLY === $reason ) {
+				++$content;
 			} else {
 				++$missing;
 			}
-			$title   = get_the_title( $post_id );
-			$pages[] = array(
+			$analysed   = LinkCoverage::UNANALYSED !== $reason;
+			$link_fresh = LinkCoverage::FRESH === $reason;
+			$title      = get_the_title( $post_id );
+			$pages[]    = array(
 				'id'           => 'post:' . $post_id,
 				'post_id'      => $post_id,
 				'title'        => html_entity_decode( wp_strip_all_tags( is_string( $title ) ? $title : '' ), ENT_QUOTES, 'UTF-8' ),
@@ -129,7 +126,8 @@ final class SiteSurvey {
 			}
 		}
 		$home     = home_url( '/' );
-		$complete = count( $pages ) > 0 && count( $pages ) === $fresh && '' === $navigation['limitation'];
+		$complete = count( $pages ) > 0 && count( $pages ) === $fresh;
+		$nav_note = $fresh < count( $pages ) ? (string) $navigation['limitation'] : '';
 		$resolver = new DestinationResolver();
 		$notes    = array();
 		if ( $content > 0 ) {
@@ -146,8 +144,8 @@ final class SiteSurvey {
 				$stale_links
 			);
 		}
-		if ( '' !== $navigation['limitation'] ) {
-			$notes[] = $navigation['limitation'];
+		if ( '' !== $nav_note ) {
+			$notes[] = $nav_note;
 		}
 		if ( 0 === $navigation['menus'] ) {
 			$notes[] = __( 'No assigned navigation menu is stored. Template links then come only from fresh published pages.', 'seo-studio' );
@@ -197,8 +195,8 @@ final class SiteSurvey {
 				$stale_links
 			);
 		}
-		if ( '' !== $navigation['limitation'] ) {
-			$gap[] = $navigation['limitation'];
+		if ( '' !== $nav_note ) {
+			$gap[] = $nav_note;
 		}
 
 		return array(
@@ -212,6 +210,13 @@ final class SiteSurvey {
 				'withheld'          => false,
 				'aliases'           => SiteBoundary::aliasHosts( $home ),
 				'coverage_gap'      => implode( ' ', $gap ),
+				'coverage_reasons'  => array(
+					'unanalysed'         => $missing,
+					'content_only'       => $content,
+					'stale_links'        => $stale_links,
+					'navigation_limited' => '' !== $nav_note,
+					'navigation_note'    => $nav_note,
+				),
 				'classifier'        => static function ( string $absolute ) use ( $resolver, $home ): array {
 					return $resolver->classify( $absolute, $home );
 				},

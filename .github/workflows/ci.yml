@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   php:
@@ -28,6 +29,25 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
+      - name: Require a scoring ruleset bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags origin "$(gh pr view --json baseRefName --jq .baseRefName)"
+            base="$(gh pr view --json baseRefOid --jq .baseRefOid)"
+          fi
+          php scripts/check-ruleset-bump.php "$base"
 
       - name: Lint
         run: composer lint
@@ -64,6 +84,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
 
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -99,6 +125,12 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -142,6 +174,12 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Check the version contract and stamp this checkout
+        run: |
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -201,6 +239,9 @@ jobs:
       - name: Install dependencies
         run: |
           composer install --no-interaction --prefer-dist
+          php scripts/validate-version.php
+          php scripts/stamp-build.php
+          php scripts/assert-build-identity.php
           npm ci
           npm run build
           npx playwright install --with-deps chromium webkit
@@ -211,6 +252,8 @@ jobs:
           wp-env start
 
       - name: Browser flows
+        env:
+          REQUIRE_BUILD_STAMP: '1'
         run: npm run test:e2e
 
       - name: Keep failure traces

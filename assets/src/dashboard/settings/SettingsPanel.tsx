@@ -164,6 +164,11 @@ export function SettingsPanel() {
 
 	return (
 		<div className="seostudio-settings">
+			{ settings.version_label ? (
+				<p className="seostudio-version seostudio-muted">
+					{ settings.version_label }
+				</p>
+			) : null }
 			<h2>{ __( 'General', 'seo-studio' ) }</h2>
 			{ notice ? (
 				<Notice status="success" isDismissible={ false }>

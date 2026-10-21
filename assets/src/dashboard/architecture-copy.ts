@@ -23,13 +23,40 @@ export function architectureStatus( status: string ): string {
 }
 
 /**
- * Depth is unknown when neither the front page nor navigation reaches the page.
+ * Depth label. A null depth is a missing path only when coverage is complete.
  *
- * @param depth Crawl depth, or null when the page was not reached.
+ * @param depth Crawl depth, or null when no path was verified.
+ * @param known True when published-link coverage is complete.
  */
-export function depthLabel( depth: number | null ): string {
+export function depthLabel( depth: number | null, known = true ): string {
 	if ( depth === null ) {
-		return __( 'Not reached', 'seo-studio' );
+		return known
+			? __( 'No verified path', 'seo-studio' )
+			: __( 'Depth not known yet', 'seo-studio' );
 	}
 	return String( depth );
+}
+
+/**
+ * Orphan total. Null means the count is withheld, not that the total is zero.
+ *
+ * @param orphans Orphan count, or null when coverage is incomplete.
+ */
+export function orphanCountLabel( orphans: number | null ): string {
+	if ( orphans === null ) {
+		return __( 'Not counted yet', 'seo-studio' );
+	}
+	return String( orphans );
+}
+
+/**
+ * Aggregate depth. Null means Zoop will not claim how many pages lack a path.
+ *
+ * @param unreachable Pages with no verified path, or null when coverage is incomplete.
+ */
+export function depthCountLabel( unreachable: number | null ): string {
+	if ( unreachable === null ) {
+		return __( 'Not known yet', 'seo-studio' );
+	}
+	return String( unreachable );
 }
