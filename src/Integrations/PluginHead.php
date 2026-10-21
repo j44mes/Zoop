@@ -35,7 +35,7 @@ final class PluginHead {
 
 		$description = (string) ( $stored['description'] ?? '' );
 		if ( '' === trim( $description ) ) {
-			$description = '' !== trim( $desc_template ) ? $desc_template : $values->excerpt;
+			$description = trim( $desc_template );
 		}
 
 		if ( 'tsf' === $slug && '' === trim( (string) ( $stored['title'] ?? '' ) ) && ! empty( $stored['append_site_name'] ) ) {

@@ -60,7 +60,7 @@ final class Scorer {
 				);
 			}
 
-			if ( 'not_checked' === $result->status ) {
+			if ( 'not_checked' === $result->status || 'not_applicable' === $result->status ) {
 				continue;
 			}
 

@@ -17,7 +17,7 @@ use SEOStudio\Storage\Migrations\Migration_001_Initial;
  * Runs ordered migrations when the stored schema version is behind.
  */
 final class Upgrader {
-	public const CURRENT = 4;
+	public const CURRENT = 5;
 
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
@@ -42,8 +42,25 @@ final class Upgrader {
 			( new PagesRepository() )->backfillFocus();
 		}
 		// Schema 4 adds the imported Search Console table through dbDelta above.
+		// Schema 5 classifies cached on-page scores. Old rows are not evidence version 2.
+		if ( $current < 5 ) {
+			self::ensureOnPageState();
+			( new PagesRepository() )->retireCachedScores();
+		}
 		$settings['schema_version'] = self::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
+	}
+
+	private static function ensureOnPageState(): void {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'seostudio_pages';
+		$found = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", 'onpage_state' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+		if ( 'onpage_state' === $found ) {
+			return;
+		}
+
+		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN onpage_state varchar(20) NOT NULL DEFAULT 'not_analysed'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
 	}
 
 	private static function tablesExist(): bool {

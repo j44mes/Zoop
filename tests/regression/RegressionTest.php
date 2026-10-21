@@ -65,7 +65,7 @@ final class RegressionTest extends WP_UnitTestCase {
 	public function test_activation_changes_nothing(): void {
 		$before = Snapshot::take();
 		Plugin::activate();
-		do_action( 'init' );
+		Plugin::init();
 		$this->assertSame( array(), Snapshot::diff( $before, Snapshot::take() ) );
 	}
 

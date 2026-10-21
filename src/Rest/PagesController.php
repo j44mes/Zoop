@@ -247,8 +247,12 @@ final class PagesController {
 
 		$model   = $this->pages->mergeMeasurements( $postId, $model );
 		$page_id = $this->pages->storeModel( $postId, $model, $model->inputHash() );
+		$stored  = $this->pages->loadModel( $postId );
+		if ( $stored instanceof PageModel ) {
+			$model = $stored;
+		}
 		foreach ( $keyphrases as $keyphrase ) {
-			$this->scores->insert( $page_id, $keyphrase, $this->scorer->score( $model, $keyphrase ), SEOSTUDIO_VERSION );
+			$this->scores->insert( $page_id, $keyphrase, $this->scorer->score( $model, $keyphrase ), SEOSTUDIO_VERSION, $model->inputHash() );
 		}
 
 		$record = $this->records->full( $page_id );

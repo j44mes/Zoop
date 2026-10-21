@@ -45,6 +45,69 @@ final class MetadataResolver {
 		);
 	}
 
+	/**
+	 * Values the scorer may use, with the evidence for each one.
+	 *
+	 * Publication still uses resolve(). A theme title or a third-party excerpt is not calculated here.
+	 *
+	 * @return array{title_tag: string, meta_description: string, canonical: string, title_evidence: string, description_evidence: string}
+	 */
+	public function evidence( AnalysisContext $context ): array {
+		$resolved = $this->resolve( $context );
+		if ( $context->publishesOwnMetadata() && null !== $context->homepage ) {
+			return $this->withEvidence( $context->homepage['title_tag'], $context->homepage['meta_description'], $resolved['canonical'] );
+		}
+
+		if ( $context->publishesOwnMetadata() ) {
+			$title       = MetadataEvidence::calculated( $context->values->expand( $context->seoTitle ) );
+			$description = MetadataEvidence::calculated( $context->values->expand( $context->seoDescription ) );
+			if ( '' === trim( $context->seoTitle ) ) {
+				$title = array( '', MetadataEvidence::NOT_OBSERVED );
+			}
+			if ( '' === trim( $context->seoDescription ) ) {
+				$description = array( '', MetadataEvidence::NOT_OBSERVED );
+			}
+
+			return array(
+				'title_tag'            => $title[0],
+				'meta_description'     => $description[0],
+				'canonical'            => $resolved['canonical'],
+				'title_evidence'       => $title[1],
+				'description_evidence' => $description[1],
+			);
+		}
+
+		if ( $context->foreign instanceof ForeignHead ) {
+			return $this->withEvidence( $context->foreign->title, $context->foreign->description, $resolved['canonical'] );
+		}
+
+		return array(
+			'title_tag'            => '',
+			'meta_description'     => '',
+			'canonical'            => $resolved['canonical'],
+			'title_evidence'       => MetadataEvidence::NOT_OBSERVED,
+			'description_evidence' => MetadataEvidence::NOT_OBSERVED,
+		);
+	}
+
+	/**
+	 * Pair a title and description with calculated or not-observed evidence.
+	 *
+	 * @return array{title_tag: string, meta_description: string, canonical: string, title_evidence: string, description_evidence: string}
+	 */
+	private function withEvidence( string $title, string $description, string $canonical ): array {
+		$title       = MetadataEvidence::calculated( $title );
+		$description = MetadataEvidence::calculated( $description );
+
+		return array(
+			'title_tag'            => $title[0],
+			'meta_description'     => $description[0],
+			'canonical'            => $canonical,
+			'title_evidence'       => $title[1],
+			'description_evidence' => $description[1],
+		);
+	}
+
 	private function ownOrFallback( string $preferred, string $fallback ): string {
 		return '' === trim( $preferred ) ? $fallback : trim( $preferred );
 	}

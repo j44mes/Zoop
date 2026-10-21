@@ -41,12 +41,14 @@ final class Renderer {
 	 * @param array<string, mixed> $context
 	 */
 	public function renderResolved( string $html, AnalysisContext $analysis, array $context = array() ): PageModel {
-		$resolved                    = $this->resolver->resolve( $analysis );
-		$context['metadata_status']  = 'estimated';
-		$context['render_mode']      = (string) ( $context['render_mode'] ?? 'content' );
-		$context['title_tag']        = $resolved['title_tag'];
-		$context['meta_description'] = $resolved['meta_description'];
-		$context['canonical']        = $resolved['canonical'];
+		$resolved                        = $this->resolver->evidence( $analysis );
+		$context['metadata_status']      = 'estimated';
+		$context['render_mode']          = (string) ( $context['render_mode'] ?? 'content' );
+		$context['title_tag']            = $resolved['title_tag'];
+		$context['meta_description']     = $resolved['meta_description'];
+		$context['title_evidence']       = $resolved['title_evidence'];
+		$context['description_evidence'] = $resolved['description_evidence'];
+		$context['canonical']            = $resolved['canonical'];
 		if ( 'content' === $context['render_mode'] ) {
 			return $this->fromContent( $html, $context );
 		}

@@ -17,6 +17,7 @@ final class PageModel {
 	 * __construct.
 	 *
 	 * @param string[]                                                              $h1
+	 * @param string[]                                                              $documentH1
 	 * @param array<int, array{level: int, text: string, order: int}>             $headings
 	 * @param string[]                                                              $paragraphs
 	 * @param string[]                                                              $sentences
@@ -31,6 +32,8 @@ final class PageModel {
 		public readonly string $canonical = '',
 		public readonly string $robots = '',
 		public readonly array $h1 = array(),
+		public readonly array $documentH1 = array(),
+		public readonly string $documentH1Evidence = 'not_observed',
 		public readonly array $headings = array(),
 		public readonly string $bodyText = '',
 		public readonly int $wordCount = 0,
@@ -47,7 +50,9 @@ final class PageModel {
 		public readonly string $contentSelectorUsed = '',
 		public readonly string $renderedAt = '',
 		public readonly string $pageType = '',
-		public readonly string $metadataStatus = 'estimated'
+		public readonly string $metadataStatus = 'estimated',
+		public readonly string $titleEvidence = 'observed',
+		public readonly string $descriptionEvidence = 'observed'
 	) {}
 
 	/**
@@ -76,6 +81,8 @@ final class PageModel {
 			canonical: $this->canonical,
 			robots: $this->robots,
 			h1: $this->h1,
+			documentH1: $this->documentH1,
+			documentH1Evidence: $this->documentH1Evidence,
 			headings: $this->headings,
 			bodyText: $this->bodyText,
 			wordCount: $this->wordCount,
@@ -92,7 +99,9 @@ final class PageModel {
 			contentSelectorUsed: $this->contentSelectorUsed,
 			renderedAt: $this->renderedAt,
 			pageType: $this->pageType,
-			metadataStatus: $this->metadataStatus
+			metadataStatus: $this->metadataStatus,
+			titleEvidence: $this->titleEvidence,
+			descriptionEvidence: $this->descriptionEvidence
 		);
 	}
 
@@ -157,6 +166,17 @@ final class PageModel {
 			$h1[] = (string) $text;
 		}
 
+		$document_h1       = array();
+		$document_evidence = MetadataEvidence::known( isset( $data['document_h1_evidence'] ) ? (string) $data['document_h1_evidence'] : null, MetadataEvidence::NOT_OBSERVED );
+		if ( MetadataEvidence::OBSERVED === $document_evidence && isset( $data['document_h1'] ) && is_array( $data['document_h1'] ) ) {
+			foreach ( $data['document_h1'] as $text ) {
+				$document_h1[] = (string) $text;
+			}
+		} else {
+			$document_evidence = MetadataEvidence::NOT_OBSERVED;
+			$document_h1       = array();
+		}
+
 		$has_css = $data['has_external_css'] ?? null;
 		$html    = $data['html_bytes'] ?? null;
 		$visible = $data['visible_text_bytes'] ?? null;
@@ -169,6 +189,8 @@ final class PageModel {
 			canonical: (string) ( $data['canonical'] ?? '' ),
 			robots: (string) ( $data['robots'] ?? '' ),
 			h1: $h1,
+			documentH1: $document_h1,
+			documentH1Evidence: $document_evidence,
 			headings: $headings,
 			bodyText: (string) ( $data['body_text'] ?? '' ),
 			wordCount: (int) ( $data['word_count'] ?? 0 ),
@@ -185,7 +207,9 @@ final class PageModel {
 			contentSelectorUsed: (string) ( $data['content_selector_used'] ?? '' ),
 			renderedAt: (string) ( $data['rendered_at'] ?? '' ),
 			pageType: (string) ( $data['page_type'] ?? '' ),
-			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' )
+			metadataStatus: (string) ( $data['metadata_status'] ?? 'estimated' ),
+			titleEvidence: MetadataEvidence::known( array_key_exists( 'title_evidence', $data ) ? (string) $data['title_evidence'] : null, MetadataEvidence::OBSERVED ),
+			descriptionEvidence: MetadataEvidence::known( array_key_exists( 'description_evidence', $data ) ? (string) $data['description_evidence'] : null, MetadataEvidence::OBSERVED )
 		);
 	}
 
@@ -203,6 +227,8 @@ final class PageModel {
 			'canonical'             => $this->canonical,
 			'robots'                => $this->robots,
 			'h1'                    => $this->h1,
+			'document_h1'           => $this->documentH1,
+			'document_h1_evidence'  => $this->documentH1Evidence,
 			'headings'              => $this->headings,
 			'body_text'             => $this->bodyText,
 			'word_count'            => $this->wordCount,
@@ -220,6 +246,8 @@ final class PageModel {
 			'content_selector_used' => $this->contentSelectorUsed,
 			'rendered_at'           => $this->renderedAt,
 			'page_type'             => $this->pageType,
+			'title_evidence'        => $this->titleEvidence,
+			'description_evidence'  => $this->descriptionEvidence,
 		);
 	}
 
@@ -241,6 +269,13 @@ final class PageModel {
 
 	public function firstH1(): string {
 		return $this->h1[0] ?? '';
+	}
+
+	/**
+	 * First H1 observed in the full document. Empty unless document H1 evidence is observed.
+	 */
+	public function firstDocumentH1(): string {
+		return $this->documentH1[0] ?? '';
 	}
 
 	/**

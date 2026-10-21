@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -32,7 +33,12 @@ final class HeadingCount implements Assessment {
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
 		unset( $keyphrase, $normaliser );
-		$count  = count( $page->h1 );
+		$withheld = EvidenceGate::documentH1( $this, $page );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
+		$count  = count( $page->documentH1 );
 		$earned = 1 === $count ? 4 : 0;
 
 		return AssessmentResult::score(
@@ -47,7 +53,7 @@ final class HeadingCount implements Assessment {
 			4 === $earned
 				? __( 'No change needed.', 'seo-studio' )
 				: __( 'Use exactly one H1 on the page.', 'seo-studio' ),
-			implode( ' | ', $page->h1 )
+			implode( ' | ', $page->documentH1 )
 		);
 	}
 }

@@ -12,7 +12,7 @@ namespace SEOStudio\Scoring\OnPage;
 use Normalizer;
 
 /**
- * Lowercases, applies NFKC, and matches keyphrase content words.
+ * Lowercases, applies NFKC, and matches a keyphrase literally or by its content words.
  */
 final class Normaliser {
 	/**
@@ -71,18 +71,18 @@ final class Normaliser {
 
 	public function matchField( string $field, string $keyphrase ): FieldMatch {
 		$content_words = $this->contentWords( $keyphrase );
-		$tokens        = $this->tokensWithoutLeadingFunctionWords( $field );
-		$coverage      = $this->coverage( $tokens, $content_words );
-		$position      = $this->positionInTokens( $tokens, $content_words );
+		$phrase        = $this->tokens( $keyphrase );
+		$tokens        = $this->tokens( $field );
+		$index         = $this->firstEntireIndex( $tokens, $phrase );
 
 		return new FieldMatch(
 			$content_words,
-			null !== $position,
+			null !== $index,
 			$this->hasPartial( $tokens, $content_words ),
-			$coverage,
-			$position,
+			$this->coverage( $tokens, $content_words ),
+			null === $index ? null : $index + 1,
 			count( $tokens ),
-			$this->countEntire( $this->tokens( $field ), $content_words )
+			$this->countEntire( $tokens, $phrase )
 		);
 	}
 
@@ -126,31 +126,6 @@ final class Normaliser {
 		}
 
 		return false;
-	}
-
-	/**
-	 * Tokens without leading function words.
-	 *
-	 * @return string[]
-	 */
-	private function tokensWithoutLeadingFunctionWords( string $field ): array {
-		$tokens = $this->tokens( $field );
-		while ( array() !== $tokens && $this->isFunctionWord( $tokens[0] ) ) {
-			array_shift( $tokens );
-		}
-
-		return $tokens;
-	}
-
-	/**
-	 * Position in tokens.
-	 *
-	 * @param string[] $tokens
-	 * @param string[] $contentWords
-	 */
-	private function positionInTokens( array $tokens, array $contentWords ): ?int {
-		$index = $this->firstEntireIndex( $tokens, $contentWords );
-		return null === $index ? null : $index + 1;
 	}
 
 	/**

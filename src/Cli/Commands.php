@@ -47,10 +47,12 @@ final class Commands {
 		}
 
 		Upgrader::maybeUpgrade();
-		$model   = ( new Renderer() )->renderPost( $post_id );
-		$score   = ( new Scorer() )->score( $model, $keyphrase );
-		$page_id = ( new PagesRepository() )->storeModel( $post_id, $model, $model->inputHash() );
-		( new ScoresRepository() )->insert( $page_id, $keyphrase, $score, SEOSTUDIO_VERSION );
+		$pages    = new PagesRepository();
+		$rendered = ( new Renderer() )->renderPost( $post_id );
+		$page_id  = $pages->storeModel( $post_id, $rendered, $rendered->inputHash() );
+		$model    = $pages->loadModel( $post_id ) ?? $rendered;
+		$score    = ( new Scorer() )->score( $model, $keyphrase );
+		( new ScoresRepository() )->insert( $page_id, $keyphrase, $score, SEOSTUDIO_VERSION, $model->inputHash() );
 		( new KeyphrasesIndex() )->replacePrimary( $post_id, $keyphrase );
 		\WP_CLI::line( sprintf( 'On-page score: %d/%d', $score->earned, $score->denominator ) );
 		\WP_CLI::line( sprintf( 'Page id: %d', $page_id ) );

@@ -12,6 +12,7 @@ namespace SEOStudio\Scoring\OnPage\Assessments;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Scoring\OnPage\Assessment;
 use SEOStudio\Scoring\OnPage\AssessmentResult;
+use SEOStudio\Scoring\OnPage\EvidenceGate;
 use SEOStudio\Scoring\OnPage\Normaliser;
 
 /**
@@ -31,6 +32,11 @@ final class TitlePosition implements Assessment {
 	}
 
 	public function evaluate( PageModel $page, string $keyphrase, Normaliser $normaliser ): AssessmentResult {
+		$withheld = EvidenceGate::metadata( $this, $page->titleEvidence );
+		if ( $withheld instanceof AssessmentResult ) {
+			return $withheld;
+		}
+
 		$match    = $normaliser->matchField( $page->titleTag, $keyphrase );
 		$position = $match->position;
 		if ( null === $position ) {
@@ -50,13 +56,16 @@ final class TitlePosition implements Assessment {
 				'position'   => $position,
 				'word_count' => $match->wordCount,
 			),
-			null === $position
-				? __( 'The full keyphrase is not in the title, so position cannot be scored.', 'seo-studio' )
-				: sprintf(
-					/* translators: %d: 1-based word position */
-					__( 'The keyphrase starts at word %d of the title.', 'seo-studio' ),
-					$position
-				),
+			EvidenceGate::note(
+				null === $position
+					? __( 'The full keyphrase is not in the title, so position cannot be scored.', 'seo-studio' )
+					: sprintf(
+						/* translators: %d: 1-based word position */
+						__( 'The keyphrase starts at word %d of the title.', 'seo-studio' ),
+						$position
+					),
+				$page->titleEvidence
+			),
 			6 === $earned
 				? __( 'No change needed.', 'seo-studio' )
 				: __( 'Move the keyphrase to the start of the title.', 'seo-studio' ),

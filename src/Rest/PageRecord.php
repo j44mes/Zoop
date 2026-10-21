@@ -38,13 +38,17 @@ final class PageRecord {
 		$details = array();
 		foreach ( $this->scores->latestForPage( $pageId ) as $score ) {
 			$payload   = json_decode( (string) ( $score['details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+			$payload   = is_array( $payload ) ? $payload : array();
 			$details[] = array(
-				'keyphrase'   => (string) ( $score['keyphrase'] ?? '' ),
-				'engine'      => (string) ( $score['engine'] ?? '' ),
-				'score'       => (int) ( $score['score'] ?? 0 ),
-				'denominator' => (int) ( $score['denominator'] ?? 0 ),
-				'rating'      => (string) ( $score['rating'] ?? '' ),
-				'details'     => is_array( $payload ) ? $payload : array(),
+				'id'               => (int) ( $score['id'] ?? 0 ),
+				'keyphrase'        => (string) ( $score['keyphrase'] ?? '' ),
+				'engine'           => (string) ( $score['engine'] ?? '' ),
+				'score'            => (int) ( $score['score'] ?? 0 ),
+				'denominator'      => (int) ( $score['denominator'] ?? 0 ),
+				'rating'           => (string) ( $score['rating'] ?? '' ),
+				'evidence_version' => (int) ( $payload['evidence_version'] ?? 0 ),
+				'current'          => $this->scoreIsCurrent( $row, $score, $payload ),
+				'details'          => $payload,
 			);
 		}
 
@@ -102,14 +106,16 @@ final class PageRecord {
 		$stats   = $this->pages->aggregate( $filters );
 		$total   = $stats['total'];
 		$summary = array(
-			'analysed' => $total,
-			'scored'   => $stats['scored'],
-			'unscored' => $stats['unscored'],
-			'failed'   => $stats['failed'],
-			'average'  => $stats['average'],
-			'red'      => $stats['red'],
-			'orange'   => $stats['orange'],
-			'green'    => $stats['green'],
+			'analysed'         => $total,
+			'scored'           => $stats['scored'],
+			'unscored'         => $stats['unscored'],
+			'needs_reanalysis' => $stats['needs_reanalysis'],
+			'not_analysed'     => $stats['not_analysed'],
+			'failed'           => $stats['failed'],
+			'average'          => $stats['average'],
+			'red'              => $stats['red'],
+			'orange'           => $stats['orange'],
+			'green'            => $stats['green'],
 		);
 		$visible = array();
 		foreach ( $this->pages->search( $filters, $per_page, ( $page - 1 ) * $per_page, true ) as $row ) {
@@ -124,6 +130,36 @@ final class PageRecord {
 			'pages'   => (int) max( 1, (int) ceil( $total / $per_page ) ),
 			'summary' => $summary,
 		);
+	}
+
+	/**
+	 * A full-record score is current only when it is the page's referenced score for this snapshot.
+	 *
+	 * @param array<string, mixed> $page
+	 * @param array<string, mixed> $score
+	 * @param array<string, mixed> $payload
+	 */
+	private function scoreIsCurrent( array $page, array $score, array $payload ): bool {
+		if ( 'onpage' !== (string) ( $score['engine'] ?? '' ) || 'current' !== (string) ( $page['onpage_state'] ?? '' ) ) {
+			return false;
+		}
+
+		$referenced = (int) ( $page['onpage_score_id'] ?? 0 );
+		if ( 0 >= $referenced || (int) ( $score['id'] ?? 0 ) !== $referenced ) {
+			return false;
+		}
+
+		if ( (int) ( $payload['evidence_version'] ?? 0 ) < 2 ) {
+			return false;
+		}
+
+		$focus = (string) ( $page['focus_hash'] ?? '' );
+		$key   = md5( mb_strtolower( (string) ( $score['keyphrase'] ?? '' ), 'UTF-8' ) );
+		if ( '' === $focus || ! hash_equals( $focus, $key ) ) {
+			return false;
+		}
+
+		return hash_equals( (string) ( $page['input_hash'] ?? '' ), (string) ( $payload['input_hash'] ?? '' ) );
 	}
 
 	private function rating( mixed $value ): ?string {
@@ -155,15 +191,24 @@ final class PageRecord {
 		$object_id = (int) $row['object_id'];
 		$keyphrase = (string) ( $row['focus_keyphrase'] ?? '' );
 
+		$state   = (string) ( $row['onpage_state'] ?? 'not_analysed' );
 		$details = json_decode( (string) ( $row['onpage_details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
 		$issue   = '';
-		if ( is_array( $details ) && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
+		if ( 'current' === $state && is_array( $details ) && (int) ( $details['evidence_version'] ?? 0 ) >= 2 && isset( $details['assessments'] ) && is_array( $details['assessments'] ) ) {
 			foreach ( $details['assessments'] as $assessment ) {
-				if ( is_array( $assessment ) && isset( $assessment['status'] ) && 'pass' !== $assessment['status'] && 'not_checked' !== $assessment['status'] ) {
-					$issue = (string) ( $assessment['id'] ?? '' );
-					break;
+				if ( ! is_array( $assessment ) || ! isset( $assessment['status'] ) ) {
+					continue;
 				}
+				if ( in_array( (string) $assessment['status'], array( 'pass', 'not_checked', 'not_applicable' ), true ) ) {
+					continue;
+				}
+				$issue = (string) ( $assessment['id'] ?? '' );
+				break;
 			}
+		}
+		if ( 'current' !== $state ) {
+			$row['onpage_score']       = null;
+			$row['onpage_denominator'] = null;
 		}
 
 		$edit = get_edit_post_link( $object_id, 'raw' );
@@ -183,6 +228,7 @@ final class PageRecord {
 			'seo_rating'         => $this->rating( $row['seo_rating'] ?? null ),
 			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
 			'top_issue'          => $issue,
+			'score_state'        => $state,
 			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
 			'last_error'         => $row['last_error'] ?? null,
 		);

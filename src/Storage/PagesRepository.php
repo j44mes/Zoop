@@ -72,49 +72,89 @@ final class PagesRepository {
 		$phrase = get_post_meta( $postId, '_seostudio_focus_keyphrase', true );
 		$phrase = is_string( $phrase ) ? trim( $phrase ) : '';
 		$hash   = '' === $phrase ? '' : md5( mb_strtolower( $phrase, 'UTF-8' ) );
+		$wpdb->update(
+			Tables::pages(),
+			array(
+				'focus_keyphrase' => mb_substr( $phrase, 0, 255 ),
+				'focus_hash'      => $hash,
+			),
+			array( 'id' => (int) $page['id'] )
+		);
+		$page['focus_hash'] = $hash;
+
+		if ( '' === $hash ) {
+			$this->applyScoreCache( (int) $page['id'], $this->rowHasModel( $page ) ? 'unscored' : 'not_analysed', null );
+			return;
+		}
+
 		$scores = Tables::scores();
-		$score  = '' === $hash ? null : $wpdb->get_row(
+		$score  = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, score, denominator, rating FROM {$scores} WHERE page_id = %d AND keyphrase_hash = %s AND engine = 'onpage' ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+				"SELECT id, score, denominator, rating, details FROM {$scores} WHERE page_id = %d AND keyphrase_hash = %s AND engine = 'onpage' ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
 				(int) $page['id'],
 				$hash
 			),
 			ARRAY_A
 		);
-		$score  = is_array( $score ) ? $score : null;
+		if ( ! is_array( $score ) ) {
+			$this->applyScoreCache( (int) $page['id'], $this->rowHasModel( $page ) ? 'unscored' : 'not_analysed', null );
+			return;
+		}
 
-		$wpdb->update(
-			Tables::pages(),
-			array(
-				'focus_keyphrase'    => mb_substr( $phrase, 0, 255 ),
-				'focus_hash'         => $hash,
-				'onpage_score_id'    => null === $score ? null : (int) $score['id'],
-				'onpage_score'       => null === $score ? null : (int) $score['score'],
-				'onpage_denominator' => null === $score ? null : (int) $score['denominator'],
-				'onpage_rating'      => null === $score ? null : (string) $score['rating'],
-			),
-			array( 'id' => (int) $page['id'] )
-		);
+		$details  = json_decode( (string) ( $score['details'] ?? '' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Reading stored JSON. There is no wp_json_decode.
+		$details  = is_array( $details ) ? $details : array();
+		$snapshot = (string) ( $details['input_hash'] ?? '' );
+		$version  = (int) ( $details['evidence_version'] ?? 0 );
+		if ( $version >= 2 && hash_equals( (string) ( $page['input_hash'] ?? '' ), $snapshot ) ) {
+			$this->applyScoreCache( (int) $page['id'], 'current', $score );
+			return;
+		}
+
+		$this->applyScoreCache( (int) $page['id'], 'needs_reanalysis', null );
 	}
 
 	/**
 	 * Point the page row at a new on-page score when it is for the current focus keyphrase.
 	 */
-	public function recordScore( int $pageId, string $keyphraseHash, int $scoreId, int $score, int $denominator, string $rating ): void {
+	public function recordScore( int $pageId, string $keyphraseHash, int $scoreId, int $score, int $denominator, string $rating, string $inputHash ): void {
 		global $wpdb;
 
 		$pages = Tables::pages();
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$pages} SET onpage_score_id = %d, onpage_score = %d, onpage_denominator = %d, onpage_rating = %s WHERE id = %d AND focus_hash = %s AND focus_hash <> ''", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+				"UPDATE {$pages} SET onpage_score_id = %d, onpage_score = %d, onpage_denominator = %d, onpage_rating = %s, onpage_state = 'current' WHERE id = %d AND focus_hash = %s AND focus_hash <> '' AND input_hash = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
 				$scoreId,
 				$score,
 				$denominator,
 				$rating,
 				$pageId,
-				$keyphraseHash
+				$keyphraseHash,
+				$inputHash
 			)
 		);
+	}
+
+	/**
+	 * Mark every stored on-page result as needing the evidence-version-2 rules.
+	 *
+	 * One upgrade statement. Later list and summary queries read onpage_state and do not join scores.
+	 */
+	public function retireCachedScores(): void {
+		global $wpdb;
+
+		$pages  = Tables::pages();
+		$scores = Tables::scores();
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table names; no user input.
+		$wpdb->query(
+			"UPDATE {$pages} pages
+			SET onpage_state = CASE
+				WHEN EXISTS (SELECT 1 FROM {$scores} scores WHERE scores.page_id = pages.id AND scores.engine = 'onpage') THEN 'needs_reanalysis'
+				WHEN pages.page_model IS NOT NULL AND pages.page_model <> '' AND pages.page_model <> '[]' AND pages.page_model <> 'null' AND pages.page_model <> '{}' THEN 'unscored'
+				ELSE 'not_analysed'
+			END,
+			onpage_score_id = NULL, onpage_score = NULL, onpage_denominator = NULL, onpage_rating = NULL"
+		);
+		// phpcs:enable
 	}
 
 	/**
@@ -144,8 +184,11 @@ final class PagesRepository {
 				SELECT page_id, keyphrase_hash, MAX(id) AS id FROM {$scores} WHERE engine = 'onpage' GROUP BY page_id, keyphrase_hash
 			) latest ON latest.page_id = pages.id AND latest.keyphrase_hash = pages.focus_hash
 			INNER JOIN {$scores} scores ON scores.id = latest.id
-			SET pages.onpage_score_id = scores.id, pages.onpage_score = scores.score,
-				pages.onpage_denominator = scores.denominator, pages.onpage_rating = scores.rating
+			SET pages.onpage_score_id = IF(JSON_EXTRACT(scores.details, '$.evidence_version') = 2 AND JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.input_hash')) = pages.input_hash, scores.id, NULL),
+				pages.onpage_score = IF(JSON_EXTRACT(scores.details, '$.evidence_version') = 2 AND JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.input_hash')) = pages.input_hash, scores.score, NULL),
+				pages.onpage_denominator = IF(JSON_EXTRACT(scores.details, '$.evidence_version') = 2 AND JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.input_hash')) = pages.input_hash, scores.denominator, NULL),
+				pages.onpage_rating = IF(JSON_EXTRACT(scores.details, '$.evidence_version') = 2 AND JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.input_hash')) = pages.input_hash, scores.rating, NULL),
+				pages.onpage_state = IF(JSON_EXTRACT(scores.details, '$.evidence_version') = 2 AND JSON_UNQUOTE(JSON_EXTRACT(scores.details, '$.input_hash')) = pages.input_hash, 'current', 'needs_reanalysis')
 			WHERE pages.focus_hash <> ''"
 		);
 		// phpcs:enable
@@ -194,7 +237,8 @@ final class PagesRepository {
 			$inputHash = $merged->inputHash();
 		}
 
-		return $this->save(
+		$existing = $this->findByObject( 'post', $postId );
+		$id       = $this->save(
 			array(
 				'object_type'      => 'post',
 				'object_id'        => $postId,
@@ -206,6 +250,18 @@ final class PagesRepository {
 				'is_indexable'     => Indexability::forPost( $postId, $merged ),
 			)
 		);
+		if ( ! is_array( $existing ) || (string) $existing['input_hash'] === $inputHash ) {
+			return $id;
+		}
+
+		$state = (string) ( $existing['onpage_state'] ?? 'not_analysed' );
+		if ( 'current' === $state || 'needs_reanalysis' === $state ) {
+			$this->applyScoreCache( $id, 'needs_reanalysis', null );
+		} elseif ( 'not_analysed' === $state ) {
+			$this->applyScoreCache( $id, 'unscored', null );
+		}
+
+		return $id;
 	}
 
 	/**
@@ -258,6 +314,7 @@ final class PagesRepository {
 			? "pages.id, pages.object_id, pages.object_type, pages.url, pages.last_rendered_at, pages.last_error,
 				posts.post_title, pages.focus_keyphrase AS focus_keyphrase,
 				pages.onpage_score AS onpage_score, pages.onpage_denominator AS onpage_denominator,
+				pages.onpage_state AS onpage_state,
 				(SELECT details FROM {$scores} detail WHERE detail.id = pages.onpage_score_id) AS onpage_details,
 				(SELECT rating FROM {$scores} seo_scores WHERE seo_scores.page_id = pages.id AND seo_scores.engine = 'seo'
 					AND pages.focus_hash <> '' AND seo_scores.keyphrase_hash = pages.focus_hash
@@ -265,7 +322,7 @@ final class PagesRepository {
 				(SELECT rating FROM {$scores} read_scores WHERE read_scores.page_id = pages.id AND read_scores.engine = 'readability'
 					AND pages.focus_hash <> '' AND read_scores.keyphrase_hash = pages.focus_hash
 					ORDER BY read_scores.id DESC LIMIT 1) AS readability_rating"
-			: 'pages.id, pages.object_id, pages.onpage_score AS onpage_score, pages.onpage_denominator AS onpage_denominator, pages.onpage_rating AS onpage_rating';
+			: 'pages.id, pages.object_id, pages.onpage_score AS onpage_score, pages.onpage_denominator AS onpage_denominator, pages.onpage_rating AS onpage_rating, pages.onpage_state AS onpage_state';
 		$sql     = "SELECT {$columns} {$query['sql']} ORDER BY {$orderby} {$order}, pages.id {$order}";
 		$sql    .= ' LIMIT ' . max( 1, min( 200, $limit ) ) . ' OFFSET ' . max( 0, $offset );
 
@@ -277,31 +334,37 @@ final class PagesRepository {
 	 * Total and dashboard summary for the same filters, in one query.
 	 *
 	 * @param array<string, mixed> $filters
-	 * @return array{total: int, scored: int, unscored: int, failed: int, red: int, orange: int, green: int, average: ?int}
+	 * @return array{total: int, scored: int, unscored: int, needs_reanalysis: int, not_analysed: int, failed: int, red: int, orange: int, green: int, average: ?int}
 	 */
 	public function aggregate( array $filters ): array {
 		global $wpdb;
 
 		$query = $this->listQuery( $filters );
 		$sql   = "SELECT COUNT(*) AS total,
-				SUM(pages.onpage_denominator > 0) AS scored,
-				SUM(pages.onpage_denominator IS NULL OR pages.onpage_denominator = 0) AS unscored,
+				SUM(pages.onpage_state = 'current' AND pages.onpage_denominator > 0) AS scored,
+				SUM(pages.onpage_state = 'unscored') AS unscored,
+				SUM(pages.onpage_state = 'needs_reanalysis') AS needs_reanalysis,
+				SUM(pages.onpage_state = 'not_analysed') AS not_analysed,
 				SUM(pages.last_error IS NOT NULL AND pages.last_error <> '') AS failed,
-				SUM(pages.onpage_rating = 'red') AS red, SUM(pages.onpage_rating = 'orange') AS orange, SUM(pages.onpage_rating = 'green') AS green,
-				AVG(CASE WHEN pages.onpage_denominator > 0 THEN pages.onpage_score * 100 / pages.onpage_denominator END) AS average
+				SUM(pages.onpage_state = 'current' AND pages.onpage_rating = 'red') AS red,
+				SUM(pages.onpage_state = 'current' AND pages.onpage_rating = 'orange') AS orange,
+				SUM(pages.onpage_state = 'current' AND pages.onpage_rating = 'green') AS green,
+				AVG(CASE WHEN pages.onpage_state = 'current' AND pages.onpage_denominator > 0 THEN pages.onpage_score * 100 / pages.onpage_denominator END) AS average
 			{$query['sql']}";
 		$row   = $wpdb->get_row( $this->prepare( $sql, $query['values'] ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Prepared by prepare().
 		$row   = is_array( $row ) ? $row : array();
 
 		return array(
-			'total'    => (int) ( $row['total'] ?? 0 ),
-			'scored'   => (int) ( $row['scored'] ?? 0 ),
-			'unscored' => (int) ( $row['unscored'] ?? 0 ),
-			'failed'   => (int) ( $row['failed'] ?? 0 ),
-			'red'      => (int) ( $row['red'] ?? 0 ),
-			'orange'   => (int) ( $row['orange'] ?? 0 ),
-			'green'    => (int) ( $row['green'] ?? 0 ),
-			'average'  => isset( $row['average'] ) ? (int) round( (float) $row['average'] ) : null,
+			'total'            => (int) ( $row['total'] ?? 0 ),
+			'scored'           => (int) ( $row['scored'] ?? 0 ),
+			'unscored'         => (int) ( $row['unscored'] ?? 0 ),
+			'needs_reanalysis' => (int) ( $row['needs_reanalysis'] ?? 0 ),
+			'not_analysed'     => (int) ( $row['not_analysed'] ?? 0 ),
+			'failed'           => (int) ( $row['failed'] ?? 0 ),
+			'red'              => (int) ( $row['red'] ?? 0 ),
+			'orange'           => (int) ( $row['orange'] ?? 0 ),
+			'green'            => (int) ( $row['green'] ?? 0 ),
+			'average'          => isset( $row['average'] ) ? (int) round( (float) $row['average'] ) : null,
 		);
 	}
 
@@ -357,17 +420,17 @@ final class PagesRepository {
 		}
 
 		if ( isset( $filters['rating'] ) && is_string( $filters['rating'] ) && '' !== $filters['rating'] ) {
-			$where[]  = 'pages.onpage_rating = %s';
+			$where[]  = "pages.onpage_state = 'current' AND pages.onpage_rating = %s";
 			$values[] = $filters['rating'];
 		}
 
 		if ( isset( $filters['score_min'] ) && is_numeric( $filters['score_min'] ) ) {
-			$where[]  = 'pages.onpage_score >= %d';
+			$where[]  = "pages.onpage_state = 'current' AND pages.onpage_score >= %d";
 			$values[] = (int) $filters['score_min'];
 		}
 
 		if ( isset( $filters['score_max'] ) && is_numeric( $filters['score_max'] ) ) {
-			$where[]  = 'pages.onpage_score <= %d';
+			$where[]  = "pages.onpage_state = 'current' AND pages.onpage_score <= %d";
 			$values[] = (int) $filters['score_max'];
 		}
 
@@ -457,6 +520,41 @@ final class PagesRepository {
 		}
 
 		return $stored;
+	}
+
+	/**
+	 * Write the cached on-page score, or clear it for a state that is not current.
+	 *
+	 * @param array<string, mixed>|null $score
+	 */
+	private function applyScoreCache( int $pageId, string $state, ?array $score ): void {
+		global $wpdb;
+
+		$data = array(
+			'onpage_state'       => $state,
+			'onpage_score_id'    => null,
+			'onpage_score'       => null,
+			'onpage_denominator' => null,
+			'onpage_rating'      => null,
+		);
+		if ( 'current' === $state && is_array( $score ) ) {
+			$data['onpage_score_id']    = (int) $score['id'];
+			$data['onpage_score']       = (int) $score['score'];
+			$data['onpage_denominator'] = (int) $score['denominator'];
+			$data['onpage_rating']      = (string) $score['rating'];
+		}
+
+		$wpdb->update( Tables::pages(), $data, array( 'id' => $pageId ) );
+	}
+
+	/**
+	 * A stored page model is a completed render. An error row stores an empty list.
+	 *
+	 * @param array<string, mixed> $page
+	 */
+	private function rowHasModel( array $page ): bool {
+		$raw = trim( (string) ( $page['page_model'] ?? '' ) );
+		return '' !== $raw && '[]' !== $raw && 'null' !== $raw && '{}' !== $raw;
 	}
 
 	/**

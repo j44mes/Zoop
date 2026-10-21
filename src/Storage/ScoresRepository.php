@@ -15,8 +15,18 @@ use SEOStudio\Scoring\OnPage\Score;
  * Reads and writes seostudio_scores.
  */
 final class ScoresRepository {
-	public function insert( int $pageId, string $keyphrase, Score $score, string $version ): int {
+	public function insert( int $pageId, string $keyphrase, Score $score, string $version, ?string $inputHash = null ): int {
 		global $wpdb;
+
+		$pages = new PagesRepository();
+		if ( null === $inputHash ) {
+			$page      = $pages->find( $pageId );
+			$inputHash = is_array( $page ) ? (string) ( $page['input_hash'] ?? '' ) : '';
+		}
+
+		$details                     = $score->toArray();
+		$details['evidence_version'] = 2;
+		$details['input_hash']       = $inputHash;
 
 		$wpdb->insert(
 			Tables::scores(),
@@ -28,14 +38,14 @@ final class ScoresRepository {
 				'score'          => $score->earned,
 				'denominator'    => $score->denominator,
 				'rating'         => $this->rating( $score ),
-				'details'        => wp_json_encode( $score->toArray() ),
+				'details'        => wp_json_encode( $details ),
 				'plugin_version' => $version,
 				'created_at'     => current_time( 'mysql', true ),
 			)
 		);
 
 		$id = (int) $wpdb->insert_id;
-		( new PagesRepository() )->recordScore( $pageId, md5( mb_strtolower( $keyphrase, 'UTF-8' ) ), $id, $score->earned, $score->denominator, $this->rating( $score ) );
+		$pages->recordScore( $pageId, md5( mb_strtolower( $keyphrase, 'UTF-8' ) ), $id, $score->earned, $score->denominator, $this->rating( $score ), $inputHash );
 		return $id;
 	}
 
