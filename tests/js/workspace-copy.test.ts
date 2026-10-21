@@ -2,6 +2,7 @@ import {
 	architectureStatus,
 	depthLabel,
 } from '../../assets/src/dashboard/architecture-copy';
+import { overlapLevel } from '../../assets/src/dashboard/overlap-copy';
 import {
 	topicIntentLabel,
 	topicRoleLabel,
@@ -31,6 +32,17 @@ describe( 'architecture copy', () => {
 		expect( architectureStatus( 'unknown' ) ).toBe( 'Not enough data' );
 		expect( depthLabel( null ) ).toBe( 'Not reached' );
 		expect( depthLabel( 2 ) ).toBe( '2' );
+	} );
+} );
+
+describe( 'overlap copy', () => {
+	it( 'keeps insufficient evidence distinct from a high overlap', () => {
+		expect( overlapLevel( 'high' ) ).toBe( 'High' );
+		expect( overlapLevel( 'medium' ) ).toBe( 'Medium' );
+		expect( overlapLevel( 'low' ) ).toBe( 'Low' );
+		expect( overlapLevel( 'insufficient' ) ).toBe(
+			'Insufficient evidence'
+		);
 	} );
 } );
 

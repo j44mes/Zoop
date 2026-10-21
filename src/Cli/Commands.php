@@ -112,6 +112,7 @@ final class Commands {
 			'GET /seostudio/v1/architecture',
 			'GET /seostudio/v1/posts/{post_id}/topic',
 			'PUT /seostudio/v1/posts/{post_id}/topic',
+			'GET /seostudio/v1/overlap',
 		);
 		\WP_CLI::line( (string) wp_json_encode( $routes, JSON_PRETTY_PRINT ) );
 	}

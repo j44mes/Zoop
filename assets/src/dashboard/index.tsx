@@ -28,6 +28,7 @@ import {
 	pageWorkspaceUrl,
 } from './PageWorkspace';
 import { ArchitecturePanel } from './ArchitecturePanel';
+import { OverlapPanel } from './OverlapPanel';
 import { SettingsPanel } from './settings/SettingsPanel';
 
 export function Dashboard() {
@@ -46,7 +47,7 @@ export function Dashboard() {
 	const [ notice, setNotice ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ view, setView ] = useState<
-		'overview' | 'pages' | 'settings' | 'architecture'
+		'overview' | 'pages' | 'settings' | 'architecture' | 'overlap'
 	>( sectionView );
 	const [ run, setRun ] = useState< AuditRun | null >( null );
 
@@ -193,7 +194,10 @@ export function Dashboard() {
 			<AppBar current={ view } mode={ modeLine } onNavigate={ setView } />
 			{ view === 'settings' ? <SettingsPanel /> : null }
 			{ view === 'architecture' ? <ArchitecturePanel /> : null }
-			{ view !== 'settings' && view !== 'architecture' ? (
+			{ view === 'overlap' ? <OverlapPanel /> : null }
+			{ view !== 'settings' &&
+			view !== 'architecture' &&
+			view !== 'overlap' ? (
 				<>
 					{ view === 'overview' && summary ? (
 						<div className="seostudio-summary">
@@ -536,14 +540,20 @@ export function Dashboard() {
 	);
 }
 
-function sectionView(): 'overview' | 'pages' | 'settings' | 'architecture' {
+function sectionView():
+	| 'overview'
+	| 'pages'
+	| 'settings'
+	| 'architecture'
+	| 'overlap' {
 	const section = new URLSearchParams( window.location.search ).get(
 		'section'
 	);
 	if (
 		section === 'pages' ||
 		section === 'settings' ||
-		section === 'architecture'
+		section === 'architecture' ||
+		section === 'overlap'
 	) {
 		return section;
 	}
@@ -555,19 +565,20 @@ function AppBar( {
 	mode,
 	onNavigate,
 }: {
-	current: 'overview' | 'pages' | 'settings' | 'architecture';
+	current: 'overview' | 'pages' | 'settings' | 'architecture' | 'overlap';
 	mode: string;
 	onNavigate: (
-		next: 'overview' | 'pages' | 'settings' | 'architecture'
+		next: 'overview' | 'pages' | 'settings' | 'architecture' | 'overlap'
 	) => void;
 } ) {
 	const items: Array< {
-		id: 'overview' | 'pages' | 'settings' | 'architecture';
+		id: 'overview' | 'pages' | 'settings' | 'architecture' | 'overlap';
 		label: string;
 	} > = [
 		{ id: 'overview', label: __( 'Overview', 'seo-studio' ) },
 		{ id: 'pages', label: __( 'Pages', 'seo-studio' ) },
 		{ id: 'architecture', label: __( 'Architecture', 'seo-studio' ) },
+		{ id: 'overlap', label: __( 'Overlap', 'seo-studio' ) },
 		{ id: 'settings', label: __( 'Settings', 'seo-studio' ) },
 	];
 	return (
