@@ -94,7 +94,14 @@ export interface PageListItem {
 	score_state?: 'current' | 'needs_reanalysis' | 'unscored' | 'not_analysed';
 	presentation?: ScorePresentation;
 	last_rendered_at: string | null;
+	last_fetched_at?: string | null;
+	verified_at?: string | null;
 	last_error: string | null;
+	fetch_http_status?: number | null;
+	fetch_failure_reason?: string;
+	fetch_attempted_at?: string | null;
+	retained_notice?: string;
+	fetch_guidance_url?: string;
 }
 
 export interface PageList {
@@ -138,6 +145,13 @@ export interface PageRecord {
 	render_mode?: string;
 	content_selector?: string;
 	last_error?: string | null;
+	fetch_http_status?: number | null;
+	fetch_failure_reason?: string;
+	fetch_attempted_at?: string | null;
+	last_fetched_at?: string | null;
+	verified_at?: string | null;
+	retained_notice?: string;
+	fetch_guidance_url?: string;
 	presentation?: ScorePresentation;
 }
 

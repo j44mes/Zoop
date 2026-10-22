@@ -19,7 +19,7 @@ use SEOStudio\Architecture\UrlKey;
 /**
  * Extracts the fields both scoring engines read.
  */
-final class Extractor {
+class Extractor {
 	/**
 	 * Build a page model from HTML.
 	 *

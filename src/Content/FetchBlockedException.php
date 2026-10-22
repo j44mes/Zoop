@@ -15,7 +15,11 @@ use RuntimeException;
  * The URL failed the same-host allow-list or the response was unusable.
  */
 final class FetchBlockedException extends RuntimeException {
-	public function __construct( string $message, public readonly string $reason = 'blocked' ) {
+	public function __construct(
+		string $message,
+		public readonly string $reason = 'blocked',
+		public readonly ?int $status = null
+	) {
 		parent::__construct( $message );
 	}
 }

@@ -67,7 +67,8 @@ final class ZLocalhostPinTest extends WP_UnitTestCase {
 
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'seostudio_fetch_blocked', $result->get_error_code() );
-		$this->assertStringContainsString( 'blocked address', $result->get_error_message() );
+		$this->assertSame( 'unsafe_target', $result->get_error_data()['reason'] ?? '' );
+		$this->assertStringContainsString( 'not a safe target', $result->get_error_message() );
 		$this->assertFalse( $called );
 	}
 

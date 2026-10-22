@@ -103,7 +103,7 @@ final class SsrfTest extends WP_UnitTestCase {
 			$this->transport( 200, '', str_repeat( 'a', LoopbackFetcher::MAX_BYTES + 1 ) ),
 			'seostudio_fetch_failed'
 		);
-		$this->assertSame( 'oversized', $error->get_error_data()['reason'] ?? '' );
+		$this->assertSame( 'response_too_large', $error->get_error_data()['reason'] ?? '' );
 	}
 
 	/**

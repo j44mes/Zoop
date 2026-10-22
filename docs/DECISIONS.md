@@ -20,7 +20,7 @@ Specification enums (`object_type`, `engine`, `rating`, `status`) are `varchar` 
 
 ## Fetch policy
 
-DNS that returns no address is blocked. A host that resolves to a private or reserved address is blocked, including when the site itself is on localhost. Content rendering still works there. Verify-live does not. That is the specification's SSRF rule, not an oversight. Basic authentication is read only from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS`.
+DNS that returns no address is blocked. A host that resolves to a private or reserved address is blocked, including when the site itself is on localhost. Content rendering still works there. Verify-live does not. That is the specification's SSRF rule, not an oversight. Basic authentication is read only from the constants `SEOSTUDIO_FETCH_USER` and `SEOSTUDIO_FETCH_PASS`. How to set those constants, and how to ask a host to allow Zoop's own user agent, is documented in `docs/letting-zoop-through.md`.
 
 ## Coding standards
 

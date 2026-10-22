@@ -16,6 +16,15 @@ final class LoopbackFetcher {
 	public const MAX_BYTES = 2097152;
 
 	/**
+	 * Identifiable agent. It names Zoop and this repository, not a search engine.
+	 */
+	public static function userAgent(): string {
+		$version = defined( 'SEOSTUDIO_VERSION' ) ? (string) SEOSTUDIO_VERSION : '0.6.0-beta.1';
+
+		return 'Zoop/' . $version . ' (+https://github.com/j44mes/Zoop)';
+	}
+
+	/**
 	 * Optional transport replaces wp_remote_get in tests.
 	 *
 	 * @param callable(string, array<string, mixed>): array{code: int, location: string, body: string}|null $transport
@@ -60,13 +69,7 @@ final class LoopbackFetcher {
 			return $this->download( $next, $home, $hops + 1 );
 		}
 
-		if ( 200 !== $response['code'] ) {
-			throw new FetchBlockedException( 'Fetch returned a non-200 status.' );
-		}
-
-		if ( strlen( $response['body'] ) > self::MAX_BYTES ) {
-			throw new FetchBlockedException( 'Response exceeded 2 MB.', 'oversized' );
-		}
+		$this->assertReadable( $response );
 
 		return array(
 			'body'   => $response['body'],
@@ -75,9 +78,49 @@ final class LoopbackFetcher {
 	}
 
 	/**
+	 * Refuse a challenge page, a non-200 response, or a body Zoop cannot read.
+	 *
+	 * The body is inspected only in memory. It is not returned once refused.
+	 *
+	 * @param array{code: int, location: string, body: string, robots: string, content_type: string} $response
+	 * @throws FetchBlockedException When the response cannot be scored.
+	 */
+	private function assertReadable( array $response ): void {
+		$code = $response['code'];
+		$body = $response['body'];
+		if ( 200 !== $code ) {
+			if ( ProtectionPage::isChallenge( $body ) ) {
+				throw $this->blocked( 'protection_page', $code ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The status is an integer, not HTML.
+			}
+			throw $this->blocked( 'http_status', $code > 0 ? $code : null ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The status is an integer, not HTML.
+		}
+
+		if ( strlen( $body ) > self::MAX_BYTES ) {
+			throw $this->blocked( 'response_too_large', 200 );
+		}
+
+		if ( ProtectionPage::isChallenge( $body ) ) {
+			throw $this->blocked( 'protection_page', 200 );
+		}
+
+		if ( ProtectionPage::isUnreadable( $body, $response['content_type'] ) ) {
+			throw $this->blocked( 'invalid_response', 200 );
+		}
+	}
+
+	/**
+	 * Build a refusal that carries the public sentence, reason, and status.
+	 */
+	private function blocked( string $reason, ?int $status ): FetchBlockedException {
+		$exception = new FetchBlockedException( '', $reason, $status );
+
+		return new FetchBlockedException( FetchFailure::attempt( $exception ), $reason, $status );
+	}
+
+	/**
 	 * Perform one HTTP request without following redirects.
 	 *
-	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @return array{code: int, location: string, body: string, robots: string, content_type: string}
 	 * @throws FetchBlockedException When the transport fails.
 	 */
 	private function perform( string $url ): array {
@@ -86,7 +129,7 @@ final class LoopbackFetcher {
 			'redirection'         => 0,
 			'reject_unsafe_urls'  => true,
 			'limit_response_size' => self::MAX_BYTES + 1,
-			'user-agent'          => 'Zoop/0.1 (+https://example.test)',
+			'user-agent'          => self::userAgent(),
 		);
 
 		if ( defined( 'SEOSTUDIO_FETCH_USER' ) && defined( 'SEOSTUDIO_FETCH_PASS' ) ) {
@@ -100,14 +143,15 @@ final class LoopbackFetcher {
 		if ( is_callable( $transport ) ) {
 			$result = $transport( $url, $args );
 			if ( ! is_array( $result ) ) {
-				throw new FetchBlockedException( 'Fetch failed.' );
+				throw $this->blocked( 'transport_error', null );
 			}
 
 			return array(
-				'code'     => (int) ( $result['code'] ?? 0 ),
-				'location' => (string) ( $result['location'] ?? '' ),
-				'body'     => (string) ( $result['body'] ?? '' ),
-				'robots'   => (string) ( $result['robots'] ?? '' ),
+				'code'         => (int) ( $result['code'] ?? 0 ),
+				'location'     => (string) ( $result['location'] ?? '' ),
+				'body'         => (string) ( $result['body'] ?? '' ),
+				'robots'       => (string) ( $result['robots'] ?? '' ),
+				'content_type' => (string) ( $result['content_type'] ?? '' ),
 			);
 		}
 
@@ -122,7 +166,7 @@ final class LoopbackFetcher {
 	 * Download localhost only after the connection is pinned to loopback.
 	 *
 	 * @param array<string, mixed> $args
-	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @return array{code: int, location: string, body: string, robots: string, content_type: string}
 	 * @throws FetchBlockedException When the connection cannot be pinned to loopback.
 	 */
 	private function pinnedRequest( string $url, array $args ): array {
@@ -152,20 +196,20 @@ final class LoopbackFetcher {
 		}
 
 		unset( $last );
-		throw new FetchBlockedException( 'Fetch failed.' );
+		throw $this->blocked( 'transport_error', null );
 	}
 
 	/**
 	 * Download a public host with the normal WordPress transport.
 	 *
 	 * @param array<string, mixed> $args
-	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @return array{code: int, location: string, body: string, robots: string, content_type: string}
 	 * @throws FetchBlockedException When the transport fails.
 	 */
 	private function remote( string $url, array $args ): array {
 		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {
-			throw new FetchBlockedException( 'Fetch failed.' );
+			throw $this->blocked( 'transport_error', null );
 		}
 
 		return $this->remoteResult( $response );
@@ -175,14 +219,15 @@ final class LoopbackFetcher {
 	 * Normalise a WordPress HTTP response.
 	 *
 	 * @param array<string, mixed> $response
-	 * @return array{code: int, location: string, body: string, robots: string}
+	 * @return array{code: int, location: string, body: string, robots: string, content_type: string}
 	 */
 	private function remoteResult( array $response ): array {
 		return array(
-			'code'     => (int) wp_remote_retrieve_response_code( $response ),
-			'location' => (string) wp_remote_retrieve_header( $response, 'location' ),
-			'body'     => (string) wp_remote_retrieve_body( $response ),
-			'robots'   => implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ),
+			'code'         => (int) wp_remote_retrieve_response_code( $response ),
+			'location'     => (string) wp_remote_retrieve_header( $response, 'location' ),
+			'body'         => (string) wp_remote_retrieve_body( $response ),
+			'robots'       => implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ),
+			'content_type' => (string) wp_remote_retrieve_header( $response, 'content-type' ),
 		);
 	}
 

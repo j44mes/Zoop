@@ -51,7 +51,7 @@ final class RulesetCurrencyTest extends WP_UnitTestCase {
 
 		Upgrader::maybeUpgrade();
 
-		$this->assertSame( 7, (int) get_option( Settings::OPTION )['schema_version'] );
+		$this->assertSame( Upgrader::CURRENT, (int) get_option( Settings::OPTION )['schema_version'] );
 		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
 		$this->assertRetired( $planted );
 		$this->assertSame( $planted['model'], ( new PagesRepository() )->find( $planted['page_id'] )['page_model'] );

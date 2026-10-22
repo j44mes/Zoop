@@ -26,7 +26,12 @@ import {
 	type PageModelResponse,
 	type PageRecord,
 } from '../shared/api';
+import {
+	fetchFailureDetail,
+	type FetchFailureDetail,
+} from '../shared/fetch-failure';
 import { AssessmentList } from '../shared/ui/AssessmentList';
+import { FetchFailureNotice } from '../shared/ui/FetchFailureNotice';
 import { assessmentTitle } from '../shared/ui/assessment-labels';
 import { CategoryBar } from '../shared/ui/CategoryBar';
 import {
@@ -129,6 +134,8 @@ export function Panel( {
 	const [ preview, setPreview ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( '' );
+	const [ fetchFailure, setFetchFailure ] =
+		useState< FetchFailureDetail | null >( null );
 	const [ fieldsReady, setFieldsReady ] = useState( false );
 	const [ robotsEdited, setRobotsEdited ] = useState( false );
 	const publishTitle = !! metadata?.publishesOwn && ! metadata?.isHomepage;
@@ -347,6 +354,7 @@ export function Panel( {
 		}
 		setBusy( true );
 		setError( '' );
+		setFetchFailure( null );
 		try {
 			const record = await analysePost( id, {
 				mode: nextMode,
@@ -362,11 +370,22 @@ export function Panel( {
 			setSelector( record.content_selector || '' );
 			setPreview( false );
 			if ( record.last_error ) {
-				setError( String( record.last_error ) );
+				setFetchFailure( {
+					message: String( record.last_error ),
+					retainedNotice: record.retained_notice || '',
+					guidanceUrl: record.fetch_guidance_url || '',
+					retry: true,
+				} );
 			}
 			await runWorker( record.page_model, record.page_id );
 		} catch ( caught ) {
-			setError( messageOf( caught ) );
+			const detail =
+				'live' === nextMode ? fetchFailureDetail( caught ) : null;
+			if ( detail ) {
+				setFetchFailure( detail );
+			} else {
+				setError( messageOf( caught ) );
+			}
 		} finally {
 			setBusy( false );
 		}
@@ -459,6 +478,15 @@ export function Panel( {
 					{ __( 'Check published page', 'seo-studio' ) }
 				</Button>
 			</p>
+			{ fetchFailure ? (
+				<FetchFailureNotice
+					message={ fetchFailure.message }
+					retainedNotice={ fetchFailure.retainedNotice }
+					guidanceUrl={ fetchFailure.guidanceUrl }
+					busy={ busy }
+					onRetry={ () => persist( 'live' ) }
+				/>
+			) : null }
 			{ error ? (
 				<Notice status="error" isDismissible={ false }>
 					{ error }

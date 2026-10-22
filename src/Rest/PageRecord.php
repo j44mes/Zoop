@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Rest;
 
+use SEOStudio\Content\FetchFailure;
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\UpgradeNotice;
@@ -94,19 +95,28 @@ final class PageRecord {
 			}
 		}
 
+		$copy = FetchFailure::presentation( $row );
+
 		return array(
-			'page_id'          => (int) $row['id'],
-			'object_type'      => (string) $row['object_type'],
-			'object_id'        => (int) $row['object_id'],
-			'url'              => (string) $row['url'],
-			'render_mode'      => (string) $row['render_mode'],
-			'content_selector' => (string) $row['content_selector'],
-			'last_rendered_at' => $row['last_rendered_at'],
-			'last_error'       => $row['last_error'],
-			'is_indexable'     => isset( $row['is_indexable'] ) ? (bool) $row['is_indexable'] : null,
-			'page_model'       => is_array( $decoded ) ? $decoded : array(),
-			'scores'           => $details,
-			'presentation'     => $presentation,
+			'page_id'              => (int) $row['id'],
+			'object_type'          => (string) $row['object_type'],
+			'object_id'            => (int) $row['object_id'],
+			'url'                  => (string) $row['url'],
+			'render_mode'          => (string) $row['render_mode'],
+			'content_selector'     => (string) $row['content_selector'],
+			'last_rendered_at'     => $row['last_rendered_at'],
+			'last_fetched_at'      => $row['last_fetched_at'] ?? null,
+			'last_error'           => $row['last_error'],
+			'fetch_http_status'    => $this->fetchStatus( $row['fetch_http_status'] ?? null ),
+			'fetch_failure_reason' => (string) ( $row['fetch_failure_reason'] ?? '' ),
+			'fetch_attempted_at'   => $row['fetch_attempted_at'] ?? null,
+			'verified_at'          => $row['verified_at'] ?? null,
+			'retained_notice'      => $copy['retained_notice'],
+			'fetch_guidance_url'   => $copy['fetch_guidance_url'],
+			'is_indexable'         => isset( $row['is_indexable'] ) ? (bool) $row['is_indexable'] : null,
+			'page_model'           => is_array( $decoded ) ? $decoded : array(),
+			'scores'               => $details,
+			'presentation'         => $presentation,
 		);
 	}
 
@@ -374,25 +384,33 @@ final class PageRecord {
 		}
 
 		$edit    = get_edit_post_link( $object_id, 'raw' );
+		$copy    = FetchFailure::presentation( $row );
 		$record  = array(
-			'page_id'            => (int) $row['id'],
-			'object_type'        => (string) $row['object_type'],
-			'object_id'          => $object_id,
-			'title'              => (string) ( $row['post_title'] ?? '' ),
-			'url'                => (string) $row['url'],
-			'edit_url'           => is_string( $edit ) ? $edit : '',
-			'keyphrase'          => $keyphrase,
-			'onpage'             => array(
+			'page_id'              => (int) $row['id'],
+			'object_type'          => (string) $row['object_type'],
+			'object_id'            => $object_id,
+			'title'                => (string) ( $row['post_title'] ?? '' ),
+			'url'                  => (string) $row['url'],
+			'edit_url'             => is_string( $edit ) ? $edit : '',
+			'keyphrase'            => $keyphrase,
+			'onpage'               => array(
 				'score'       => isset( $row['onpage_score'] ) ? (int) $row['onpage_score'] : null,
 				'denominator' => isset( $row['onpage_denominator'] ) ? (int) $row['onpage_denominator'] : null,
 			),
-			'seo_rating'         => $this->rating( $row['seo_rating'] ?? null ),
-			'readability_rating' => $this->rating( $row['readability_rating'] ?? null ),
-			'top_issue'          => $issue,
-			'score_state'        => $state,
-			'presentation'       => $presentation,
-			'last_rendered_at'   => $row['last_rendered_at'] ?? null,
-			'last_error'         => $row['last_error'] ?? null,
+			'seo_rating'           => $this->rating( $row['seo_rating'] ?? null ),
+			'readability_rating'   => $this->rating( $row['readability_rating'] ?? null ),
+			'top_issue'            => $issue,
+			'score_state'          => $state,
+			'presentation'         => $presentation,
+			'last_rendered_at'     => $row['last_rendered_at'] ?? null,
+			'last_fetched_at'      => $row['last_fetched_at'] ?? null,
+			'verified_at'          => $row['verified_at'] ?? null,
+			'last_error'           => $row['last_error'] ?? null,
+			'fetch_http_status'    => $this->fetchStatus( $row['fetch_http_status'] ?? null ),
+			'fetch_failure_reason' => (string) ( $row['fetch_failure_reason'] ?? '' ),
+			'fetch_attempted_at'   => $row['fetch_attempted_at'] ?? null,
+			'retained_notice'      => $copy['retained_notice'],
+			'fetch_guidance_url'   => $copy['fetch_guidance_url'],
 		);
 		$checked = ! empty( $presentation['definitive'] ) && (int) ( $row['onpage_denominator'] ?? 0 ) > 0;
 		if ( ! $checked ) {
@@ -401,5 +419,16 @@ final class PageRecord {
 		}
 
 		return $record;
+	}
+
+	/**
+	 * HTTP status of the latest failed fetch, or null when the attempt had none.
+	 */
+	private function fetchStatus( mixed $status ): ?int {
+		if ( null === $status || '' === $status ) {
+			return null;
+		}
+
+		return (int) $status;
 	}
 }

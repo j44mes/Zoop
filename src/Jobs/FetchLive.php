@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Jobs;
 
+use SEOStudio\Content\FetchBlockedException;
 use SEOStudio\Content\LoopbackFetcher;
 use SEOStudio\Content\PageModel;
 use SEOStudio\Content\Renderer;
@@ -128,6 +129,8 @@ final class FetchLive {
 			$pages->markFetched( $page_id );
 			$stored = $pages->loadModel( $postId );
 			$this->score( $postId, $page_id, $stored instanceof PageModel ? $stored : $model );
+		} catch ( FetchBlockedException $exception ) {
+			$pages->recordFetchFailure( $postId, $exception );
 		} catch ( \Throwable $exception ) {
 			$pages->recordError( $postId, $exception->getMessage() );
 		}

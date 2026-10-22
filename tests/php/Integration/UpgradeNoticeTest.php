@@ -102,7 +102,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 
 		Upgrader::maybeUpgrade();
 
-		$this->assertSame( 7, (int) get_option( Settings::OPTION )['schema_version'] );
+		$this->assertSame( Upgrader::CURRENT, (int) get_option( Settings::OPTION )['schema_version'] );
 		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
 		$this->assertSame( $history, (int) $GLOBALS['wpdb']->get_var( 'SELECT COUNT(*) FROM ' . Tables::scores() ) );
 		$this->assertSame( 'needs_reanalysis', ( new PagesRepository() )->find( $mine['page_id'] )['onpage_state'] );
@@ -112,7 +112,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		$admin = $this->legacyNotice();
 		$this->assertIsArray( $admin );
 		$this->assertSame( 2, $admin['count'] );
-		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept, but 2 pages need a new published-page check.", $admin['message'] );
+		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. 2 pages need a new published-page check.", $admin['message'] );
 		$this->assertStringContainsString( 'score_state=legacy_scores', $admin['review_url'] );
 		$this->assertStringNotContainsString( 'ruleset_retired', $admin['review_url'] );
 		$this->assertStringNotContainsString( 'updated scoring rules', $admin['message'] );
@@ -126,7 +126,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		$author_notice = $this->legacyNotice();
 		$this->assertIsArray( $author_notice );
 		$this->assertSame( 1, $author_notice['count'] );
-		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept, but 1 page needs a new published-page check.", $author_notice['message'] );
+		$this->assertSame( "Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. 1 page needs a new published-page check.", $author_notice['message'] );
 		$this->assertSame( 1, $this->pages( 'legacy_scores' )['total'] );
 		$this->assertSame( 'Saved author page', $this->pages( 'legacy_scores' )['items'][0]['title'] );
 
@@ -181,7 +181,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		$notice   = $this->notice();
 		$this->assertIsArray( $notice );
 		$this->assertSame( 2, $notice['count'] );
-		$this->assertSame( 'Zoop 0.6 uses updated scoring rules, so 2 pages need checking again. Your previous scores have been kept.', $notice['message'] );
+		$this->assertSame( 'Zoop 0.6 uses updated scoring rules, so 2 pages need checking again. Your previous scores have been kept but are no longer shown.', $notice['message'] );
 		$this->assertStringContainsString( 'score_state=ruleset_retired', $notice['review_url'] );
 		$this->assertStringNotContainsString( 'needs_reanalysis', $notice['review_url'] );
 		$this->assertStringNotContainsString( 'Author visible page', $notice['message'] );
@@ -204,7 +204,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 		$author_notice = $this->notice();
 		$this->assertIsArray( $author_notice );
 		$this->assertSame( 1, $author_notice['count'] );
-		$this->assertSame( 'Zoop 0.6 uses updated scoring rules, so 1 page needs checking again. Your previous scores have been kept.', $author_notice['message'] );
+		$this->assertSame( 'Zoop 0.6 uses updated scoring rules, so 1 page needs checking again. Your previous scores have been kept but are no longer shown.', $author_notice['message'] );
 		$author_list = $this->pages( 'ruleset_retired' );
 		$this->assertSame( 1, $author_list['total'] );
 		$this->assertSame( 'Author visible page', $author_list['items'][0]['title'] );
@@ -290,7 +290,7 @@ final class UpgradeNoticeTest extends WP_UnitTestCase {
 
 		Upgrader::maybeUpgrade();
 
-		$this->assertSame( 7, (int) get_option( Settings::OPTION )['schema_version'] );
+		$this->assertSame( Upgrader::CURRENT, (int) get_option( Settings::OPTION )['schema_version'] );
 		$this->assertSame( Ruleset::CURRENT, (int) get_option( Ruleset::OPTION ) );
 		$this->assertSame( 'Yoast title', get_post_meta( $post['post_id'], '_yoast_wpseo_title', true ) );
 		$this->assertSame( 'Yoast description', get_post_meta( $post['post_id'], '_yoast_wpseo_metadesc', true ) );
