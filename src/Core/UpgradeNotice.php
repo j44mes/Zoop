@@ -125,8 +125,8 @@ final class UpgradeNotice {
 		return sprintf(
 			/* translators: %d: number of pages the current user can still check after a scoring-rules update. */
 			_n(
-				'Zoop 0.6 uses updated scoring rules, so %d page needs checking again. Your previous scores have been kept.',
-				'Zoop 0.6 uses updated scoring rules, so %d pages need checking again. Your previous scores have been kept.',
+				'Zoop 0.6 uses updated scoring rules, so %d page needs checking again. Your previous scores have been kept but are no longer shown.',
+				'Zoop 0.6 uses updated scoring rules, so %d pages need checking again. Your previous scores have been kept but are no longer shown.',
 				$count,
 				'seo-studio'
 			),

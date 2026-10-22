@@ -136,8 +136,8 @@ final class LegacyScoreNotice {
 		return sprintf(
 			/* translators: %d: number of pages the current user can still check after an upgrade from saved pre-evidence scores. */
 			_n(
-				"Zoop's page checks have been updated. Your previous scores have been kept, but %d page needs a new published-page check.",
-				"Zoop's page checks have been updated. Your previous scores have been kept, but %d pages need a new published-page check.",
+				"Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. %d page needs a new published-page check.",
+				"Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. %d pages need a new published-page check.",
 				$count,
 				'seo-studio'
 			),

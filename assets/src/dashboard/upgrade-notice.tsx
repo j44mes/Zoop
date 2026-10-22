@@ -23,7 +23,7 @@ export function UpgradeNoticeBanner( {
 			<p>{ notice.message }</p>
 			<p>
 				<a href={ notice.review_url }>
-					{ __( 'Review pages needing checks', 'seo-studio' ) }
+					{ __( 'Review pages', 'seo-studio' ) }
 				</a>{ ' ' }
 				<button type="button" onClick={ onDismiss }>
 					{ __( 'Dismiss', 'seo-studio' ) }

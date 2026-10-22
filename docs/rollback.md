@@ -18,6 +18,7 @@ Migrations are additive. Reinstalling an older zip keeps the custom tables. A ne
 | 0.2.0 | No new tables. Content-analysis rows use the existing scores table (`engine` `seo` and `readability`). |
 | 0.5.0 | No new tables. Settings gain `local_business`. Post meta gains `_seostudio_video_url` and `_seostudio_is_news`. Action Scheduler rows in group `seostudio`. |
 | 0.6.0-beta.1 | No new tables or columns. Schema marker 7. On-page ruleset 2. Current ruleset 1 scores are marked out of date. Score history remains. |
+| main after 0.6.0-beta.1 | Schema marker 8. Adds `fetch_http_status`, `fetch_failure_reason`, and `fetch_attempted_at` on `seostudio_pages`. Existing snapshots and score history remain. |
 | 0.6.0-dev.1 | No new tables or columns. Schema marker 7. Option `seostudio_applied_onpage_ruleset`. Current on-page caches without the current ruleset are marked out of date. Score history, published snapshots, and link evidence remain. |
 
 ## Uninstall

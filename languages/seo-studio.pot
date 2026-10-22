@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-21T13:25:20+00:00\n"
+"POT-Creation-Date: 2026-10-22T16:21:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: seo-studio\n"
@@ -415,19 +415,55 @@ msgstr ""
 msgid "Link counts were calculated for the whole published site before this list was filtered."
 msgstr ""
 
+#: src/Content/FetchFailure.php:22
+msgid "The latest attempt failed. The previous result has been kept."
+msgstr ""
+
+#. translators: %d: HTTP status returned with a host protection page.
+#: src/Content/FetchFailure.php:36
+#, php-format
+msgid "Couldn't check the published page. Your host returned a protection page (HTTP %d). Password protection or a bot check may be blocking Zoop."
+msgstr ""
+
+#: src/Content/FetchFailure.php:43
+msgid "Couldn't check the published page. The host refused the request (HTTP 403)."
+msgstr ""
+
+#. translators: %d: HTTP status returned by the host.
+#: src/Content/FetchFailure.php:48
+#, php-format
+msgid "Couldn't check the published page. The host responded with HTTP %d, so the page could not be verified."
+msgstr ""
+
+#: src/Content/FetchFailure.php:54
+msgid "Couldn't check the published page. Zoop could not reach the page."
+msgstr ""
+
+#: src/Content/FetchFailure.php:58
+msgid "Couldn't check the published page. Zoop refused the address because it is not a safe target on this site."
+msgstr ""
+
+#: src/Content/FetchFailure.php:62
+msgid "Couldn't check the published page. The response was larger than Zoop can read."
+msgstr ""
+
+#: src/Content/FetchFailure.php:65
+msgid "Couldn't check the published page. The response was not a page Zoop could read."
+msgstr ""
+
 #. translators: %d: number of pages the current user can still check after an upgrade from saved pre-evidence scores.
 #: src/Core/LegacyScoreNotice.php:138
 #, php-format
-msgid "Zoop's page checks have been updated. Your previous scores have been kept, but %d page needs a new published-page check."
-msgid_plural "Zoop's page checks have been updated. Your previous scores have been kept, but %d pages need a new published-page check."
+msgid "Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. %d page needs a new published-page check."
+msgid_plural "Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. %d pages need a new published-page check."
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of pages the current user can still check after a scoring-rules update.
 #: src/Core/UpgradeNotice.php:127
 #, php-format
-msgid "Zoop 0.6 uses updated scoring rules, so %d page needs checking again. Your previous scores have been kept."
-msgid_plural "Zoop 0.6 uses updated scoring rules, so %d pages need checking again. Your previous scores have been kept."
+msgid "Zoop 0.6 uses updated scoring rules, so %d page needs checking again. Your previous scores have been kept but are no longer shown."
+msgid_plural "Zoop 0.6 uses updated scoring rules, so %d pages need checking again. Your previous scores have been kept but are no longer shown."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -756,7 +792,7 @@ msgid "That page has not been analysed yet."
 msgstr ""
 
 #: src/Rest/ContentScoresController.php:61
-#: src/Rest/PagesController.php:303
+#: src/Rest/PagesController.php:304
 msgid "A keyphrase is required."
 msgstr ""
 
@@ -780,7 +816,7 @@ msgstr ""
 msgid "The canonical address is different. That is not a noindex directive."
 msgstr ""
 
-#: src/Rest/PageRecord.php:400
+#: src/Rest/PageRecord.php:410
 #: src/Scoring/OnPage/CheckPresentation.php:109
 msgid "Check published page"
 msgstr ""
@@ -789,7 +825,7 @@ msgstr ""
 msgid "Only posts can be analysed in this phase."
 msgstr ""
 
-#: src/Rest/PagesController.php:286
+#: src/Rest/PagesController.php:287
 msgid "A keyphrase is not valid."
 msgstr ""
 
@@ -801,7 +837,7 @@ msgstr ""
 msgid "The homepage title and description are site settings."
 msgstr ""
 
-#: src/Rest/Responses.php:60
+#: src/Rest/Responses.php:63
 msgid "You are not allowed to do that."
 msgstr ""
 

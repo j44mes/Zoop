@@ -94,7 +94,7 @@ final class LoopbackPin {
 	 */
 	public function arm(): void {
 		if ( ! function_exists( 'add_action' ) ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		add_action( 'http_api_curl', array( $this, 'pinCurl' ), PHP_INT_MAX, 3 );
@@ -134,11 +134,11 @@ final class LoopbackPin {
 	public function pinCurl( mixed &$handle, array $request = array(), string $url = '' ): void {
 		unset( $request );
 		if ( ! $this->matches( '' !== $url ? $url : $this->url ) ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		if ( ! function_exists( 'curl_setopt' ) ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		$dial = $this->dialHost();
@@ -161,7 +161,7 @@ final class LoopbackPin {
 		}
 
 		if ( true !== $ok ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		$this->curlUsed = true;
@@ -200,7 +200,7 @@ final class LoopbackPin {
 		}
 
 		if ( '' === $prefix ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		$remote_socket        = $prefix . '://' . $this->dialHost() . ':' . $this->port();
@@ -286,15 +286,15 @@ final class LoopbackPin {
 	 */
 	public function assertSafe(): void {
 		if ( ! $this->dialIsGuaranteed() ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		if ( $this->curlUsed && ! $this->curlVerified ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		if ( $this->strict && $this->socketAccepted && ! $this->socketVerified ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 	}
 
@@ -316,7 +316,7 @@ final class LoopbackPin {
 		$callbacks = $this->orderedCallbacks( $hook );
 		$last      = array() === $callbacks ? null : $callbacks[ array_key_last( $callbacks ) ];
 		if ( ! $this->callbackIs( $last, $method ) ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 	}
 

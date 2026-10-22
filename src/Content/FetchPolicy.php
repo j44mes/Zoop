@@ -25,7 +25,7 @@ final class FetchPolicy {
 		$home   = $this->parts( $homeUrl );
 
 		if ( $target['scheme'] !== $home['scheme'] || $target['host'] !== $home['host'] || $target['port'] !== $home['port'] ) {
-			throw new FetchBlockedException( 'Fetch target is not the site host.' );
+			throw new FetchBlockedException( 'Fetch target is not the site host.', 'unsafe_target' );
 		}
 
 		if ( ( new LocalObservation() )->permits( $url, $homeUrl ) ) {
@@ -33,7 +33,7 @@ final class FetchPolicy {
 		}
 
 		if ( $this->isBlockedHost( $target['host'] ) || $this->resolvesToBlockedAddress( $target['host'] ) ) {
-			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.' );
+			throw new FetchBlockedException( 'Fetch target resolves to a blocked address.', 'unsafe_target' );
 		}
 
 		return $url;
@@ -41,7 +41,7 @@ final class FetchPolicy {
 
 	public function nextHop( string $currentUrl, string $location, string $homeUrl, int $hops ): string {
 		if ( $hops > 2 ) {
-			throw new FetchBlockedException( 'Too many redirects.' );
+			throw new FetchBlockedException( 'Too many redirects.', 'unsafe_target' );
 		}
 
 		$next = $this->absolute( $currentUrl, $location );
@@ -55,7 +55,7 @@ final class FetchPolicy {
 
 		$parts = Urls::parts( $currentUrl );
 		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
-			throw new FetchBlockedException( 'Cannot resolve redirect.' );
+			throw new FetchBlockedException( 'Cannot resolve redirect.', 'unsafe_target' );
 		}
 
 		$port = isset( $parts['port'] ) ? ':' . $parts['port'] : '';
@@ -77,21 +77,21 @@ final class FetchPolicy {
 	private function parts( string $url ): array {
 		$parts = Urls::parts( trim( $url ) );
 		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
-			throw new FetchBlockedException( 'URL is not absolute.' );
+			throw new FetchBlockedException( 'URL is not absolute.', 'unsafe_target' );
 		}
 
 		if ( isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
-			throw new FetchBlockedException( 'URL credentials are not allowed.' );
+			throw new FetchBlockedException( 'URL credentials are not allowed.', 'unsafe_target' );
 		}
 
 		$scheme = strtolower( (string) $parts['scheme'] );
 		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
-			throw new FetchBlockedException( 'Only HTTP URLs can be fetched.' );
+			throw new FetchBlockedException( 'Only HTTP URLs can be fetched.', 'unsafe_target' );
 		}
 
 		$host = strtolower( rtrim( (string) $parts['host'], '.' ) );
 		if ( '' === $host || str_contains( $host, '%' ) ) {
-			throw new FetchBlockedException( 'Host is not allowed.' );
+			throw new FetchBlockedException( 'Host is not allowed.', 'unsafe_target' );
 		}
 
 		$port = isset( $parts['port'] ) ? (int) $parts['port'] : ( 'https' === $scheme ? 443 : 80 );

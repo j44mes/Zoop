@@ -28,13 +28,16 @@ final class Responses {
 		return $response;
 	}
 
-	public static function error( string $code, string $message, int $status, string $field = '', string $reason = '' ): WP_Error {
+	public static function error( string $code, string $message, int $status, string $field = '', string $reason = '', ?int $fetchStatus = null ): WP_Error {
 		$data = array( 'status' => $status );
 		if ( '' !== $field ) {
 			$data['field'] = $field;
 		}
 		if ( '' !== $reason ) {
 			$data['reason'] = $reason;
+		}
+		if ( null !== $fetchStatus ) {
+			$data['http_status'] = $fetchStatus;
 		}
 
 		return new WP_Error( $code, $message, $data );

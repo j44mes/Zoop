@@ -16,7 +16,7 @@ use SEOStudio\Storage\PagesRepository;
  * Runs ordered migrations when the stored schema version is behind.
  */
 final class Upgrader {
-	public const CURRENT = 7;
+	public const CURRENT = 8;
 
 	public static function maybeUpgrade(): void {
 		$settings = Settings::all();
@@ -61,6 +61,10 @@ final class Upgrader {
 		if ( self::tablesExist() && ! RulesetApplier::synchronise() ) {
 			return;
 		}
+		// Schema 8 records why the latest published-page fetch failed. Older snapshots stay.
+		if ( $current < 8 && self::tablesExist() ) {
+			self::ensureFetchDiagnostics();
+		}
 		$settings['schema_version'] = self::CURRENT;
 		update_option( Settings::OPTION, $settings, true );
 	}
@@ -91,6 +95,24 @@ final class Upgrader {
 			'verified_source_hash'   => "char(32) NOT NULL DEFAULT ''",
 			'has_published_snapshot' => 'tinyint(1) NOT NULL DEFAULT 0',
 			'verified_at'            => 'datetime NULL',
+		);
+		foreach ( $columns as $name => $definition ) {
+			$found = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", $name ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.
+			if ( $name === $found ) {
+				continue;
+			}
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN {$name} {$definition}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table and a fixed column definition.
+		}
+	}
+
+	private static function ensureFetchDiagnostics(): void {
+		global $wpdb;
+
+		$table   = $wpdb->prefix . 'seostudio_pages';
+		$columns = array(
+			'fetch_http_status'    => 'smallint(6) NULL',
+			'fetch_failure_reason' => "varchar(40) NOT NULL DEFAULT ''",
+			'fetch_attempted_at'   => 'datetime NULL',
 		);
 		foreach ( $columns as $name => $definition ) {
 			$found = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", $name ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table name.

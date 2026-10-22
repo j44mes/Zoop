@@ -566,7 +566,7 @@ final class PagesRepository {
 
 		$order   = ( isset( $filters['order'] ) && 'asc' === strtolower( (string) $filters['order'] ) ) ? 'ASC' : 'DESC';
 		$columns = $details
-			? "pages.id, pages.object_id, pages.object_type, pages.render_mode, pages.url, pages.last_rendered_at, pages.last_error,
+			? "pages.id, pages.object_id, pages.object_type, pages.render_mode, pages.url, pages.last_rendered_at, pages.last_fetched_at, pages.last_error, pages.fetch_http_status, pages.fetch_failure_reason, pages.fetch_attempted_at,
 				posts.post_title, pages.focus_keyphrase AS focus_keyphrase,
 				pages.onpage_score AS onpage_score, pages.onpage_denominator AS onpage_denominator,
 				pages.onpage_rating AS onpage_rating, pages.onpage_state AS onpage_state,
@@ -871,6 +871,61 @@ final class PagesRepository {
 	}
 
 	/**
+	 * Remember why the latest published-page fetch failed, without replacing a good snapshot.
+	 *
+	 * @return string The sentence stored for the editor.
+	 */
+	public function recordFetchFailure( int $postId, \SEOStudio\Content\FetchBlockedException $exception ): string {
+		global $wpdb;
+
+		$existing = $this->findByObject( 'post', $postId );
+		$retained = is_array( $existing ) && $this->hasRetainedResult( $existing );
+		$message  = \SEOStudio\Content\FetchFailure::message( $exception, $retained );
+		$data     = array(
+			'last_error'           => $message,
+			'fetch_http_status'    => $exception->status,
+			'fetch_failure_reason' => substr( $exception->reason, 0, 40 ),
+			'fetch_attempted_at'   => current_time( 'mysql', true ),
+		);
+
+		if ( null === $existing ) {
+			$url = function_exists( 'get_permalink' ) ? get_permalink( $postId ) : '';
+			$this->save(
+				array(
+					'object_type' => 'post',
+					'object_id'   => $postId,
+					'url'         => is_string( $url ) ? $url : '',
+					'page_model'  => array(),
+					'last_error'  => $message,
+				)
+			);
+			$existing = $this->findByObject( 'post', $postId );
+		}
+
+		if ( is_array( $existing ) ) {
+			$wpdb->update( Tables::pages(), $data, array( 'id' => (int) $existing['id'] ) );
+		}
+
+		return $message;
+	}
+
+	/**
+	 * Whether this row still has a result the failed attempt must not replace.
+	 *
+	 * @param array<string, mixed> $page Stored page row.
+	 */
+	private function hasRetainedResult( array $page ): bool {
+		if ( $this->rowHasModel( $page ) ) {
+			return true;
+		}
+		if ( '' !== trim( (string) ( $page['verified_at'] ?? '' ) ) ) {
+			return true;
+		}
+
+		return 1 === (int) ( $page['has_published_snapshot'] ?? 0 );
+	}
+
+	/**
 	 * Remember a per-page failure without stopping the batch.
 	 */
 	public function recordError( int $postId, string $message ): void {
@@ -907,8 +962,11 @@ final class PagesRepository {
 		$wpdb->update(
 			Tables::pages(),
 			array(
-				'last_fetched_at' => current_time( 'mysql', true ),
-				'last_error'      => null,
+				'last_fetched_at'      => current_time( 'mysql', true ),
+				'last_error'           => null,
+				'fetch_http_status'    => null,
+				'fetch_failure_reason' => '',
+				'fetch_attempted_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $pageId )
 		);

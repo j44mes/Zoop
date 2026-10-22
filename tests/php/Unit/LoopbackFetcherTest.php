@@ -56,10 +56,13 @@ final class LoopbackFetcherTest extends TestCase {
 			);
 			$this->fail( 'An oversized body was accepted.' );
 		} catch ( FetchBlockedException $exception ) {
-			$this->assertSame( 'oversized', $exception->reason );
+			$this->assertSame( 'response_too_large', $exception->reason );
 		}
 
 		$this->assertSame( LoopbackFetcher::MAX_BYTES + 1, $calls[0]['limit_response_size'] );
+		$this->assertStringContainsString( 'https://github.com/j44mes/Zoop', (string) $calls[0]['user-agent'] );
+		$this->assertStringNotContainsString( 'example.test', (string) $calls[0]['user-agent'] );
+		$this->assertStringNotContainsString( 'Googlebot', (string) $calls[0]['user-agent'] );
 	}
 
 	public function testAcceptsABodyOfExactlyTwoMegabytes(): void {
@@ -89,7 +92,8 @@ final class LoopbackFetcherTest extends TestCase {
 			( new LoopbackFetcher( $policy ) )->fetch( 'https://example.test/start', array( 'home_url' => 'https://example.test/' ) );
 			$this->fail( 'A transport error was accepted.' );
 		} catch ( FetchBlockedException $exception ) {
-			$this->assertSame( 'blocked', $exception->reason );
+			$this->assertSame( 'transport_error', $exception->reason );
+			$this->assertNull( $exception->status );
 		}
 
 		$GLOBALS['seostudio_remote_response'] = array(

@@ -94,7 +94,7 @@ describe( 'upgrade clarity presentation', () => {
 					ruleset: 1,
 					count: 2,
 					message:
-						'Zoop 0.6 uses updated scoring rules, so 2 pages need checking again. Your previous scores have been kept.',
+						'Zoop 0.6 uses updated scoring rules, so 2 pages need checking again. Your previous scores have been kept but are no longer shown.',
 					review_url:
 						'admin.php?page=seostudio&section=pages&score_state=ruleset_retired',
 				} }
@@ -105,10 +105,12 @@ describe( 'upgrade clarity presentation', () => {
 		);
 		expect( html ).toContain( 'role="status"' );
 		expect( html ).toContain( '2 pages need checking again' );
-		expect( html ).toContain( 'Your previous scores have been kept' );
+		expect( html ).toContain(
+			'Your previous scores have been kept but are no longer shown'
+		);
 		expect( html ).toContain( 'score_state=ruleset_retired' );
 		expect( html ).not.toContain( 'score_state=needs_reanalysis' );
-		expect( html ).toContain( 'Review pages needing checks' );
+		expect( html ).toContain( 'Review pages' );
 		expect( html ).toContain( 'Dismiss' );
 		expect( dismissed ).toBe( false );
 	} );
@@ -119,7 +121,7 @@ describe( 'upgrade clarity presentation', () => {
 				notice={ {
 					count: 2,
 					message:
-						"Zoop's page checks have been updated. Your previous scores have been kept, but 2 pages need a new published-page check.",
+						"Zoop's page checks have been updated. Your previous scores have been kept but are no longer shown. 2 pages need a new published-page check.",
 					review_url:
 						'admin.php?page=seostudio&section=pages&score_state=legacy_scores',
 				} }
@@ -134,6 +136,6 @@ describe( 'upgrade clarity presentation', () => {
 		expect( html ).toContain( 'score_state=legacy_scores' );
 		expect( html ).not.toContain( 'score_state=ruleset_retired' );
 		expect( html ).not.toContain( 'updated scoring rules' );
-		expect( html ).toContain( 'Review pages needing checks' );
+		expect( html ).toContain( 'Review pages' );
 	} );
 } );

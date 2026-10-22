@@ -461,6 +461,36 @@ export function PageWorkspace() {
 							{ error }
 						</Notice>
 					) : null }
+					{ record?.last_error ? (
+						<Notice status="error" isDismissible={ false }>
+							<p>{ record.last_error }</p>
+							{ record.fetch_attempted_at ? (
+								<p>
+									{ sprintf(
+										/* translators: %s: time of the latest published-page attempt. */
+										__(
+											'Latest attempt: %s.',
+											'seo-studio'
+										),
+										record.fetch_attempted_at
+									) }
+								</p>
+							) : null }
+							{ record.verified_at || record.last_fetched_at ? (
+								<p>
+									{ sprintf(
+										/* translators: %s: time of the last successful published-page check. */
+										__(
+											'Last successful check: %s.',
+											'seo-studio'
+										),
+										record.verified_at ||
+											record.last_fetched_at
+									) }
+								</p>
+							) : null }
+						</Notice>
+					) : null }
 					{ analysed && record ? (
 						<>
 							<div className="seostudio-command">
@@ -499,18 +529,6 @@ export function PageWorkspace() {
 										  ) }
 								</Button>
 							</div>
-							{ record.last_error ? (
-								<Notice status="error" isDismissible={ false }>
-									{ sprintf(
-										/* translators: %s: stored analysis error. */
-										__(
-											'Analysis failed. %s',
-											'seo-studio'
-										),
-										record.last_error
-									) }
-								</Notice>
-							) : null }
 							<div className="seostudio-workspace-split">
 								<article className="seostudio-panel-card">
 									<p className="seostudio-kicker">

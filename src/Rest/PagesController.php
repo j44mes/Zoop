@@ -254,8 +254,9 @@ final class PagesController {
 		try {
 			$model = 'live' === $mode ? $this->liveModel( $postId ) : $this->renderer->renderPost( $postId );
 		} catch ( FetchBlockedException $exception ) {
-			$code = 'oversized' === $exception->reason ? 'seostudio_fetch_failed' : 'seostudio_fetch_blocked';
-			return Responses::error( $code, $exception->getMessage(), 400, '', $exception->reason );
+			$message = $this->pages->recordFetchFailure( $postId, $exception );
+			$code    = 'response_too_large' === $exception->reason ? 'seostudio_fetch_failed' : 'seostudio_fetch_blocked';
+			return Responses::error( $code, $message, 400, '', $exception->reason, $exception->status );
 		}
 
 		$model   = $this->pages->mergeMeasurements( $postId, $model );
