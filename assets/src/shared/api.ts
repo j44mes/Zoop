@@ -100,6 +100,8 @@ export interface PageListItem {
 	fetch_http_status?: number | null;
 	fetch_failure_reason?: string;
 	fetch_attempted_at?: string | null;
+	retained_notice?: string;
+	fetch_guidance_url?: string;
 }
 
 export interface PageList {
@@ -148,6 +150,8 @@ export interface PageRecord {
 	fetch_attempted_at?: string | null;
 	last_fetched_at?: string | null;
 	verified_at?: string | null;
+	retained_notice?: string;
+	fetch_guidance_url?: string;
 	presentation?: ScorePresentation;
 }
 

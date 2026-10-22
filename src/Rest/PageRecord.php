@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Rest;
 
+use SEOStudio\Content\FetchFailure;
 use SEOStudio\Core\Capabilities;
 use SEOStudio\Core\LegacyScoreNotice;
 use SEOStudio\Core\UpgradeNotice;
@@ -94,6 +95,8 @@ final class PageRecord {
 			}
 		}
 
+		$copy = FetchFailure::presentation( $row );
+
 		return array(
 			'page_id'              => (int) $row['id'],
 			'object_type'          => (string) $row['object_type'],
@@ -108,6 +111,8 @@ final class PageRecord {
 			'fetch_failure_reason' => (string) ( $row['fetch_failure_reason'] ?? '' ),
 			'fetch_attempted_at'   => $row['fetch_attempted_at'] ?? null,
 			'verified_at'          => $row['verified_at'] ?? null,
+			'retained_notice'      => $copy['retained_notice'],
+			'fetch_guidance_url'   => $copy['fetch_guidance_url'],
 			'is_indexable'         => isset( $row['is_indexable'] ) ? (bool) $row['is_indexable'] : null,
 			'page_model'           => is_array( $decoded ) ? $decoded : array(),
 			'scores'               => $details,
@@ -379,6 +384,7 @@ final class PageRecord {
 		}
 
 		$edit    = get_edit_post_link( $object_id, 'raw' );
+		$copy    = FetchFailure::presentation( $row );
 		$record  = array(
 			'page_id'              => (int) $row['id'],
 			'object_type'          => (string) $row['object_type'],
@@ -403,6 +409,8 @@ final class PageRecord {
 			'fetch_http_status'    => $this->fetchStatus( $row['fetch_http_status'] ?? null ),
 			'fetch_failure_reason' => (string) ( $row['fetch_failure_reason'] ?? '' ),
 			'fetch_attempted_at'   => $row['fetch_attempted_at'] ?? null,
+			'retained_notice'      => $copy['retained_notice'],
+			'fetch_guidance_url'   => $copy['fetch_guidance_url'],
 		);
 		$checked = ! empty( $presentation['definitive'] ) && (int) ( $row['onpage_denominator'] ?? 0 ) > 0;
 		if ( ! $checked ) {

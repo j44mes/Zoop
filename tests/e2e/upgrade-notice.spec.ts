@@ -89,10 +89,20 @@ test.describe( 'saved-score upgrade notice', () => {
 			}`
 		);
 		const failure = page.locator( '#seostudio-dashboard' );
-		await expect( failure ).toContainText( 'HTTP 202' );
 		await expect( failure ).toContainText(
-			'previous result has been kept'
+			"Couldn't check the published page. Your host returned a protection page (HTTP 202). Password protection or a bot check may be blocking Zoop."
 		);
+		await expect( failure ).toContainText( 'Last checked successfully on' );
+		await expect( failure ).toContainText(
+			'failed, so Zoop is still showing the earlier result.'
+		);
+		await expect( failure ).not.toContainText( 'protection_page' );
+		await expect(
+			failure.getByRole( 'button', { name: 'Try again' } )
+		).toBeVisible();
+		await expect(
+			failure.getByRole( 'link', { name: 'How to let Zoop through' } )
+		).toHaveAttribute( 'href', /letting-zoop-through\.md$/ );
 		if ( shots ) {
 			await page.screenshot( {
 				path: path.join( shots, 'fetch-failure.png' ),

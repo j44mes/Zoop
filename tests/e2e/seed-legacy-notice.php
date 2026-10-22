@@ -28,7 +28,7 @@ if ( 'failure' === $mode ) {
 	$wpdb->update(
 		Tables::pages(),
 		array(
-			'last_error'           => "Couldn't check the published page. Your host returned a protection page (HTTP 202). Password protection or a bot check may be blocking Zoop. The latest attempt failed. The previous result has been kept.",
+			'last_error'           => "Couldn't check the published page. Your host returned a protection page (HTTP 202). Password protection or a bot check may be blocking Zoop.",
 			'fetch_http_status'    => 202,
 			'fetch_failure_reason' => 'protection_page',
 			'fetch_attempted_at'   => current_time( 'mysql', true ),

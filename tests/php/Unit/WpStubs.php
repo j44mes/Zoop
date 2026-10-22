@@ -270,8 +270,26 @@ if ( ! function_exists( 'get_option' ) ) {
 		if ( 'home' === $name || 'siteurl' === $name ) {
 			return $GLOBALS['seostudio_home'] ?? $default;
 		}
+		if ( 'date_format' === $name ) {
+			return $GLOBALS['seostudio_date_format'] ?? $default;
+		}
 
 		return $default;
+	}
+}
+
+if ( ! function_exists( 'wp_date' ) ) {
+	/**
+	 * @param \DateTimeZone|null $timezone
+	 * @return string|false
+	 */
+	function wp_date( string $format, ?int $timestamp = null, $timezone = null ) {
+		unset( $timezone );
+		if ( array_key_exists( 'seostudio_wp_date', $GLOBALS ) ) {
+			return $GLOBALS['seostudio_wp_date'];
+		}
+
+		return gmdate( $format, $timestamp ?? time() );
 	}
 }
 

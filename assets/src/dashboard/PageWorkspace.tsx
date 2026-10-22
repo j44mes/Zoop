@@ -14,6 +14,11 @@ import {
 	type PageRecord,
 	type SeoFields,
 } from '../shared/api';
+import {
+	fetchFailureDetail,
+	type FetchFailureDetail,
+} from '../shared/fetch-failure';
+import { FetchFailureNotice } from '../shared/ui/FetchFailureNotice';
 import { AssessmentList } from '../shared/ui/AssessmentList';
 import {
 	EvidenceReadiness,
@@ -253,6 +258,8 @@ export function PageWorkspace() {
 		useState< CapabilityManifest | null >( null );
 	const [ phrase, setPhrase ] = useState( '' );
 	const [ error, setError ] = useState( '' );
+	const [ pendingFailure, setPendingFailure ] =
+		useState< FetchFailureDetail | null >( null );
 	const [ busy, setBusy ] = useState< 'content' | 'live' | '' >( '' );
 	const [ tab, setTab ] = useState< WorkspaceTab >( 'recommendations' );
 	const [ openWhy, setOpenWhy ] = useState( '' );
@@ -310,6 +317,21 @@ export function PageWorkspace() {
 		};
 	}, [ postId ] );
 
+	async function reloadStoredPage(): Promise< PageRecord | null > {
+		const list = await fetchPages( {
+			object_id: String( postId ),
+			per_page: '1',
+		} );
+		const listed = list.items[ 0 ] || null;
+		setItem( listed );
+		if ( ! listed ) {
+			return null;
+		}
+		const stored = await fetchPage( listed.page_id );
+		setRecord( stored );
+		return stored;
+	}
+
 	async function analyse( nextMode: 'content' | 'live' ) {
 		if ( ! postId || ! phrase.trim() ) {
 			setError(
@@ -328,14 +350,29 @@ export function PageWorkspace() {
 				keyphrase: phrase.trim(),
 			} );
 			setRecord( next );
+			setPendingFailure( null );
 			setTab( 'recommendations' );
 		} catch ( caught ) {
-			setError(
-				messageOf(
-					caught,
-					__( 'The page could not be analysed.', 'seo-studio' )
-				)
-			);
+			const detail = fetchFailureDetail( caught );
+			if ( 'live' === nextMode && detail ) {
+				setPendingFailure( detail );
+				try {
+					const stored = await reloadStoredPage();
+					if ( stored?.last_error ) {
+						setPendingFailure( null );
+					}
+				} catch {
+					setPendingFailure( detail );
+				}
+			} else {
+				setPendingFailure( null );
+				setError(
+					messageOf(
+						caught,
+						__( 'The page could not be analysed.', 'seo-studio' )
+					)
+				);
+			}
 		} finally {
 			setBusy( '' );
 		}
@@ -361,6 +398,28 @@ export function PageWorkspace() {
 	const cards = findings.slice( 0, 3 );
 	const model = record?.page_model;
 	const phraseMissing = phrase.trim() === '';
+	let fetchNotice = null;
+	if ( record?.last_error ) {
+		fetchNotice = (
+			<FetchFailureNotice
+				message={ record.last_error }
+				retainedNotice={ record.retained_notice }
+				guidanceUrl={ record.fetch_guidance_url }
+				busy={ busy !== '' }
+				onRetry={ () => analyse( 'live' ) }
+			/>
+		);
+	} else if ( pendingFailure ) {
+		fetchNotice = (
+			<FetchFailureNotice
+				message={ pendingFailure.message }
+				retainedNotice={ pendingFailure.retainedNotice }
+				guidanceUrl={ pendingFailure.guidanceUrl }
+				busy={ busy !== '' }
+				onRetry={ () => analyse( 'live' ) }
+			/>
+		);
+	}
 	const title =
 		identity.title || item?.title || __( 'Untitled', 'seo-studio' );
 	const url = model?.url || item?.url || identity.link || record?.url || '';
@@ -461,36 +520,7 @@ export function PageWorkspace() {
 							{ error }
 						</Notice>
 					) : null }
-					{ record?.last_error ? (
-						<Notice status="error" isDismissible={ false }>
-							<p>{ record.last_error }</p>
-							{ record.fetch_attempted_at ? (
-								<p>
-									{ sprintf(
-										/* translators: %s: time of the latest published-page attempt. */
-										__(
-											'Latest attempt: %s.',
-											'seo-studio'
-										),
-										record.fetch_attempted_at
-									) }
-								</p>
-							) : null }
-							{ record.verified_at || record.last_fetched_at ? (
-								<p>
-									{ sprintf(
-										/* translators: %s: time of the last successful published-page check. */
-										__(
-											'Last successful check: %s.',
-											'seo-studio'
-										),
-										record.verified_at ||
-											record.last_fetched_at
-									) }
-								</p>
-							) : null }
-						</Notice>
-					) : null }
+					{ fetchNotice }
 					{ analysed && record ? (
 						<>
 							<div className="seostudio-command">

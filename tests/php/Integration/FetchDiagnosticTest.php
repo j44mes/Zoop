@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Tests\Integration;
 
+use SEOStudio\Content\FetchFailure;
 use SEOStudio\Content\FetchPolicy;
 use SEOStudio\Content\LoopbackFetcher;
 use SEOStudio\Content\PageModel;
@@ -76,6 +77,14 @@ final class FetchDiagnosticTest extends WP_UnitTestCase {
 		);
 		$score_id = (int) $wpdb->insert_id;
 		$pages->markFetched( $page_id );
+		update_option( 'timezone_string', 'UTC' );
+		update_option( 'gmt_offset', '0' );
+		update_option( 'date_format', 'j F Y' );
+		$wpdb->update(
+			Tables::pages(),
+			array( 'last_fetched_at' => '2026-10-21 12:00:00' ),
+			array( 'id' => $page_id )
+		);
 		$before   = $pages->find( $page_id );
 		$fetched  = (string) $before['last_fetched_at'];
 		$snapshot = (string) $before['page_model'];
@@ -87,27 +96,52 @@ final class FetchDiagnosticTest extends WP_UnitTestCase {
 			$this->assertSame( 'protection_page', $manual->get_error_data()['reason'] );
 			$this->assertSame( 202, $manual->get_error_data()['http_status'] );
 			$this->assertStringNotContainsString( 'sgcaptcha', $manual->get_error_message() );
+			$this->assertStringNotContainsString( 'protection_page', $manual->get_error_message() );
+			$this->assertSame( FetchFailure::GUIDANCE_URL, $manual->get_error_data()['fetch_guidance_url'] );
 
 			$failed = $pages->find( $page_id );
 			$this->assertSame( $snapshot, (string) $failed['page_model'] );
 			$this->assertSame( $fetched, (string) $failed['last_fetched_at'] );
 			$this->assertSame( 'protection_page', $failed['fetch_failure_reason'] );
 			$this->assertSame( '202', (string) $failed['fetch_http_status'] );
-			$this->assertStringContainsString( 'previous result has been kept', (string) $failed['last_error'] );
+			$this->assertSame(
+				"Couldn't check the published page. Your host returned a protection page (HTTP 202). Password protection or a bot check may be blocking Zoop.",
+				$failed['last_error']
+			);
+			$attempt = FetchFailure::siteDate( (string) $failed['fetch_attempted_at'] );
+			$notice  = 'Last checked successfully on 21 October 2026. The latest check on ' . $attempt . ' failed, so Zoop is still showing the earlier result.';
+			$this->assertSame( $notice, $manual->get_error_data()['retained_notice'] );
+			$record = ( new \SEOStudio\Rest\PageRecord() )->full( $page_id );
+			$this->assertIsArray( $record );
+			$this->assertSame( $notice, $record['retained_notice'] );
+			$this->assertSame( FetchFailure::GUIDANCE_URL, $record['fetch_guidance_url'] );
+			$this->assertStringNotContainsString( 'protection_page', (string) $record['retained_notice'] );
+			$this->assertStringNotContainsString( 'protection_page', (string) $record['last_error'] );
 			$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . Tables::scores() . ' WHERE id = %d', $score_id ) ) );
 
 			( new FetchLive( $this->fetcher( 403, '<html><body>Forbidden</body></html>' ) ) )->handle( array( $this->postId ) );
 			$refused = $pages->find( $page_id );
 			$this->assertSame( 'http_status', $refused['fetch_failure_reason'] );
 			$this->assertSame( '403', (string) $refused['fetch_http_status'] );
-			$this->assertStringContainsString( 'HTTP 403', (string) $refused['last_error'] );
+			$this->assertSame(
+				"Couldn't check the published page. The host refused the request (HTTP 403).",
+				$refused['last_error']
+			);
 			$this->assertStringNotContainsString( 'protection page', (string) $refused['last_error'] );
 			$this->assertSame( $snapshot, (string) $refused['page_model'] );
+			$refused_record = ( new \SEOStudio\Rest\PageRecord() )->full( $page_id );
+			$this->assertIsArray( $refused_record );
+			$this->assertSame( '', $refused_record['fetch_guidance_url'] );
+			$this->assertNotSame( '', $refused_record['retained_notice'] );
 
 			( new FetchLive( $this->fetcher( 200, '<html><head><title>Kept title</title></head><body><main><p>Checked body.</p></main></body></html>' ) ) )->handle( array( $this->postId ) );
 			$cleared = $pages->find( $page_id );
 			$this->assertNull( $cleared['last_error'] );
 			$this->assertSame( '', (string) $cleared['fetch_failure_reason'] );
+			$cleared_record = ( new \SEOStudio\Rest\PageRecord() )->full( $page_id );
+			$this->assertIsArray( $cleared_record );
+			$this->assertSame( '', $cleared_record['retained_notice'] );
+			$this->assertSame( '', $cleared_record['fetch_guidance_url'] );
 			$this->assertStringContainsString( 'Checked body.', (string) $cleared['page_model'] );
 			$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . Tables::scores() . ' WHERE id = %d', $score_id ) ) );
 		} finally {
@@ -170,7 +204,14 @@ final class FetchDiagnosticTest extends WP_UnitTestCase {
 		$request->set_param( 'object_id', $post );
 		$request->set_param( 'mode', 'live' );
 		$request->set_param( 'keyphrase', 'rank tracker' );
-		$this->assertInstanceOf( \WP_Error::class, $controller->analyseObject( $request ) );
+		$blocked = $controller->analyseObject( $request );
+		$this->assertInstanceOf( \WP_Error::class, $blocked );
+		$this->assertSame(
+			"Couldn't check the published page. The host refused the request (HTTP 403).",
+			$blocked->get_error_message()
+		);
+		$this->assertArrayNotHasKey( 'fetch_guidance_url', $blocked->get_error_data() );
+		$this->assertArrayNotHasKey( 'retained_notice', $blocked->get_error_data() );
 		$page = ( new PagesRepository() )->findByObject( 'post', $post );
 
 		wp_set_current_user( $other );

@@ -10,23 +10,23 @@ declare(strict_types=1);
 namespace SEOStudio\Content;
 
 /**
- * The stored sentence is the same one the editor sees. It never includes the response body.
+ * The stored sentence is the attempt itself. Dates and help links are added when the record is read.
  */
 final class FetchFailure {
 	/**
-	 * Message for one blocked fetch. Retention is added only when an older result still exists.
+	 * How an editor lets Zoop through password protection or a host bot check.
 	 */
-	public static function message( FetchBlockedException $exception, bool $retained ): string {
-		$text = self::attempt( $exception );
-		if ( $retained ) {
-			$text .= ' ' . __( 'The latest attempt failed. The previous result has been kept.', 'seo-studio' );
-		}
+	public const GUIDANCE_URL = 'https://github.com/j44mes/Zoop/blob/main/docs/letting-zoop-through.md';
 
-		return $text;
+	/**
+	 * Message stored for one blocked fetch. It does not mention an older snapshot.
+	 */
+	public static function message( FetchBlockedException $exception ): string {
+		return self::attempt( $exception );
 	}
 
 	/**
-	 * Sentence for the attempt itself, without referring to an older snapshot.
+	 * Sentence for the attempt itself.
 	 */
 	public static function attempt( FetchBlockedException $exception ): string {
 		$status = $exception->status;
@@ -45,13 +45,13 @@ final class FetchFailure {
 
 			return sprintf(
 				/* translators: %d: HTTP status returned by the host. */
-				__( "Couldn't check the published page. The host responded with HTTP %d, so the page could not be verified.", 'seo-studio' ),
+				__( "Couldn't check the published page. Your host returned HTTP %d, so Zoop couldn't confirm what's on the page.", 'seo-studio' ),
 				$status
 			);
 		}
 
 		if ( 'transport_error' === $exception->reason ) {
-			return __( "Couldn't check the published page. Zoop could not reach the page.", 'seo-studio' );
+			return __( "Couldn't reach the published page. Check the site is online and try again.", 'seo-studio' );
 		}
 
 		if ( 'unsafe_target' === $exception->reason ) {
@@ -63,5 +63,77 @@ final class FetchFailure {
 		}
 
 		return __( "Couldn't check the published page. The response was not a page Zoop could read.", 'seo-studio' );
+	}
+
+	/**
+	 * Sentence shown when a failed check left an earlier successful result in place.
+	 *
+	 * Both dates are already formatted with the site date format. An empty date omits the sentence.
+	 */
+	public static function retainedNotice( string $successfulOn, string $failedOn ): string {
+		if ( '' === $successfulOn || '' === $failedOn ) {
+			return '';
+		}
+
+		return sprintf(
+			/* translators: 1: date of the last successful published-page check, 2: date of the check that failed. */
+			__( 'Last checked successfully on %1$s. The latest check on %2$s failed, so Zoop is still showing the earlier result.', 'seo-studio' ),
+			$successfulOn,
+			$failedOn
+		);
+	}
+
+	/**
+	 * Format a GMT MySQL datetime with the site's date format.
+	 */
+	public static function siteDate( string $gmtMysql ): string {
+		$gmtMysql = trim( $gmtMysql );
+		if ( '' === $gmtMysql || str_starts_with( $gmtMysql, '0000-00-00' ) ) {
+			return '';
+		}
+		if ( ! function_exists( 'wp_date' ) || ! function_exists( 'get_option' ) ) {
+			return '';
+		}
+		$stamp = strtotime( $gmtMysql . ' UTC' );
+		if ( false === $stamp ) {
+			return '';
+		}
+		$format = get_option( 'date_format' );
+		if ( ! is_string( $format ) || '' === $format ) {
+			$format = 'F j, Y';
+		}
+		$formatted = wp_date( $format, $stamp );
+
+		return is_string( $formatted ) ? $formatted : '';
+	}
+
+	/**
+	 * Editor copy for a stored page row. Reason codes stay out of both strings.
+	 *
+	 * @param array<string, mixed> $row Page row.
+	 * @return array{retained_notice: string, fetch_guidance_url: string}
+	 */
+	public static function presentation( array $row ): array {
+		$error = trim( (string) ( $row['last_error'] ?? '' ) );
+		if ( '' === $error ) {
+			return array(
+				'retained_notice'    => '',
+				'fetch_guidance_url' => '',
+			);
+		}
+
+		$success = trim( (string) ( $row['last_fetched_at'] ?? '' ) );
+		if ( '' === $success ) {
+			$success = trim( (string) ( $row['verified_at'] ?? '' ) );
+		}
+		$reason = (string) ( $row['fetch_failure_reason'] ?? '' );
+
+		return array(
+			'retained_notice'    => self::retainedNotice(
+				self::siteDate( $success ),
+				self::siteDate( (string) ( $row['fetch_attempted_at'] ?? '' ) )
+			),
+			'fetch_guidance_url' => 'protection_page' === $reason ? self::GUIDANCE_URL : '',
+		);
 	}
 }

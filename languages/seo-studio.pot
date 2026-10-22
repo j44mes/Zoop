@@ -415,10 +415,6 @@ msgstr ""
 msgid "Link counts were calculated for the whole published site before this list was filtered."
 msgstr ""
 
-#: src/Content/FetchFailure.php:22
-msgid "The latest attempt failed. The previous result has been kept."
-msgstr ""
-
 #. translators: %d: HTTP status returned with a host protection page.
 #: src/Content/FetchFailure.php:36
 #, php-format
@@ -432,11 +428,17 @@ msgstr ""
 #. translators: %d: HTTP status returned by the host.
 #: src/Content/FetchFailure.php:48
 #, php-format
-msgid "Couldn't check the published page. The host responded with HTTP %d, so the page could not be verified."
+msgid "Couldn't check the published page. Your host returned HTTP %d, so Zoop couldn't confirm what's on the page."
 msgstr ""
 
 #: src/Content/FetchFailure.php:54
-msgid "Couldn't check the published page. Zoop could not reach the page."
+msgid "Couldn't reach the published page. Check the site is online and try again."
+msgstr ""
+
+#. translators: 1: date of the last successful published-page check, 2: date of the check that failed.
+#: src/Content/FetchFailure.php:80
+#, php-format
+msgid "Last checked successfully on %1$s. The latest check on %2$s failed, so Zoop is still showing the earlier result."
 msgstr ""
 
 #: src/Content/FetchFailure.php:58

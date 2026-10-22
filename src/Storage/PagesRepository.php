@@ -879,8 +879,7 @@ final class PagesRepository {
 		global $wpdb;
 
 		$existing = $this->findByObject( 'post', $postId );
-		$retained = is_array( $existing ) && $this->hasRetainedResult( $existing );
-		$message  = \SEOStudio\Content\FetchFailure::message( $exception, $retained );
+		$message  = \SEOStudio\Content\FetchFailure::message( $exception );
 		$data     = array(
 			'last_error'           => $message,
 			'fetch_http_status'    => $exception->status,
@@ -907,22 +906,6 @@ final class PagesRepository {
 		}
 
 		return $message;
-	}
-
-	/**
-	 * Whether this row still has a result the failed attempt must not replace.
-	 *
-	 * @param array<string, mixed> $page Stored page row.
-	 */
-	private function hasRetainedResult( array $page ): bool {
-		if ( $this->rowHasModel( $page ) ) {
-			return true;
-		}
-		if ( '' !== trim( (string) ( $page['verified_at'] ?? '' ) ) ) {
-			return true;
-		}
-
-		return 1 === (int) ( $page['has_published_snapshot'] ?? 0 );
 	}
 
 	/**

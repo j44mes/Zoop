@@ -2,7 +2,7 @@
 
 This is a future feature. It is not implemented, and this document is not a claim that Zoop can re-check a whole site.
 
-Zoop can already check one published page when an editor asks. If that check is blocked, Zoop keeps the last successful snapshot and records the HTTP status and reason. It does not score a protection page. A later release may add a resumable job that walks the pages still missing published-page evidence. That job is separate from the scoring rules and from the upgrade notice.
+Zoop can already check one published page when an editor asks. If that check is blocked, Zoop keeps the last successful snapshot and records the HTTP status and reason. It does not score a protection page. The page workspace explains the failure in plain English, offers Try again, and links a confirmed protection page to [Letting Zoop check the published page](letting-zoop-through.md). A later release may add a resumable job that walks the pages still missing published-page evidence. That job is separate from the scoring rules and from the upgrade notice. Published Evidence Recovery is not implemented.
 
 ## Required behaviour
 

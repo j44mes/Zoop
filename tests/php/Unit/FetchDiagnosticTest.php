@@ -12,6 +12,7 @@ namespace SEOStudio\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use SEOStudio\Content\Extractor;
 use SEOStudio\Content\FetchBlockedException;
+use SEOStudio\Content\FetchFailure;
 use SEOStudio\Content\FetchPolicy;
 use SEOStudio\Content\LoopbackFetcher;
 use SEOStudio\Content\ProtectionPage;
@@ -36,7 +37,10 @@ final class FetchDiagnosticTest extends TestCase {
 
 		$this->assertSame( 'http_status', $exception->reason );
 		$this->assertSame( 202, $exception->status );
-		$this->assertStringContainsString( 'HTTP 202', $exception->getMessage() );
+		$this->assertSame(
+			"Couldn't check the published page. Your host returned HTTP 202, so Zoop couldn't confirm what's on the page.",
+			$exception->getMessage()
+		);
 		$this->assertStringNotContainsString( 'protection page', $exception->getMessage() );
 	}
 
@@ -121,9 +125,83 @@ final class FetchDiagnosticTest extends TestCase {
 		} catch ( FetchBlockedException $exception ) {
 			$this->assertSame( 'transport_error', $exception->reason );
 			$this->assertNull( $exception->status );
-			$this->assertStringContainsString( 'could not reach the page', $exception->getMessage() );
+			$this->assertSame(
+				"Couldn't reach the published page. Check the site is online and try again.",
+				$exception->getMessage()
+			);
 			$this->assertStringNotContainsString( 'HTTP', $exception->getMessage() );
 		}
+	}
+
+	public function testSiteDateUsesTheSiteFormatAndSkipsBlankValues(): void {
+		$this->assertSame( '', FetchFailure::siteDate( '' ) );
+		$this->assertSame( '', FetchFailure::siteDate( '0000-00-00 00:00:00' ) );
+		$this->assertSame( '', FetchFailure::siteDate( 'not a date' ) );
+		$this->assertSame( 'October 21, 2026', FetchFailure::siteDate( '2026-10-21 12:00:00' ) );
+
+		$GLOBALS['seostudio_date_format'] = 'j F Y';
+		try {
+			$this->assertSame( '21 October 2026', FetchFailure::siteDate( '2026-10-21 12:00:00' ) );
+		} finally {
+			unset( $GLOBALS['seostudio_date_format'] );
+		}
+
+		$GLOBALS['seostudio_wp_date'] = false;
+		try {
+			$this->assertSame( '', FetchFailure::siteDate( '2026-10-21 12:00:00' ) );
+		} finally {
+			unset( $GLOBALS['seostudio_wp_date'] );
+		}
+	}
+
+	public function testPresentationOmitsReasonCodes(): void {
+		$this->assertSame(
+			array(
+				'retained_notice'    => '',
+				'fetch_guidance_url' => '',
+			),
+			FetchFailure::presentation( array() )
+		);
+
+		$GLOBALS['seostudio_date_format'] = 'j F Y';
+		try {
+			$protection = FetchFailure::presentation(
+				array(
+					'last_error'           => 'Blocked.',
+					'fetch_failure_reason' => 'protection_page',
+					'last_fetched_at'      => '2026-10-21 12:00:00',
+					'fetch_attempted_at'   => '2026-10-22 15:00:00',
+				)
+			);
+			$fallback = FetchFailure::presentation(
+				array(
+					'last_error'           => 'Blocked.',
+					'fetch_failure_reason' => 'http_status',
+					'verified_at'          => '2026-10-21 12:00:00',
+					'fetch_attempted_at'   => '2026-10-22 15:00:00',
+				)
+			);
+		} finally {
+			unset( $GLOBALS['seostudio_date_format'] );
+		}
+
+		$this->assertSame(
+			'Last checked successfully on 21 October 2026. The latest check on 22 October 2026 failed, so Zoop is still showing the earlier result.',
+			$protection['retained_notice']
+		);
+		$this->assertSame( FetchFailure::GUIDANCE_URL, $protection['fetch_guidance_url'] );
+		$this->assertStringNotContainsString( 'protection_page', $protection['retained_notice'] );
+		$this->assertSame( $protection['retained_notice'], $fallback['retained_notice'] );
+		$this->assertSame( '', $fallback['fetch_guidance_url'] );
+	}
+
+	public function testRetainedNoticeUsesTheApprovedSentence(): void {
+		$this->assertSame(
+			'Last checked successfully on 21 October 2026. The latest check on 22 October 2026 failed, so Zoop is still showing the earlier result.',
+			FetchFailure::retainedNotice( '21 October 2026', '22 October 2026' )
+		);
+		$this->assertSame( '', FetchFailure::retainedNotice( '', '22 October 2026' ) );
+		$this->assertSame( '', FetchFailure::retainedNotice( '21 October 2026', '' ) );
 	}
 
 	private function refused( int $code, string $body, ?Extractor $extractor = null, string $type = 'text/html' ): FetchBlockedException {
