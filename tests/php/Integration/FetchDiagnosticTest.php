@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SEOStudio\Tests\Integration;
 
+use SEOStudio\Architecture\SiteSurvey;
 use SEOStudio\Content\FetchFailure;
 use SEOStudio\Content\FetchPolicy;
 use SEOStudio\Content\LoopbackFetcher;
@@ -179,6 +180,64 @@ final class FetchDiagnosticTest extends WP_UnitTestCase {
 		$column = $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM ' . Tables::pages() . ' LIKE %s', 'fetch_failure_reason' ) );
 		$this->assertSame( 'fetch_failure_reason', $column );
 		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . Tables::scores() . ' WHERE page_id = %d AND plugin_version = %s', $page_id, '0.5.0' ) ) );
+	}
+
+	public function test_a_blocked_fetch_does_not_refresh_success_or_link_counts(): void {
+		$target = self::factory()->post->create(
+			array(
+				'post_status' => 'publish',
+				'post_title'  => 'Depth target',
+				'post_name'   => 'depth-target',
+			)
+		);
+		$pages   = new PagesRepository();
+		$model   = new PageModel(
+			url: (string) get_permalink( $this->postId ),
+			titleTag: 'Kept title',
+			bodyText: 'Kept body.',
+			renderMode: 'content'
+		);
+		$page_id = $pages->storeModel( $this->postId, $model, $model->inputHash() );
+		global $wpdb;
+		$sentinel = '2020-01-15 08:30:00';
+		$wpdb->update(
+			Tables::pages(),
+			array( 'last_fetched_at' => $sentinel ),
+			array( 'id' => $page_id )
+		);
+		$this->assertContains( $this->postId, $pages->needsPublishedCheckIds() );
+
+		$target_url = (string) get_permalink( $target );
+		$body       = '<html><head><title>Human Verification</title></head><body><script src="/.well-known/sgcaptcha/"></script><a href="' . $target_url . '">Target</a></body></html>';
+		$blocked = $this->controller( 202, $body )->analyseObject( $this->request() );
+		$this->assertInstanceOf( \WP_Error::class, $blocked );
+		( new FetchLive( $this->fetcher( 202, $body ) ) )->handle( array( $this->postId ) );
+
+		$after = $pages->find( $page_id );
+		$this->assertSame( $sentinel, (string) $after['last_fetched_at'] );
+		$this->assertNotSame( '', (string) $after['fetch_attempted_at'] );
+		$this->assertNotSame( $sentinel, (string) $after['fetch_attempted_at'] );
+		$this->assertStringNotContainsString( 'sgcaptcha', (string) $after['page_model'] );
+		$this->assertStringNotContainsString( $target_url, (string) $after['page_model'] );
+		$this->assertContains( $this->postId, $pages->needsPublishedCheckIds() );
+		$this->assertContains( $target, $pages->needsPublishedCheckIds() );
+
+		$evaluated = ( new SiteSurvey() )->evaluated();
+		$blocked_page = $evaluated['pages'][ 'post:' . $this->postId ];
+		$target_page  = $evaluated['pages'][ 'post:' . $target ];
+		$this->assertFalse( $blocked_page['link_fresh'] );
+		$this->assertFalse( $target_page['link_fresh'] );
+		$this->assertNotSame( 'orphan', $blocked_page['status'] );
+		$this->assertNotSame( 'orphan', $target_page['status'] );
+		$this->assertNull( $blocked_page['depth'] );
+		$this->assertNull( $target_page['depth'] );
+		$this->assertNull( $evaluated['report']['counts']['orphans'] );
+		$this->assertNull( $evaluated['report']['counts']['unreachable'] );
+		$this->assertSame( array(), $evaluated['report']['orphans'] );
+		$this->assertFalse( $evaluated['report']['coverage']['complete'] );
+		$this->assertGreaterThan( 0, $evaluated['report']['coverage']['needs_published_check'] );
+		$this->assertStringContainsString( 'Depth is not known yet', (string) $evaluated['report']['depth_explanation'] );
+		$this->assertStringContainsString( 'Orphans are not counted yet', (string) $evaluated['report']['orphan_explanation'] );
 	}
 
 	public function test_an_author_cannot_read_another_authors_fetch_failure(): void {
